@@ -1,4 +1,4 @@
-CFLAGS=-std=c11 -g -fno-common
+CFLAGS=-std=c11 -g -fno-common -Wall -Werror
 TARGET=toycc
 OUTPUT=output
 TEST=test.sh
