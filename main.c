@@ -29,6 +29,38 @@ static void error(char *fmt, ...)
 	exit(1);
 }
 
+// Input string
+static char *current_input;
+
+static void verror_at(char *loc, char *fmt, va_list ap)
+{
+	int pos = loc - current_input;
+
+	fprintf(stderr, "%s\n", current_input);
+	// print pos spaces
+	fprintf(stderr, "%*s", pos, "");
+	fprintf(stderr, "^ ");
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	exit(1);
+}
+
+static void error_at(char *loc, char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	verror_at(loc, fmt, ap);
+}
+
+static void error_tok(struct Token *tok, char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	error_at(tok->loc, fmt, ap);
+}
+
 static bool equal(struct Token *tok, char *op)
 {
 	return !memcmp(tok->loc, op, tok->len) && !op[tok->len];
@@ -37,28 +69,30 @@ static bool equal(struct Token *tok, char *op)
 static struct Token *skip(struct Token *tok, char *s)
 {
 	if (!equal(tok, s))
-		error("expected '%s'", s);
+		error_tok(tok, "expected '%s'", s);
 	return tok->next;
 }
 
 static int get_number(struct Token *tok)
 {
 	if (tok->kind != TK_NUM)
-		error("expected a number");
+		error_tok(tok, "expected a number");
 	return tok->val;
 }
 
 static struct Token *new_token(enum TokenKind kind, char *start, char *end)
 {
 	struct Token *tok = malloc(sizeof(struct Token));
+
 	tok->kind = kind;
 	tok->loc = start;
 	tok->len = end - start;
 	return tok;
 }
 
-static struct Token *tokenize(char *p)
+static struct Token *tokenize(void)
 {
+	char *p = current_input;
 	struct Token head;
 	struct Token *cur = &head;
 
@@ -87,7 +121,7 @@ static struct Token *tokenize(char *p)
 			continue;
 		}
 
-		error("invalid token");
+		error_at(p, "invalid token");
 	}
 
 	cur->next = new_token(TK_EOF, p, p);
@@ -99,7 +133,8 @@ int main(int argc, char **argv)
 	if (argc != 2)
 		error("%s: invalid number of arguments", argv[0]);
 
-	struct Token *tok = tokenize(argv[1]);
+	current_input = argv[1];
+	struct Token *tok = tokenize();
 
 	printf("\t.global main\n");
 	printf("main:\n");
