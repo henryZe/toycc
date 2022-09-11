@@ -132,6 +132,7 @@ enum NodeKind {
 	ND_SUB,
 	ND_MUL,
 	ND_DIV,
+	ND_NEG,	// unary -/+
 	ND_NUM,
 };
 
@@ -158,6 +159,13 @@ static struct Node *new_binary(enum NodeKind kind, struct Node *lhs, struct Node
 	return node;
 }
 
+static struct Node *new_unary(enum NodeKind kind, struct Node *expr)
+{
+	struct Node *node = new_node(kind);
+	node->lhs = expr;
+	return node;
+}
+
 static struct Node *new_num(int val)
 {
 	struct Node *node = new_node(ND_NUM);
@@ -166,7 +174,7 @@ static struct Node *new_num(int val)
 }
 
 // parse AST(abstract syntax tree)
-// expr -> mul -> primary -> expr -> ...
+// expr -> mul -> unary -> primary -> expr -> ...
 static struct Node *expr(struct Token **rest, struct Token *tok);
 
 static struct Node *primary(struct Token **rest, struct Token *tok)
@@ -186,18 +194,29 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	error_tok(tok, "expected an expression");
 }
 
+static struct Node *unary(struct Token **rest, struct Token *tok)
+{
+	if (equal(tok, "+"))
+		// ignore
+		return unary(rest, tok->next);
+	if (equal(tok, "-"))
+		// depth--
+		return new_unary(ND_NEG, unary(rest, tok->next));
+	return primary(rest, tok);
+}
+
 static struct Node *mul(struct Token **rest, struct Token *tok)
 {
-	struct Node *node = primary(&tok, tok);
+	struct Node *node = unary(&tok, tok);
 
 	while (1) {
 		if (equal(tok, "*")) {
-			node = new_binary(ND_MUL, node, primary(&tok, tok->next));
+			node = new_binary(ND_MUL, node, unary(&tok, tok->next));
 			continue;
 		}
 
 		if (equal(tok, "/")) {
-			node = new_binary(ND_DIV, node, primary(&tok, tok->next));
+			node = new_binary(ND_DIV, node, unary(&tok, tok->next));
 			continue;
 		}
 
@@ -245,9 +264,18 @@ static void pop(char *reg)
 // Traverse the AST to emit assembly.
 static void gen_expr(struct Node *node)
 {
-	if (node->kind == ND_NUM) {
+	switch (node->kind) {
+	case ND_NUM:
 		printf("\tli a0, %d\n", node->val);
 		return;
+
+	case ND_NEG:
+		gen_expr(node->lhs);
+		printf("\tneg a0, a0\n");
+		return;
+
+	default:
+		break;
 	}
 
 	gen_expr(node->rhs);
