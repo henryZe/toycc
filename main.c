@@ -87,6 +87,19 @@ static struct Token *new_token(enum TokenKind kind, char *start, char *end)
 	return tok;
 }
 
+static bool startwith(char *p, char *q)
+{
+	return strncmp(p, q, strlen(q)) == 0;
+}
+
+static int read_punct(char *p)
+{
+	if (startwith(p, "==") || startwith(p, "!=") ||
+		startwith(p, "<=") || startwith(p, ">="))
+		return 2;
+	return ispunct(*p) ? 1 : 0;
+}
+
 static struct Token *tokenize(void)
 {
 	char *p = current_input;
@@ -112,10 +125,12 @@ static struct Token *tokenize(void)
 		}
 
 		// Punctuators
-		if (ispunct(*p)) {
-			cur->next = new_token(TK_PUNCT, p, p + 1);
+		int punct_len = read_punct(p);
+		if (punct_len) {
+			fprintf(stderr, "punct_len = %d\n", punct_len);
+			cur->next = new_token(TK_PUNCT, p, p + punct_len);
 			cur = cur->next;
-			p++;
+			p += punct_len;
 			continue;
 		}
 
@@ -133,6 +148,10 @@ enum NodeKind {
 	ND_MUL,
 	ND_DIV,
 	ND_NEG,	// unary -/+
+	ND_EQ,	// ==
+	ND_NE,	// !=
+	ND_LT,	// <
+	ND_LE,	// <=
 	ND_NUM,
 };
 
@@ -174,7 +193,10 @@ static struct Node *new_num(int val)
 }
 
 // parse AST(abstract syntax tree)
-// expr -> mul -> unary -> primary -> expr -> ...
+// expr -> equality -> relational -> add -> mul -> unary -> primary -> expr -> ...
+// expr:
+// 	rest: return previous tok pointer
+// 	tok: current tok pointer
 static struct Node *expr(struct Token **rest, struct Token *tok);
 
 static struct Node *primary(struct Token **rest, struct Token *tok)
@@ -225,7 +247,7 @@ static struct Node *mul(struct Token **rest, struct Token *tok)
 	}
 }
 
-static struct Node *expr(struct Token **rest, struct Token *tok)
+static struct Node *add(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = mul(&tok, tok);
 
@@ -243,6 +265,61 @@ static struct Node *expr(struct Token **rest, struct Token *tok)
 		*rest = tok;
 		return node;
 	}
+}
+
+static struct Node *relational(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = add(&tok, tok);
+
+	while (1) {
+		if (equal(tok, "<")) {
+			node = new_binary(ND_LT, node, add(&tok, tok->next));
+			continue;
+		}
+
+		if (equal(tok, "<=")) {
+			node = new_binary(ND_LE, node, add(&tok, tok->next));
+			continue;
+		}
+
+		if (equal(tok, ">")) {
+			node = new_binary(ND_LT, add(&tok, tok->next), node);
+			continue;
+		}
+
+		if (equal(tok, ">=")) {
+			node = new_binary(ND_LE, add(&tok, tok->next), node);
+			continue;
+		}
+
+		*rest = tok;
+		return node;
+	}
+}
+
+static struct Node *equality(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = relational(&tok, tok);
+
+	while (1) {
+		if (equal(tok, "==")) {
+			node = new_binary(ND_EQ, node, relational(&tok, tok->next));
+			continue;
+		}
+
+		if (equal(tok, "!=")) {
+			node = new_binary(ND_NE, node, relational(&tok, tok->next));
+			continue;
+		}
+
+		*rest = tok;
+		return node;
+	}
+}
+
+static struct Node *expr(struct Token **rest, struct Token *tok)
+{
+	return equality(rest, tok);
 }
 
 // code generator
@@ -278,6 +355,8 @@ static void gen_expr(struct Node *node)
 		break;
 	}
 
+	// left_side -> a0
+	// right_side -> a1
 	gen_expr(node->rhs);
 	push("a0");
 	gen_expr(node->lhs);
@@ -287,19 +366,30 @@ static void gen_expr(struct Node *node)
 	case ND_ADD:
 		printf("\tadd a0, a0, a1\n");
 		break;
-
 	case ND_SUB:
 		printf("\tsub a0, a0, a1\n");
 		break;
-
 	case ND_MUL:
 		printf("\tmul a0, a0, a1\n");
 		break;
-
 	case ND_DIV:
 		printf("\tdiv a0, a0, a1\n");
 		break;
-
+	case ND_EQ:
+		printf("\txor a0, a0, a1\n");
+		printf("\tseqz a0, a0\n");
+		break;
+	case ND_NE:
+		printf("\txor a0, a0, a1\n");
+		printf("\tsnez a0, a0\n");
+		break;
+	case ND_LT:
+		printf("\tslt a0, a0, a1\n");
+		break;
+	case ND_LE:
+		printf("\tslt a0, a1, a0\n");
+		printf("\tseqz a0, a0\n");
+		break;
 	default:
 		error("invalid expression");
 		break;
