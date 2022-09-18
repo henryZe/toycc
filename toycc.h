@@ -29,17 +29,19 @@ enum NodeKind {
 	ND_SUB,
 	ND_MUL,
 	ND_DIV,
-	ND_NEG,	// unary -/+
-	ND_EQ,	// ==
-	ND_NE,	// !=
-	ND_LT,	// <
-	ND_LE,	// <=
+	ND_NEG,		// unary -/+
+	ND_EQ,		// ==
+	ND_NE,		// !=
+	ND_LT,		// <
+	ND_LE,		// <=
+	ND_EXPR_STMT,	// Expression statement
 	ND_NUM,
 };
 
 // AST(abstract syntax tree) node type
 struct Node {
 	enum NodeKind kind;
+	struct Node *next;
 	struct Node *lhs;
 	struct Node *rhs;
 	int val;

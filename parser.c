@@ -171,12 +171,30 @@ static struct Node *expr(struct Token **rest, struct Token *tok)
 	return equality(rest, tok);
 }
 
+
+// expr_stmt = expr ";"
+static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = new_unary(ND_EXPR_STMT, expr(&tok, tok));
+	*rest = skip(tok, ";");
+	return node;
+}
+
+// stmt = expr_stmt
+static struct Node *stmt(struct Token **rest, struct Token *tok)
+{
+	return expr_stmt(rest, tok);
+}
+
 struct Node *parser(struct Token *tok)
 {
-	struct Node *node = expr(&tok, tok);
+	struct Node head = {};
+	struct Node *cur = &head;
 
-	if (tok->kind != TK_EOF)
-		error_tok(tok, "extra token");
+	while (tok->kind != TK_EOF) {
+		cur->next = stmt(&tok, tok);
+		cur = cur->next;
+	}
 
-	return node;
+	return head.next;
 }
