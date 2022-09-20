@@ -15,11 +15,11 @@ SRC_OBJFILES := $(patsubst $(SRCDIR)/%.c, $(OUTPUT)/%.o, $(SRCFILES))
 
 $(OUTPUT)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) -c -o $@ $< $(CFLAGS) -I$(INCDIR)
+	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
 
 $(OUTPUT)/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
-	$(CC) -o $@ $(SRC_OBJFILES) $(CFLAGS)
+	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
 
 test: $(OUTPUT)/$(TARGET)
 	@sh $(TEST)
