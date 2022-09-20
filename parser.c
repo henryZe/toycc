@@ -34,6 +34,13 @@ static struct Node *new_unary(enum NodeKind kind, struct Node *expr)
 	return node;
 }
 
+static struct Node *new_var_node(char name)
+{
+	struct Node *node = new_node(ND_VAR);
+	node->name = name;
+	return node;
+}
+
 static struct Node *new_num(int val)
 {
 	struct Node *node = new_node(ND_NUM);
@@ -42,17 +49,25 @@ static struct Node *new_num(int val)
 }
 
 // parse AST(abstract syntax tree)
-// expr -> equality -> relational -> add -> mul -> unary -> primary -> expr -> ...
+// expr -> assign -> equality -> relational ->
+// add -> mul -> unary -> primary -> expr -> ...
 // expr:
-// 	rest: return previous tok pointer
 // 	tok: current tok pointer
+// 	rest: return current tok pointer
 static struct Node *expr(struct Token **rest, struct Token *tok);
 
+// primary = "(" expr ")" | ident | num
 static struct Node *primary(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "(")) {
 		struct Node *node = expr(&tok, tok->next);
 		*rest = skip(tok, ")");
+		return node;
+	}
+
+	if (tok->kind == TK_IDENT) {
+		struct Node *node = new_var_node(*tok->loc);
+		*rest = tok->next;
 		return node;
 	}
 
@@ -166,11 +181,20 @@ static struct Node *equality(struct Token **rest, struct Token *tok)
 	}
 }
 
-static struct Node *expr(struct Token **rest, struct Token *tok)
+// assign = equality ("=" assign)
+static struct Node *assign(struct Token **rest, struct Token *tok)
 {
-	return equality(rest, tok);
+	struct Node *node = equality(&tok, tok);
+	if (equal(tok, "="))
+		node = new_binary(ND_ASSIGN, node, assign(&tok, tok->next));
+	*rest = tok;
+	return node;
 }
 
+static struct Node *expr(struct Token **rest, struct Token *tok)
+{
+	return assign(rest, tok);
+}
 
 // expr_stmt = expr ";"
 static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
@@ -188,7 +212,7 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 struct Node *parser(struct Token *tok)
 {
-	struct Node head = {};
+	struct Node head;
 	struct Node *cur = &head;
 
 	while (tok->kind != TK_EOF) {

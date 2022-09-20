@@ -57,6 +57,14 @@ struct Token *tokenize(const char *p)
 			continue;
 		}
 
+		// Identifier
+		if (islower(*p)) {
+			cur->next = new_token(TK_IDENT, p, p + 1);
+			cur = cur->next;
+			p++;
+			continue;
+		}
+
 		// Punctuators
 		int punct_len = read_punct(p);
 		if (punct_len) {

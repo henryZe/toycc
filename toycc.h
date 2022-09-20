@@ -8,6 +8,7 @@
 
 // tokenize.c
 enum TokenKind {
+	TK_IDENT,	// Identifiers
 	TK_PUNCT,	// punctuators
 	TK_NUM,		// Numeric literals
 	TK_EOF,		// End-of-file markers
@@ -34,8 +35,10 @@ enum NodeKind {
 	ND_NE,		// !=
 	ND_LT,		// <
 	ND_LE,		// <=
+	ND_ASSIGN,	// =
 	ND_EXPR_STMT,	// Expression statement
-	ND_NUM,
+	ND_VAR,		// Variable
+	ND_NUM,		// Integer
 };
 
 // AST(abstract syntax tree) node type
@@ -44,7 +47,8 @@ struct Node {
 	struct Node *next;
 	struct Node *lhs;
 	struct Node *rhs;
-	int val;
+	char name;		// Used if kind == ND_VAR
+	int val;		// Used if kind == ND_NUM
 };
 
 struct Node *parser(struct Token *tok);
