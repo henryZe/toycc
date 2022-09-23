@@ -19,18 +19,21 @@ static void pop(char *reg)
 	depth--;
 }
 
+// Round up `n` to the nearest multiple of `align`. For instance,
+// align_to(5, 8) returns 8 and align_to(11, 8) returns 16.
+static int align_to(int n, int align)
+{
+	return (n + align - 1) / align * align;
+}
+
 // Compute the absolute address of a given node.
 // It's an error if a given node does not reside in memory.
 static void gen_addr(struct Node *node)
 {
 	if (node->kind == ND_VAR) {
-		assert(islower(node->name));
-
-		int offset = (node->name - 'a' + 1) * sizeof(long);
-		printf("\tadd a0, fp, %d\n", -offset);
+		printf("\tadd a0, fp, %d\n", node->var->offset);
 		return;
 	}
-
 	error("not a lvalue");
 }
 
@@ -115,22 +118,36 @@ static void gen_stmt(struct Node *node)
 	error("invalid statement");
 }
 
-void codegen(struct Node *node)
+// Assign offsets to local variables.
+static void assign_lvar_offsets(struct Function *prog)
 {
+	int offset = 0;
+	for (struct Obj *var = prog->locals; var; var = var->next) {
+		offset += 8;
+		var->offset = -offset;
+	}
+	prog->stack_size = align_to(offset, 8);
+}
+
+// Traverse the AST to emit assembly.
+void codegen(struct Function *prog)
+{
+	assign_lvar_offsets(prog);
+
 	printf(".global main\n");
 	printf("main:\n");
 
 	// prologue
 	push("fp");
 	printf("\tmv fp, sp\n");
-	printf("\tadd sp, sp, -(26 * 8)\n");
+	printf("\tadd sp, sp, -%d\n", prog->stack_size);
 
-	for (struct Node *n = node; n; n = n->next) {
+	for (struct Node *n = prog->body; n; n = n->next) {
 		gen_stmt(n);
 	}
 
 	// epilogue
-	printf("\tadd sp, sp, (26 * 8)\n");
+	printf("\tadd sp, sp, %d\n", prog->stack_size);
 	pop("fp");
 	printf("\tret\n");
 

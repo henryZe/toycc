@@ -1,5 +1,9 @@
 #include <toycc.h>
 
+// All local variable instances created during parsing are
+// accumulated to this list.
+struct Obj *locals;
+
 static bool equal(struct Token *tok, const char *op)
 {
 	return !memcmp(tok->loc, op, tok->len) && !op[tok->len];
@@ -34,10 +38,10 @@ static struct Node *new_unary(enum NodeKind kind, struct Node *expr)
 	return node;
 }
 
-static struct Node *new_var_node(char name)
+static struct Node *new_var_node(struct Obj *var)
 {
 	struct Node *node = new_node(ND_VAR);
-	node->name = name;
+	node->var = var;
 	return node;
 }
 
@@ -48,9 +52,28 @@ static struct Node *new_num(int val)
 	return node;
 }
 
+static struct Obj *find_var(struct Token *tok)
+{
+	for (struct Obj *var = locals; var; var = var->next)
+		if (strlen(var->name) == tok->len &&
+			!strncmp(tok->loc, var->name, tok->len))
+			return var;
+	return NULL;
+}
+
+static struct Obj *new_lvar(char *name)
+{
+	struct Obj *var = malloc(sizeof(struct Obj));
+	var->name = name;
+	var->next = locals;
+	locals = var;
+	return var;
+}
+
 // parse AST(abstract syntax tree)
-// expr -> assign -> equality -> relational ->
-// add -> mul -> unary -> primary -> expr -> ...
+// expr -> assign -> equality -> relational -> add ->
+// mul -> unary -> primary(num -> identifier -> bracket)
+// -> expr -> ...
 // expr:
 // 	tok: current tok pointer
 // 	rest: return current tok pointer
@@ -66,9 +89,11 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	}
 
 	if (tok->kind == TK_IDENT) {
-		struct Node *node = new_var_node(*tok->loc);
+		struct Obj *var = find_var(tok);
+		if (!var)
+			var = new_lvar(strndup(tok->loc, tok->len));
 		*rest = tok->next;
-		return node;
+		return new_var_node(var);
 	}
 
 	if (tok->kind == TK_NUM) {
@@ -210,7 +235,7 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 	return expr_stmt(rest, tok);
 }
 
-struct Node *parser(struct Token *tok)
+struct Function *parser(struct Token *tok)
 {
 	struct Node head;
 	struct Node *cur = &head;
@@ -220,5 +245,8 @@ struct Node *parser(struct Token *tok)
 		cur = cur->next;
 	}
 
-	return head.next;
+	struct Function *prog = malloc(sizeof(struct Function));
+	prog->body = head.next;
+	prog->locals = locals;
+	return prog;
 }
