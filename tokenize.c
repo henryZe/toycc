@@ -32,6 +32,18 @@ static int read_punct(const char *p)
 	return ispunct(*p) ? 1 : 0;
 }
 
+// Returns true if c is valid as the first character of an identifier.
+static bool is_ident1(char c)
+{
+	return isalpha(c) || c == '_';
+}
+
+// Returns true if c is valid as a non-first character of an identifier.
+static bool is_ident2(char c)
+{
+	return is_ident1(c) || isdigit(c);
+}
+
 struct Token *tokenize(const char *p)
 {
 	struct Token head;
@@ -58,10 +70,13 @@ struct Token *tokenize(const char *p)
 		}
 
 		// Identifier
-		if (islower(*p)) {
-			cur->next = new_token(TK_IDENT, p, p + 1);
+		if (is_ident1(*p)) {
+			const char *start = p;
+			do {
+				p++;
+			} while (is_ident2(*p));
+			cur->next = new_token(TK_IDENT, start, p);
 			cur = cur->next;
-			p++;
 			continue;
 		}
 

@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,6 +8,8 @@
 #include <assert.h>
 
 // tokenize.c
+
+// token
 enum TokenKind {
 	TK_IDENT,	// Identifiers
 	TK_PUNCT,	// punctuators
@@ -18,13 +21,29 @@ struct Token {
 	enum TokenKind kind;	// Token kind
 	struct Token *next;	// Next token
 	int val;		// if kind is TK_NUM, its value
-	const char *loc;		// Token location
+	const char *loc;	// Token location
 	int len;		// Token length
 };
 
 struct Token *tokenize(const char *p);
 
 // parser.c
+
+// local variable
+struct Obj {
+	struct Obj *next;
+	char *name;
+	int offset;		// Offset from fp
+};
+
+// function
+struct Function {
+	struct Node *body;
+	struct Obj *locals;
+	int stack_size;
+};
+
+// AST node
 enum NodeKind {
 	ND_ADD,
 	ND_SUB,
@@ -47,14 +66,14 @@ struct Node {
 	struct Node *next;
 	struct Node *lhs;
 	struct Node *rhs;
-	char name;		// Used if kind == ND_VAR
+	struct Obj *var;	// Used if kind == ND_VAR
 	int val;		// Used if kind == ND_NUM
 };
 
-struct Node *parser(struct Token *tok);
+struct Function *parser(struct Token *tok);
 
 // codegen.c
-void codegen(struct Node *node);
+void codegen(struct Function *prog);
 
 // utils.c
 void error_set_current_input(const char *p);
