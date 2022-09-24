@@ -1,3 +1,5 @@
+RISCV=/home/henry/linux_riscv
+
 qemu-system-riscv64 \
 	-M virt \
 	-m 512M \

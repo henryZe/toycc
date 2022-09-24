@@ -13,7 +13,8 @@
 enum TokenKind {
 	TK_IDENT,	// Identifiers
 	TK_PUNCT,	// punctuators
-	TK_NUM,		// Numeric literals
+	TK_KEYWORD,	// keywords
+	TK_NUM,		// numeric literals
 	TK_EOF,		// End-of-file markers
 };
 
@@ -22,7 +23,7 @@ struct Token {
 	struct Token *next;	// Next token
 	int val;		// if kind is TK_NUM, its value
 	const char *loc;	// Token location
-	int len;		// Token length
+	size_t len;		// Token length
 };
 
 struct Token *tokenize(const char *p);
@@ -55,6 +56,7 @@ enum NodeKind {
 	ND_LT,		// <
 	ND_LE,		// <=
 	ND_ASSIGN,	// =
+	ND_RETURN,	// "return"
 	ND_EXPR_STMT,	// Expression statement
 	ND_VAR,		// Variable
 	ND_NUM,		// Integer
@@ -76,6 +78,7 @@ struct Function *parser(struct Token *tok);
 void codegen(struct Function *prog);
 
 // utils.c
+bool equal(struct Token *tok, const char *op);
 void error_set_current_input(const char *p);
 void __attribute__((noreturn)) error(const char *fmt, ...);
 void __attribute__((noreturn)) verror_at(const char *loc, const char *fmt, va_list ap);

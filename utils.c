@@ -1,5 +1,10 @@
 #include <toycc.h>
 
+bool equal(struct Token *tok, const char *op)
+{
+	return !memcmp(tok->loc, op, tok->len) && !op[tok->len];
+}
+
 // Input string
 static const char *current_input;
 
