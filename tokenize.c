@@ -44,6 +44,14 @@ static bool is_ident2(char c)
 	return is_ident1(c) || isdigit(c);
 }
 
+static void convert_keywords(struct Token *tok)
+{
+	for (struct Token *t = tok; t->kind != TK_EOF; t = t->next)
+		if (equal(t, "return"))
+			t->kind = TK_KEYWORD;
+}
+
+// Tokenize a given string and returns new tokens.
 struct Token *tokenize(const char *p)
 {
 	struct Token head;
@@ -69,7 +77,7 @@ struct Token *tokenize(const char *p)
 			continue;
 		}
 
-		// Identifier
+		// Identifier or keyword
 		if (is_ident1(*p)) {
 			const char *start = p;
 			do {
@@ -93,5 +101,7 @@ struct Token *tokenize(const char *p)
 	}
 
 	cur->next = new_token(TK_EOF, p, p);
+
+	convert_keywords(head.next);
 	return head.next;
 }
