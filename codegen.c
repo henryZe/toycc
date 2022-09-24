@@ -110,9 +110,18 @@ void gen_expr(struct Node *node)
 
 static void gen_stmt(struct Node *node)
 {
-	if (node->kind == ND_EXPR_STMT) {
+	switch (node->kind) {
+	case ND_RETURN:
+		gen_expr(node->lhs);
+		printf("\tj return\n");
+		return;
+
+	case ND_EXPR_STMT:
 		gen_expr(node->lhs);
 		return;
+
+	default:
+		break;
 	}
 
 	error("invalid statement");
@@ -147,8 +156,12 @@ void codegen(struct Function *prog)
 	}
 
 	// epilogue
-	printf("\tadd sp, sp, %d\n", prog->stack_size);
+	printf("return:\n");
+	// restore sp register
+	printf("\tmv sp, fp\n");
+	// restore fp register
 	pop("fp");
+	// mv ra to pc
 	printf("\tret\n");
 
 	assert(!depth);

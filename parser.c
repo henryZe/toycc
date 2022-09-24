@@ -4,11 +4,6 @@
 // accumulated to this list.
 struct Obj *locals;
 
-static bool equal(struct Token *tok, const char *op)
-{
-	return !memcmp(tok->loc, op, tok->len) && !op[tok->len];
-}
-
 static struct Token *skip(struct Token *tok, const char *s)
 {
 	if (!equal(tok, s))
@@ -229,9 +224,14 @@ static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// stmt = expr_stmt
+// stmt = expr_stmt | "return" expr ";"
 static struct Node *stmt(struct Token **rest, struct Token *tok)
 {
+	if (equal(tok, "return")) {
+		struct Node *node = new_unary(ND_RETURN, expr(&tok, tok->next));
+		*rest = skip(tok, ";");
+		return node;
+	}
 	return expr_stmt(rest, tok);
 }
 
