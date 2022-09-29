@@ -224,7 +224,9 @@ static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// stmt = expr_stmt | "return" expr ";"
+static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
+
+// stmt = "return" expr ";" | "{" compound-stmt | expr_stmt
 static struct Node *stmt(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "return")) {
@@ -232,21 +234,37 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		*rest = skip(tok, ";");
 		return node;
 	}
+
+	if (equal(tok, "{"))
+		return compound_stmt(rest, tok->next);
+
 	return expr_stmt(rest, tok);
 }
 
-struct Function *parser(struct Token *tok)
+static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 {
 	struct Node head;
 	struct Node *cur = &head;
 
-	while (tok->kind != TK_EOF) {
+	while (!equal(tok, "}")) {
 		cur->next = stmt(&tok, tok);
 		cur = cur->next;
 	}
 
+	struct Node *node = new_node(ND_BLOCK);
+	node->body = head.next;
+
+	// skip "}"
+	*rest = tok->next;
+	return node;
+}
+
+struct Function *parser(struct Token *tok)
+{
 	struct Function *prog = malloc(sizeof(struct Function));
-	prog->body = head.next;
+
+	tok = skip(tok, "{");
+	prog->body = compound_stmt(&tok, tok);
 	prog->locals = locals;
 	return prog;
 }

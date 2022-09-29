@@ -111,6 +111,11 @@ void gen_expr(struct Node *node)
 static void gen_stmt(struct Node *node)
 {
 	switch (node->kind) {
+	case ND_BLOCK:
+		for (struct Node *n = node->body; n; n = n->next)
+			gen_stmt(n);
+		return;
+
 	case ND_RETURN:
 		gen_expr(node->lhs);
 		printf("\tj return\n");
@@ -151,9 +156,9 @@ void codegen(struct Function *prog)
 	printf("\tmv fp, sp\n");
 	printf("\tadd sp, sp, -%d\n", prog->stack_size);
 
-	for (struct Node *n = prog->body; n; n = n->next) {
-		gen_stmt(n);
-	}
+	int cur_depth = depth;
+	gen_stmt(prog->body);
+	assert(depth == cur_depth);
 
 	// epilogue
 	printf("return:\n");
