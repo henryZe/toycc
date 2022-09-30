@@ -138,7 +138,8 @@ static void gen_stmt(struct Node *node)
 	case ND_FOR:
 		c = count();
 
-		gen_stmt(node->init);
+		if (node->init)
+			gen_stmt(node->init);
 
 		printf("begin.%d:\n", c);
 		if (node->cond) {
