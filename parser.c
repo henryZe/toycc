@@ -14,6 +14,7 @@ static struct Token *skip(struct Token *tok, const char *s)
 static struct Node *new_node(enum NodeKind kind)
 {
 	struct Node *node = malloc(sizeof(struct Node));
+	memset(node, 0, sizeof(struct Node));
 	node->kind = kind;
 	return node;
 }
@@ -221,11 +222,8 @@ static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, ";")) {
 		*rest = tok->next;
-
 		// generate NULL block
-		struct Node *n = new_node(ND_BLOCK);
-		n->body = NULL;
-		return n;
+		return new_node(ND_BLOCK);
 	}
 
 	struct Node *node = new_unary(ND_EXPR_STMT, expr(&tok, tok));
@@ -235,7 +233,10 @@ static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
 
 static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
 
-// stmt = "return" expr ";" | "{" compound-stmt | expr_stmt
+// stmt = "return" expr ";"
+// 	| "if" "(" expr ")" stmt ("else" stmt)?
+// 	| "{" compound-stmt
+// 	| expr_stmt
 static struct Node *stmt(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "return")) {
@@ -243,6 +244,22 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 			new_unary(ND_RETURN, expr(&tok, tok->next));
 		*rest = skip(tok, ";");
 		return node;
+	}
+
+	if (equal(tok, "if")) {
+		struct Node *n = new_node(ND_IF);
+
+		tok = skip(tok->next, "(");
+		n->cond = expr(&tok, tok);
+
+		tok = skip(tok, ")");
+		n->then = stmt(&tok, tok);
+
+		if (equal(tok, "else"))
+			n->els = stmt(&tok, tok->next);
+
+		*rest = tok;
+		return n;
 	}
 
 	if (equal(tok, "{"))
