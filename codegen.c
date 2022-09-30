@@ -1,5 +1,11 @@
 #include <toycc.h>
 
+static int count(void)
+{
+	static int i = 1;
+	return i++;
+}
+
 // code generator
 static int depth = 0;
 
@@ -111,6 +117,22 @@ void gen_expr(struct Node *node)
 static void gen_stmt(struct Node *node)
 {
 	switch (node->kind) {
+	case ND_IF:
+		int c = count();
+
+		gen_expr(node->cond);
+		printf("\tbeqz a0, else.%d\n", c);
+
+		gen_stmt(node->then);
+		printf("\tj end.%d\n", c);
+
+		printf("else.%d:\n", c);
+		if (node->els)
+			gen_stmt(node->els);
+
+		printf("end.%d:\n", c);
+		return;
+
 	case ND_BLOCK:
 		for (struct Node *n = node->body; n; n = n->next)
 			gen_stmt(n);

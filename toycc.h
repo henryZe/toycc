@@ -57,6 +57,7 @@ enum NodeKind {
 	ND_LE,		// <=
 	ND_ASSIGN,	// =
 	ND_RETURN,	// "return"
+	ND_IF,		// "if"
 	ND_BLOCK,	// { ... }
 	ND_EXPR_STMT,	// Expression statement
 	ND_VAR,		// Variable
@@ -67,8 +68,16 @@ enum NodeKind {
 struct Node {
 	enum NodeKind kind;
 	struct Node *next;
+
 	struct Node *lhs;
 	struct Node *rhs;
+
+	// if statement
+	struct Node *cond;
+	struct Node *then;
+	struct Node *els;
+
+	// block
 	struct Node *body;
 	struct Obj *var;	// Used if kind == ND_VAR
 	int val;		// Used if kind == ND_NUM
@@ -80,6 +89,8 @@ struct Function *parser(struct Token *tok);
 void codegen(struct Function *prog);
 
 // utils.c
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
+
 bool equal(struct Token *tok, const char *op);
 void error_set_current_input(const char *p);
 void __attribute__((noreturn)) error(const char *fmt, ...);
