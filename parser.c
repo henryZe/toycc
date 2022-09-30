@@ -235,6 +235,7 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
 
 // stmt = "return" expr ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?
+// 	| "for" "(" expr-stmt expr? ";" expr? ")" stmt
 // 	| "{" compound-stmt
 // 	| expr_stmt
 static struct Node *stmt(struct Token **rest, struct Token *tok)
@@ -259,6 +260,24 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 			n->els = stmt(&tok, tok->next);
 
 		*rest = tok;
+		return n;
+	}
+
+	if (equal(tok, "for")) {
+		struct Node *n = new_node(ND_FOR);
+		
+		tok = skip(tok->next, "(");
+		n->init = expr_stmt(&tok, tok);
+
+		if (!equal(tok, ";"))
+			n->cond = expr(&tok, tok);
+		tok = skip(tok, ";");
+
+		if (!equal(tok, ")"))
+			n->inc = expr(&tok, tok);
+		tok = skip(tok, ")");
+
+		n->then = stmt(rest, tok);
 		return n;
 	}
 
