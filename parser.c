@@ -216,9 +216,18 @@ static struct Node *expr(struct Token **rest, struct Token *tok)
 	return assign(rest, tok);
 }
 
-// expr_stmt = expr ";"
+// expr_stmt = ";" | expr ";"
 static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
 {
+	if (equal(tok, ";")) {
+		*rest = tok->next;
+
+		// generate NULL block
+		struct Node *n = new_node(ND_BLOCK);
+		n->body = NULL;
+		return n;
+	}
+
 	struct Node *node = new_unary(ND_EXPR_STMT, expr(&tok, tok));
 	*rest = skip(tok, ";");
 	return node;
@@ -230,7 +239,8 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
 static struct Node *stmt(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "return")) {
-		struct Node *node = new_unary(ND_RETURN, expr(&tok, tok->next));
+		struct Node *node =
+			new_unary(ND_RETURN, expr(&tok, tok->next));
 		*rest = skip(tok, ";");
 		return node;
 	}
