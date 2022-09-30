@@ -44,10 +44,24 @@ static bool is_ident2(char c)
 	return is_ident1(c) || isdigit(c);
 }
 
+static bool is_keyword(struct Token *tok)
+{
+	static const char *kw[] = {
+		"return",
+		"if",
+		"else",
+	};
+
+	for (int i = 0; i < ARRAY_SIZE(kw); i++)
+		if (equal(tok, kw[i]))
+			return true;
+	return false;
+}
+
 static void convert_keywords(struct Token *tok)
 {
 	for (struct Token *t = tok; t->kind != TK_EOF; t = t->next)
-		if (equal(t, "return"))
+		if (is_keyword(t))
 			t->kind = TK_KEYWORD;
 }
 
