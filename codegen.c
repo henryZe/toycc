@@ -116,9 +116,11 @@ void gen_expr(struct Node *node)
 
 static void gen_stmt(struct Node *node)
 {
+	int c;
+
 	switch (node->kind) {
 	case ND_IF:
-		int c = count();
+		c = count();
 
 		gen_expr(node->cond);
 		printf("\tbeqz a0, else.%d\n", c);
@@ -129,6 +131,24 @@ static void gen_stmt(struct Node *node)
 		printf("else.%d:\n", c);
 		if (node->els)
 			gen_stmt(node->els);
+
+		printf("end.%d:\n", c);
+		return;
+
+	case ND_FOR:
+		c = count();
+
+		gen_stmt(node->init);
+
+		printf("begin.%d:\n", c);
+		if (node->cond) {
+			gen_expr(node->cond);
+			printf("\tbeqz a0, end.%d\n", c);
+		}
+		gen_stmt(node->then);
+		if (node->inc)
+			gen_expr(node->inc);
+		printf("\tj begin.%d\n", c);
 
 		printf("end.%d:\n", c);
 		return;
