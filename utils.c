@@ -14,6 +14,17 @@ void error_set_current_input(const char *p)
 }
 
 void __attribute__((noreturn))
+error(const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	fprintf(stderr, "\n");
+	exit(1);
+}
+
+void __attribute__((noreturn))
 verror_at(const char *loc, const char *fmt, va_list ap)
 {
 	int pos = loc - current_input;

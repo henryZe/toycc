@@ -56,6 +56,8 @@ enum NodeKind {
 	ND_LT,		// <
 	ND_LE,		// <=
 	ND_ASSIGN,	// =
+	ND_ADDR,	// unary &, address
+	ND_DEREF,	// unary *, dereference
 	ND_RETURN,	// "return"
 	ND_IF,		// "if"
 	ND_FOR,		// "for" or "while"
@@ -97,5 +99,6 @@ void codegen(struct Function *prog);
 
 bool equal(struct Token *tok, const char *op);
 void error_set_current_input(const char *p);
+void __attribute__((noreturn)) error(const char *fmt, ...);
 void __attribute__((noreturn)) verror_at(const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);

@@ -1,3 +1,15 @@
+// This file contains a recursive descent parser for C.
+//
+// Most functions in this file are named after the symbols they are
+// supposed to read from an input token list. For example, stmt() is
+// responsible for reading a statement from a token list. The function
+// then construct an AST node representing a statement.
+//
+// Each function conceptually returns two values, an AST node and
+// remaining part of the input tokens. Since C doesn't support
+// multiple return values, the remaining tokens are returned to the
+// caller via a pointer argument.
+
 #include <toycc.h>
 
 // All local variable instances created during parsing are
@@ -27,6 +39,14 @@ static struct Node *new_binary(enum NodeKind kind,
 	struct Node *node = new_node(kind, tok);
 	node->lhs = lhs;
 	node->rhs = rhs;
+	node->tok = tok;
+	return node;
+}
+
+static struct Node *new_unary(enum NodeKind kind, struct Node *expr, struct Token *tok)
+{
+	struct Node *node = new_node(kind, tok);
+	node->lhs = expr;
 	node->tok = tok;
 	return node;
 }
@@ -100,17 +120,24 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	error_tok(tok, "expected an expression");
 }
 
+// unary = ("+" | "-" | "*" | "&") unary
+// 		| primary
 static struct Node *unary(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "+"))
 		// ignore
 		return unary(rest, tok->next);
-	if (equal(tok, "-")) {
+
+	if (equal(tok, "-"))
 		// depth--
-		struct Node *node = new_node(ND_NEG, tok);
-		node->lhs = unary(rest, tok->next);
-		return node;
-	}
+		return new_unary(ND_NEG, unary(rest, tok->next), tok);
+
+	if (equal(tok, "&"))
+		return new_unary(ND_ADDR, unary(rest, tok->next), tok);
+
+	if (equal(tok, "*"))
+		return new_unary(ND_DEREF, unary(rest, tok->next), tok);
+
 	return primary(rest, tok);
 }
 
