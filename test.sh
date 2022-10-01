@@ -7,7 +7,7 @@ assert()
 	input="$2"
 
 	output/toycc "$input" > output/tmp.S || exit
-	"$CROSS_COMPILE"gcc -march=rv64gv -static output/tmp.S -o output/tmp
+	"$CROSS_COMPILE"gcc -march=rv64g -static output/tmp.S -o output/tmp || exit
 	"$CROSS_COMPILE"objdump -S output/tmp > output/tmp.asm
 
 	/opt/RV64/bin/spike /usr/riscv64-linux-gnu/bin/pk output/tmp
