@@ -40,7 +40,7 @@ static void gen_addr(struct Node *node)
 		printf("\tadd a0, fp, %d\n", node->var->offset);
 		return;
 	}
-	error("not a lvalue");
+	error_tok(node->tok, "not a lvalue");
 }
 
 // Traverse the AST to emit assembly.
@@ -109,7 +109,7 @@ void gen_expr(struct Node *node)
 		printf("\tseqz a0, a0\n");
 		break;
 	default:
-		error("invalid expression");
+		error_tok(node->tok, "invalid expression");
 		break;
 	}
 }
@@ -172,7 +172,7 @@ static void gen_stmt(struct Node *node)
 		break;
 	}
 
-	error("invalid statement");
+	error_tok(node->tok, "invalid statement");
 }
 
 // Assign offsets to local variables.
