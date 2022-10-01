@@ -32,19 +32,30 @@ static int align_to(int n, int align)
 	return (n + align - 1) / align * align;
 }
 
+static void gen_expr(struct Node *node);
+
 // Compute the absolute address of a given node.
 // It's an error if a given node does not reside in memory.
 static void gen_addr(struct Node *node)
 {
-	if (node->kind == ND_VAR) {
+	switch (node->kind) {
+	case ND_VAR:
 		printf("\tadd a0, fp, %d\n", node->var->offset);
 		return;
+
+	case ND_DEREF:
+		gen_expr(node->lhs);
+		return;
+
+	default:
+		break;
 	}
+
 	error_tok(node->tok, "not a lvalue");
 }
 
 // Traverse the AST to emit assembly.
-void gen_expr(struct Node *node)
+static void gen_expr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_NUM:
@@ -59,6 +70,15 @@ void gen_expr(struct Node *node)
 	case ND_VAR:
 		gen_addr(node);
 		printf("\tld a0, (a0)\n");
+		return;
+
+	case ND_DEREF:
+		gen_expr(node->lhs);
+		printf("\tld a0, (a0)\n");
+		return;
+
+	case ND_ADDR:
+		gen_addr(node->lhs);
 		return;
 
 	case ND_ASSIGN:
