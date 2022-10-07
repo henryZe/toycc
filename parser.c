@@ -76,10 +76,12 @@ static struct Obj *find_var(struct Token *tok)
 	return NULL;
 }
 
-static struct Obj *new_lvar(char *name)
+static struct Obj *new_lvar(const char *name, struct Type *ty)
 {
 	struct Obj *var = malloc(sizeof(struct Obj));
 	var->name = name;
+	var->ty = ty;
+
 	var->next = locals;
 	locals = var;
 	return var;
@@ -106,7 +108,7 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	if (tok->kind == TK_IDENT) {
 		struct Obj *var = find_var(tok);
 		if (!var)
-			var = new_lvar(strndup(tok->loc, tok->len));
+			error_tok(tok, "undefined variable");
 		*rest = tok->next;
 		return new_var_node(var, tok);
 	}
@@ -327,6 +329,68 @@ static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+// declspec = "int"
+static struct Type *declspec(struct Token **rest, struct Token *tok)
+{
+	*rest = skip(tok, "int");
+	return p_ty_int();
+}
+
+// declarator = "*"* ident
+static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
+{
+	while (consume(&tok, tok, "*"))
+		ty = pointer_to(ty);
+
+	if (tok->kind != TK_IDENT)
+		error_tok(tok, "expected a variable name");
+
+	ty->name = tok;
+	*rest = tok->next;
+	return ty;
+}
+
+static char *get_ident(struct Token *tok)
+{
+	if (tok->kind != TK_IDENT)
+		error_tok(tok, "expected an identifier");
+	return strndup(tok->loc, tok->len);
+}
+
+// declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+static struct Node *declaration(struct Token **rest, struct Token *tok)
+{
+	struct Type *basety = declspec(&tok, tok);
+
+	struct Node head = {};
+	struct Node *cur = &head;
+	int i = 0;
+
+	while (!equal(tok, ";")) {
+		if (i++ > 0)
+			tok = skip(tok, ",");
+
+		struct Type *ty = declarator(&tok, tok, basety);
+		struct Obj *var = new_lvar(get_ident(ty->name), ty);
+
+		if (!equal(tok, "="))
+			continue;
+
+		struct Node *lhs = new_var_node(var, ty->name);
+		struct Node *rhs = assign(&tok, tok->next);
+		struct Node *node = new_binary(ND_ASSIGN, lhs, rhs, tok);
+
+		cur->next = new_unary(ND_EXPR_STMT, node, tok);
+		cur = cur->next;
+	}
+
+	struct Node *node = new_node(ND_BLOCK, tok);
+	node->body = head.next;
+
+	*rest = tok->next;
+	return node;
+}
+
 static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
 
 // stmt = "return" expr ";"
@@ -396,6 +460,7 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 	return expr_stmt(rest, tok);
 }
 
+// compound-stmt = (declaration | stmt)* "}"
 static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 {
 	struct Node head;
@@ -403,7 +468,10 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	struct Node *node = new_node(ND_BLOCK, tok);
 
 	while (!equal(tok, "}")) {
-		cur->next = stmt(&tok, tok);
+		if (equal(tok, "int"))
+			cur->next = declaration(&tok, tok);
+		else
+			cur->next = stmt(&tok, tok);
 		cur = cur->next;
 		add_type(cur);
 	}

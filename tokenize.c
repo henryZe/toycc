@@ -8,6 +8,17 @@ error_at(const char *loc, const char *fmt, ...)
 	verror_at(loc, fmt, ap);
 }
 
+bool consume(struct Token **rest, struct Token *tok, const char *str)
+{
+	if (equal(tok, str)) {
+		*rest = tok->next;
+		return true;
+	}
+
+	*rest = tok;
+	return false;
+}
+
 static struct Token *new_token(enum TokenKind kind,
 				const char *start, const char *end)
 {
@@ -52,6 +63,7 @@ static bool is_keyword(struct Token *tok)
 		"else",
 		"for",
 		"while",
+		"int",
 	};
 
 	for (int i = 0; i < ARRAY_SIZE(kw); i++)

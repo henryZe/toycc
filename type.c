@@ -1,6 +1,6 @@
 #include <toycc.h>
 
-static struct Type *ty_int = &(struct Type){ TY_INT, NULL };
+static struct Type *ty_int = &(struct Type){ TY_INT, NULL, NULL };
 
 struct Type *p_ty_int(void)
 {
@@ -12,7 +12,7 @@ bool is_integer(struct Type *ty)
 	return ty->kind == TY_INT;
 }
 
-static struct Type *pointer_to(struct Type *base)
+struct Type *pointer_to(struct Type *base)
 {
 	struct Type *ty = malloc(sizeof(struct Type));
 
@@ -51,9 +51,12 @@ void add_type(struct Node *node)
 	case ND_NE:
 	case ND_LT:
 	case ND_LE:
-	case ND_VAR:
 	case ND_NUM:
 		node->ty = ty_int;
+		break;
+
+	case ND_VAR:
+		node->ty = node->var->ty;
 		break;
 
 	case ND_ADDR:
@@ -61,11 +64,10 @@ void add_type(struct Node *node)
 		break;
 
 	case ND_DEREF:
-		if (node->lhs->ty->kind == TY_PTR)
-			node->ty = node->lhs->ty->base;
-		else
-			// TODO: fix invalid operand
-			node->ty = ty_int;
+		if (node->lhs->ty->kind != TY_PTR)
+			error_tok(node->tok, "invalid pointer dereference");
+
+		node->ty = node->lhs->ty->base;
 		break;
 
 	default:
