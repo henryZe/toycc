@@ -26,6 +26,7 @@ struct Token {
 	size_t len;		// Token length
 };
 
+bool consume(struct Token **rest, struct Token *tok, const char *str);
 struct Token *tokenize(const char *p);
 
 // type.c
@@ -37,12 +38,14 @@ enum TypeKind {
 
 struct Type {
 	enum TypeKind kind;
-	struct Type *base;
+	struct Type *base;	// pointer
+	struct Token *name;	// declaration
 };
 
 struct Node;
 struct Type *p_ty_int(void);
 bool is_integer(struct Type *ty);
+struct Type *pointer_to(struct Type *base);
 void add_type(struct Node *node);
 
 // parser.c
@@ -50,7 +53,8 @@ void add_type(struct Node *node);
 // local variable
 struct Obj {
 	struct Obj *next;
-	char *name;
+	const char *name;
+	struct Type *ty;	// Type
 	int offset;		// Offset from fp
 };
 
