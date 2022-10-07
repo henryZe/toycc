@@ -12,7 +12,7 @@ static int depth = 0;
 // push reg into 0(sp)
 static void push(char *reg)
 {
-	printf("\taddi sp, sp, -8\n");
+	printf("\taddi sp, sp, -%ld\n", sizeof(long));
 	printf("\tsd %s, 0(sp)\n", reg);
 	depth++;
 }
@@ -21,7 +21,7 @@ static void push(char *reg)
 static void pop(char *reg)
 {
 	printf("\tld %s, 0(sp)\n", reg);
-	printf("\taddi sp, sp, 8\n");
+	printf("\taddi sp, sp, %ld\n", sizeof(long));
 	depth--;
 }
 
@@ -200,10 +200,10 @@ static void assign_lvar_offsets(struct Function *prog)
 {
 	int offset = 0;
 	for (struct Obj *var = prog->locals; var; var = var->next) {
-		offset += 8;
+		offset += sizeof(long);
 		var->offset = -offset;
 	}
-	prog->stack_size = align_to(offset, 8);
+	prog->stack_size = align_to(offset, sizeof(long));
 }
 
 // Traverse the AST to emit assembly.
