@@ -7,6 +7,7 @@ SRCDIR=.
 SRCFILES := \
 	$(SRCDIR)/utils.c \
 	$(SRCDIR)/tokenize.c \
+	$(SRCDIR)/type.c \
 	$(SRCDIR)/parser.c \
 	$(SRCDIR)/codegen.c \
 	$(SRCDIR)/main.c \
