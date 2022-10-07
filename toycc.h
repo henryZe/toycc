@@ -28,6 +28,23 @@ struct Token {
 
 struct Token *tokenize(const char *p);
 
+// type.c
+
+enum TypeKind {
+	TY_INT,
+	TY_PTR,
+};
+
+struct Type {
+	enum TypeKind kind;
+	struct Type *base;
+};
+
+struct Node;
+struct Type *p_ty_int(void);
+bool is_integer(struct Type *ty);
+void add_type(struct Node *node);
+
 // parser.c
 
 // local variable
@@ -71,6 +88,7 @@ enum NodeKind {
 struct Node {
 	enum NodeKind kind;
 	struct Node *next;
+	struct Type *ty;	// Type, e.g. int or pointer to int
 	struct Token *tok;	// Representative token
 
 	struct Node *lhs;

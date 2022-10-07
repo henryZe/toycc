@@ -163,6 +163,63 @@ static struct Node *mul(struct Token **rest, struct Token *tok)
 	}
 }
 
+// In C, `+`/`-` operator is overloaded to perform the pointer arithmetic.
+//
+// If p is a pointer, p+n adds not n but sizeof((*p) * n) to the value of p,
+// so that p+n points to the location n elements (not bytes) ahead of p.
+// In other words, we need to scale an integer value before adding to a
+// pointer value. This function takes care of the scaling.
+static struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok)
+{
+	add_type(lhs);
+	add_type(rhs);
+
+	// num + num
+	if (is_integer(lhs->ty) && is_integer(rhs->ty))
+		return new_binary(ND_ADD, lhs, rhs, tok);
+
+	// ptr + ptr
+	if (lhs->ty->base && rhs->ty->base)
+		error_tok(tok, "invalid operands");
+
+	// canonicalized `num + ptr` to `ptr + num`
+	if (!lhs->ty->base && rhs->ty->base) {
+		struct Node *tmp = lhs;
+		lhs = rhs;
+		rhs = tmp;
+	}
+
+	// ptr + num
+	rhs = new_binary(ND_MUL, rhs, new_num(sizeof(long), tok), tok);
+	return new_binary(ND_ADD, lhs, rhs, tok);
+}
+
+static struct Node *new_sub(struct Node *lhs, struct Node *rhs, struct Token *tok)
+{
+	add_type(lhs);
+	add_type(rhs);
+
+	// num - num
+	if (is_integer(lhs->ty) && is_integer(lhs->ty))
+		return new_binary(ND_SUB, lhs, rhs, tok);
+
+	// ptr - ptr, which returns how many elements are between the two.
+	if (lhs->ty->base && rhs->ty->base) {
+		struct Node *node = new_binary(ND_SUB, lhs, rhs, tok);
+		node->ty = p_ty_int();
+		return new_binary(ND_DIV, node, new_num(sizeof(long), tok), tok);
+	}
+
+	// ptr - num
+	if (lhs->ty->base && is_integer(rhs->ty)) {
+		rhs = new_binary(ND_MUL, rhs, new_num(sizeof(long), tok), tok);
+		return new_binary(ND_SUB, lhs, rhs, tok);
+	}
+
+	// num - ptr
+	error_tok(tok, "invalid operands");
+}
+
 static struct Node *add(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = mul(&tok, tok);
@@ -171,12 +228,12 @@ static struct Node *add(struct Token **rest, struct Token *tok)
 		struct Token *start = tok;
 
 		if (equal(tok, "+")) {
-			node = new_binary(ND_ADD, node, mul(&tok, tok->next), start);
+			node = new_add(node, mul(&tok, tok->next), start);
 			continue;
 		}
 
 		if (equal(tok, "-")) {
-			node = new_binary(ND_SUB, node, mul(&tok, tok->next), start);
+			node = new_sub(node, mul(&tok, tok->next), start);
 			continue;
 		}
 
@@ -348,6 +405,7 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	while (!equal(tok, "}")) {
 		cur->next = stmt(&tok, tok);
 		cur = cur->next;
+		add_type(cur);
 	}
 	node->body = head.next;
 
