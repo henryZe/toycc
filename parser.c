@@ -96,7 +96,8 @@ static struct Obj *new_lvar(const char *name, struct Type *ty)
 // 	rest: return current tok pointer
 static struct Node *expr(struct Token **rest, struct Token *tok);
 
-// primary = "(" expr ")" | ident | num
+// primary = "(" expr ")" | ident args? | num
+// args = "(" ")"
 static struct Node *primary(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "(")) {
@@ -106,6 +107,16 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	}
 
 	if (tok->kind == TK_IDENT) {
+		// function call
+		if (equal(tok->next, "(")) {
+			struct Node *node = new_node(ND_FUNCALL, tok);
+
+			node->funcname = strndup(tok->loc, tok->len);
+			*rest = skip(tok->next->next, ")");
+			return node;
+		}
+
+		// variable
 		struct Obj *var = find_var(tok);
 		if (!var)
 			error_tok(tok, "undefined variable");
@@ -362,6 +373,7 @@ static struct Node *declaration(struct Token **rest, struct Token *tok)
 {
 	struct Type *basety = declspec(&tok, tok);
 
+	// memset 'head' with 0
 	struct Node head = {};
 	struct Node *cur = &head;
 	int i = 0;
@@ -376,14 +388,17 @@ static struct Node *declaration(struct Token **rest, struct Token *tok)
 		if (!equal(tok, "="))
 			continue;
 
+		// "="
 		struct Node *lhs = new_var_node(var, ty->name);
 		struct Node *rhs = assign(&tok, tok->next);
 		struct Node *node = new_binary(ND_ASSIGN, lhs, rhs, tok);
 
+		// "," | ";"
 		cur->next = new_unary(ND_EXPR_STMT, node, tok);
 		cur = cur->next;
 	}
 
+	// might empty block here
 	struct Node *node = new_node(ND_BLOCK, tok);
 	node->body = head.next;
 

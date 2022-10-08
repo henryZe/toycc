@@ -52,6 +52,7 @@ void add_type(struct Node *node)
 	case ND_LT:
 	case ND_LE:
 	case ND_NUM:
+	case ND_FUNCALL:
 		node->ty = ty_int;
 		break;
 

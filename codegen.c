@@ -89,6 +89,11 @@ static void gen_expr(struct Node *node)
 		printf("\tsd a0, (a1)\n");
 		return;
 
+	case ND_FUNCALL:
+		printf("\tli a0, 0\n");
+		printf("\tcall %s\n", node->funcname);
+		return;
+
 	default:
 		break;
 	}
@@ -216,6 +221,7 @@ void codegen(struct Function *prog)
 
 	// prologue
 	push("fp");
+	push("ra");
 	printf("\tmv fp, sp\n");
 	printf("\tadd sp, sp, -%d\n", prog->stack_size);
 
@@ -228,6 +234,7 @@ void codegen(struct Function *prog)
 	// restore sp register
 	printf("\tmv sp, fp\n");
 	// restore fp register
+	pop("ra");
 	pop("fp");
 	// mv ra to pc
 	printf("\tret\n");

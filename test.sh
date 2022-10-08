@@ -1,13 +1,18 @@
 #!/bin/bash
 CROSS_COMPILE=riscv64-linux-gnu-
 
+cat <<EOF | "$CROSS_COMPILE"gcc -march=rv64g -static -xc -c -o output/tmp2.o -
+int ret3() { return 3; }
+int ret5() { return 5; }
+EOF
+
 assert()
 {
 	expected="$1"
 	input="$2"
 
 	output/toycc "$input" > output/tmp.S || exit
-	"$CROSS_COMPILE"gcc -march=rv64g -static output/tmp.S -o output/tmp || exit
+	"$CROSS_COMPILE"gcc -march=rv64g -static output/tmp.S output/tmp2.o -o output/tmp || exit
 	"$CROSS_COMPILE"objdump -S output/tmp > output/tmp.asm
 
 	/opt/RV64/bin/spike /usr/riscv64-linux-gnu/bin/pk output/tmp
@@ -92,5 +97,8 @@ assert 7 '{ int x=3; int y=5; *(&y-2+1)=7; return x; }'
 assert 5 '{ int x=3; return (&x+2)-&x+3; }'
 assert 8 '{ int x, y; x=3; y=5; return x+y; }'
 assert 8 '{ int x=3, y=5; return x+y; }'
+
+assert 3 '{ return ret3(); }'
+assert 5 '{ return ret5(); }'
 
 echo OK
