@@ -83,6 +83,7 @@ enum NodeKind {
 	ND_IF,		// "if"
 	ND_FOR,		// "for" or "while"
 	ND_BLOCK,	// { ... }
+	ND_FUNCALL,	// Function call
 	ND_EXPR_STMT,	// Expression statement
 	ND_VAR,		// Variable
 	ND_NUM,		// Integer
@@ -104,6 +105,9 @@ struct Node {
 	struct Node *els;
 	struct Node *init;
 	struct Node *inc;
+
+	// function call
+	const char *funcname;
 
 	// block
 	struct Node *body;
