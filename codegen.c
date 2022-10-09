@@ -54,6 +54,8 @@ static void gen_addr(struct Node *node)
 	error_tok(node->tok, "not a lvalue");
 }
 
+static char *argreg[] = { "a0", "a1", "a2", "a3", "a4", "a5" };
+
 // Traverse the AST to emit assembly.
 static void gen_expr(struct Node *node)
 {
@@ -90,7 +92,16 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_FUNCALL:
-		printf("\tli a0, 0\n");
+		int nargs = 0;
+		for (struct Node *arg = node->args; arg; arg = arg->next) {
+			gen_expr(arg);
+			push("a0");
+			nargs++;
+		}
+
+		for (int i = nargs - 1; i >= 0; i--)
+			pop(argreg[i]);
+
 		printf("\tcall %s\n", node->funcname);
 		return;
 

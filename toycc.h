@@ -108,6 +108,7 @@ struct Node {
 
 	// function call
 	const char *funcname;
+	struct Node *args;
 
 	// block
 	struct Node *body;
