@@ -367,8 +367,22 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 	return p_ty_int();
 }
 
-// declarator = "*"* ident
-static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
+// type-suffix = ("(" func-params ")")?
+static struct Type *type_suffix(struct Token **rest, struct Token *tok,
+				struct Type *ty)
+{
+	if (equal(tok, "(")) {
+		*rest = skip(tok->next, ")");
+		return func_type(ty);
+	}
+
+	*rest = tok;
+	return ty;
+}
+
+// declarator = "*"* ident (type-suffix)?
+static struct Type *declarator(struct Token **rest, struct Token *tok,
+				struct Type *ty)
 {
 	while (consume(&tok, tok, "*"))
 		ty = pointer_to(ty);
@@ -376,8 +390,8 @@ static struct Type *declarator(struct Token **rest, struct Token *tok, struct Ty
 	if (tok->kind != TK_IDENT)
 		error_tok(tok, "expected a variable name");
 
+	ty = type_suffix(rest, tok->next, ty);
 	ty->name = tok;
-	*rest = tok->next;
 	return ty;
 }
 
@@ -517,12 +531,33 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-struct Function *parser(struct Token *tok)
+static struct Function *function(struct Token **rest, struct Token *tok)
 {
-	struct Function *prog = malloc(sizeof(struct Function));
+	struct Type *ty = declspec(&tok, tok);
+	ty = declarator(&tok, tok, ty);
+
+	// initialize local variables list
+	locals = NULL;
+
+	struct Function *fn = malloc(sizeof(struct Function));
+	fn->name = get_ident(ty->name);
 
 	tok = skip(tok, "{");
-	prog->body = compound_stmt(&tok, tok);
-	prog->locals = locals;
-	return prog;
+
+	fn->body = compound_stmt(rest, tok);
+	fn->locals = locals;
+	return fn;
+}
+
+// program = (function-definition)*
+struct Function *parser(struct Token *tok)
+{
+	struct Function head = {};
+	struct Function *cur = &head;
+
+	while (tok->kind != TK_EOF) {
+		cur->next = function(&tok, tok);
+		cur = cur->next;
+	}
+	return head.next;
 }

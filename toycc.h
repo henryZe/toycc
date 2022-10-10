@@ -34,18 +34,22 @@ struct Token *tokenize(const char *p);
 enum TypeKind {
 	TY_INT,
 	TY_PTR,
+	TY_FUNC,
 };
 
 struct Type {
 	enum TypeKind kind;
+
 	struct Type *base;	// pointer
 	struct Token *name;	// declaration
+	struct Type *return_ty;	// function type
 };
 
 struct Node;
 struct Type *p_ty_int(void);
 bool is_integer(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
+struct Type *func_type(struct Type *return_ty);
 void add_type(struct Node *node);
 
 // parser.c
@@ -60,6 +64,8 @@ struct Obj {
 
 // function
 struct Function {
+	struct Function *next;
+	const char *name;
 	struct Node *body;
 	struct Obj *locals;
 	int stack_size;

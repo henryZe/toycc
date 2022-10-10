@@ -1,6 +1,6 @@
 #include <toycc.h>
 
-static struct Type *ty_int = &(struct Type){ TY_INT, NULL, NULL };
+static struct Type *ty_int = &(struct Type){ .kind = TY_INT };
 
 struct Type *p_ty_int(void)
 {
@@ -18,6 +18,14 @@ struct Type *pointer_to(struct Type *base)
 
 	ty->kind = TY_PTR;
 	ty->base = base;
+	return ty;
+}
+
+struct Type *func_type(struct Type *return_ty)
+{
+	struct Type *ty = malloc(sizeof(struct Type));
+	ty->kind = TY_FUNC;
+	ty->return_ty = return_ty;
 	return ty;
 }
 
