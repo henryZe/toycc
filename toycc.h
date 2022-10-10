@@ -40,16 +40,25 @@ enum TypeKind {
 struct Type {
 	enum TypeKind kind;
 
-	struct Type *base;	// pointer
-	struct Token *name;	// declaration
-	struct Type *return_ty;	// function type
+	// pointer
+	struct Type *base;
+
+	// declaration
+	struct Token *name;
+
+	// function type
+	struct Type *return_ty;
+	struct Type *params;
+	struct Type *next;
 };
 
-struct Node;
 struct Type *p_ty_int(void);
 bool is_integer(struct Type *ty);
+struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);
+
+struct Node;
 void add_type(struct Node *node);
 
 // parser.c
@@ -66,6 +75,8 @@ struct Obj {
 struct Function {
 	struct Function *next;
 	const char *name;
+	struct Obj *params;
+
 	struct Node *body;
 	struct Obj *locals;
 	int stack_size;
