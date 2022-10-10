@@ -55,6 +55,7 @@ static void gen_addr(struct Node *node)
 }
 
 static char *argreg[] = { "a0", "a1", "a2", "a3", "a4", "a5" };
+static struct Function *current_fn;
 
 // Traverse the AST to emit assembly.
 static void gen_expr(struct Node *node)
@@ -91,8 +92,9 @@ static void gen_expr(struct Node *node)
 		printf("\tsd a0, (a1)\n");
 		return;
 
-	case ND_FUNCALL:
+	case ND_FUNCALL: {
 		int nargs = 0;
+
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
 			gen_expr(arg);
 			push("a0");
@@ -104,6 +106,7 @@ static void gen_expr(struct Node *node)
 
 		printf("\tcall %s\n", node->funcname);
 		return;
+	}
 
 	default:
 		break;
@@ -197,7 +200,7 @@ static void gen_stmt(struct Node *node)
 
 	case ND_RETURN:
 		gen_expr(node->lhs);
-		printf("\tj return\n");
+		printf("\tj return.%s\n", current_fn->name);
 		return;
 
 	case ND_EXPR_STMT:
@@ -214,12 +217,15 @@ static void gen_stmt(struct Node *node)
 // Assign offsets to local variables.
 static void assign_lvar_offsets(struct Function *prog)
 {
-	int offset = 0;
-	for (struct Obj *var = prog->locals; var; var = var->next) {
-		offset += sizeof(long);
-		var->offset = -offset;
+	for (struct Function *fn = prog; fn; fn = fn->next) {
+		int offset = 0;
+
+		for (struct Obj *var = fn->locals; var; var = var->next) {
+			offset += sizeof(long);
+			var->offset = -offset;
+		}
+		fn->stack_size = align_to(offset, sizeof(long));
 	}
-	prog->stack_size = align_to(offset, sizeof(long));
 }
 
 // Traverse the AST to emit assembly.
@@ -227,28 +233,33 @@ void codegen(struct Function *prog)
 {
 	assign_lvar_offsets(prog);
 
-	printf(".global main\n");
-	printf("main:\n");
+	for (struct Function *fn = prog; fn; fn = fn->next) {
+		printf(".global %s\n", fn->name);
+		printf("%s:\n", fn->name);
+		current_fn = fn;
 
-	// prologue
-	push("fp");
-	push("ra");
-	printf("\tmv fp, sp\n");
-	printf("\tadd sp, sp, -%d\n", prog->stack_size);
+		// Prologue
+		push("fp");
+		push("ra");
+		printf("\tmv fp, sp\n");
+		printf("\tadd sp, sp, -%d\n", prog->stack_size);
 
-	int cur_depth = depth;
-	gen_stmt(prog->body);
-	assert(depth == cur_depth);
+		// Emit code
+		int cur_depth = depth;
+		gen_stmt(fn->body);
+		assert(depth == cur_depth);
 
-	// epilogue
-	printf("return:\n");
-	// restore sp register
-	printf("\tmv sp, fp\n");
-	// restore fp register
-	pop("ra");
-	pop("fp");
-	// mv ra to pc
-	printf("\tret\n");
+		// epilogue
+		printf("return.%s:\n", fn->name);
+		// restore sp register
+		printf("\tmv sp, fp\n");
+		// restore ra register
+		pop("ra");
+		// restore fp register
+		pop("fp");
+		// mv ra to pc
+		printf("\tret\n");
 
-	assert(!depth);
+		assert(!depth);
+	}
 }
