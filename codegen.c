@@ -101,8 +101,9 @@ static void gen_expr(struct Node *node)
 			nargs++;
 		}
 
-		for (int i = nargs - 1; i >= 0; i--)
+		for (int i = nargs - 1; i >= 0; i--) {
 			pop(argreg[i]);
+		}
 
 		printf("\tcall %s\n", node->funcname);
 		return;
@@ -242,7 +243,13 @@ void codegen(struct Function *prog)
 		push("fp");
 		push("ra");
 		printf("\tmv fp, sp\n");
-		printf("\tadd sp, sp, -%d\n", prog->stack_size);
+
+		// Save passed-by-register arguments to the stack
+		int i = 0;
+		for (struct Obj *var = fn->params; var; var = var->next) {
+			printf("\tsd %s, %d(sp)\n", argreg[i++], var->offset);
+		}
+		printf("\tadd sp, sp, -%d\n", fn->stack_size);
 
 		// Emit code
 		int cur_depth = depth;

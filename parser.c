@@ -76,6 +76,7 @@ static struct Obj *find_var(struct Token *tok)
 	return NULL;
 }
 
+// create variable and link to `locals` list
 static struct Obj *new_lvar(const char *name, struct Type *ty)
 {
 	struct Obj *var = malloc(sizeof(struct Obj));
@@ -367,13 +368,36 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 	return p_ty_int();
 }
 
-// type-suffix = ("(" func-params ")")?
+static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty);
+
+// type-suffix = ("(" func-params? ")")?
+// func-params = param ("," param)*
+// param = declspec declarator
 static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 				struct Type *ty)
 {
+	// deal with function identifier
 	if (equal(tok, "(")) {
-		*rest = skip(tok->next, ")");
-		return func_type(ty);
+		tok = tok->next;
+
+		struct Type head = {};
+		struct Type *cur = &head;
+
+		while (!equal(tok, ")")) {
+			if (cur != &head)
+				tok = skip(tok, ",");
+
+			struct Type *basety = declspec(&tok, tok);
+			struct Type *tmp_ty = declarator(&tok, tok, basety);
+			cur->next = copy_type(tmp_ty);
+			cur = cur->next;
+		}
+
+		ty = func_type(ty);
+		ty->params = head.next;
+
+		*rest = tok->next;
+		return ty;
 	}
 
 	*rest = tok;
@@ -390,6 +414,7 @@ static struct Type *declarator(struct Token **rest, struct Token *tok,
 	if (tok->kind != TK_IDENT)
 		error_tok(tok, "expected a variable name");
 
+	// deal with after identifier
 	ty = type_suffix(rest, tok->next, ty);
 	ty->name = tok;
 	return ty;
@@ -531,6 +556,15 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+static void create_param_lvars(struct Type *param)
+{
+	if (param) {
+		create_param_lvars(param->next);
+		// locals -> arg1 -> arg2 -> ... -> argn
+		new_lvar(get_ident(param->name), param);
+	}
+}
+
 static struct Function *function(struct Token **rest, struct Token *tok)
 {
 	struct Type *ty = declspec(&tok, tok);
@@ -541,6 +575,9 @@ static struct Function *function(struct Token **rest, struct Token *tok)
 
 	struct Function *fn = malloc(sizeof(struct Function));
 	fn->name = get_ident(ty->name);
+
+	create_param_lvars(ty->params);
+	fn->params = locals;
 
 	tok = skip(tok, "{");
 
