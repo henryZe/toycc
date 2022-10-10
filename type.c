@@ -12,10 +12,16 @@ bool is_integer(struct Type *ty)
 	return ty->kind == TY_INT;
 }
 
+struct Type *copy_type(struct Type *ty)
+{
+	struct Type *ret = malloc(sizeof(struct Type));
+	*ret = *ty;
+	return ret;
+}
+
 struct Type *pointer_to(struct Type *base)
 {
 	struct Type *ty = malloc(sizeof(struct Type));
-
 	ty->kind = TY_PTR;
 	ty->base = base;
 	return ty;
@@ -43,6 +49,8 @@ void add_type(struct Node *node)
 	add_type(node->inc);
 
 	for (struct Node *n = node->body; n; n = n->next)
+		add_type(n);
+	for (struct Node *n = node->args; n; n = n->next)
 		add_type(n);
 
 	switch (node->kind) {
