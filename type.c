@@ -1,6 +1,6 @@
 #include <toycc.h>
 
-static struct Type *ty_int = &(struct Type){ .kind = TY_INT };
+static struct Type *ty_int = &(struct Type){ .kind = TY_INT, .size = sizeof(long) };
 
 struct Type *p_ty_int(void)
 {
@@ -23,6 +23,7 @@ struct Type *pointer_to(struct Type *base)
 {
 	struct Type *ty = malloc(sizeof(struct Type));
 	ty->kind = TY_PTR;
+	ty->size = sizeof(long);
 	ty->base = base;
 	return ty;
 }
@@ -32,6 +33,18 @@ struct Type *func_type(struct Type *return_ty)
 	struct Type *ty = malloc(sizeof(struct Type));
 	ty->kind = TY_FUNC;
 	ty->return_ty = return_ty;
+	return ty;
+}
+
+struct Type *array_of(struct Type *base, int len)
+{
+	struct Type *ty = malloc(sizeof(struct Type));
+
+	ty->kind = TY_ARRAY;
+	ty->size = base->size * len;
+	ty->base = base;
+	ty->array_len = len;
+
 	return ty;
 }
 
@@ -59,7 +72,12 @@ void add_type(struct Node *node)
 	case ND_MUL:
 	case ND_DIV:
 	case ND_NEG:
+		node->ty = node->lhs->ty;
+		break;
+
 	case ND_ASSIGN:
+		if (node->lhs->ty->kind == TY_ARRAY)
+			error_tok(node->lhs->tok, "not an lvalue");
 		node->ty = node->lhs->ty;
 		break;
 
@@ -77,13 +95,16 @@ void add_type(struct Node *node)
 		break;
 
 	case ND_ADDR:
-		node->ty = pointer_to(node->lhs->ty);
+		if (node->lhs->ty->kind == TY_ARRAY)
+			// TODO: &array is not (array base *).
+			node->ty = pointer_to(node->lhs->ty->base);
+		else
+			node->ty = pointer_to(node->lhs->ty);
 		break;
 
 	case ND_DEREF:
-		if (node->lhs->ty->kind != TY_PTR)
+		if (!node->lhs->ty->base)
 			error_tok(node->tok, "invalid pointer dereference");
-
 		node->ty = node->lhs->ty->base;
 		break;
 

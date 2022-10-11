@@ -224,7 +224,7 @@ static struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *to
 	}
 
 	// ptr + num
-	rhs = new_binary(ND_MUL, rhs, new_num(sizeof(long), tok), tok);
+	rhs = new_binary(ND_MUL, rhs, new_num(lhs->ty->base->size, tok), tok);
 	return new_binary(ND_ADD, lhs, rhs, tok);
 }
 
@@ -241,12 +241,12 @@ static struct Node *new_sub(struct Node *lhs, struct Node *rhs, struct Token *to
 	if (lhs->ty->base && rhs->ty->base) {
 		struct Node *node = new_binary(ND_SUB, lhs, rhs, tok);
 		node->ty = p_ty_int();
-		return new_binary(ND_DIV, node, new_num(sizeof(long), tok), tok);
+		return new_binary(ND_DIV, node, new_num(lhs->ty->base->size, tok), tok);
 	}
 
 	// ptr - num
 	if (lhs->ty->base && is_integer(rhs->ty)) {
-		rhs = new_binary(ND_MUL, rhs, new_num(sizeof(long), tok), tok);
+		rhs = new_binary(ND_MUL, rhs, new_num(lhs->ty->base->size, tok), tok);
 		return new_binary(ND_SUB, lhs, rhs, tok);
 	}
 
@@ -361,6 +361,13 @@ static struct Node *expr_stmt(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+static int get_number(struct Token *tok)
+{
+	if (tok->kind != TK_NUM)
+		error_tok(tok, "expected a number");
+	return tok->val;
+}
+
 // declspec = "int"
 static struct Type *declspec(struct Token **rest, struct Token *tok)
 {
@@ -370,34 +377,46 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 
 static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty);
 
-// type-suffix = ("(" func-params? ")")?
-// func-params = param ("," param)*
+// func-params = (param ("," param)*)? ")"
 // param = declspec declarator
+static struct Type *func_params(struct Token **rest, struct Token *tok, struct Type *ty)
+{
+	struct Type head = {};
+	struct Type *cur = &head;
+
+	while (!equal(tok, ")")) {
+		if (cur != &head)
+			tok = skip(tok, ",");
+
+		struct Type *basety = declspec(&tok, tok);
+		struct Type *tmp_ty = declarator(&tok, tok, basety);
+		cur->next = copy_type(tmp_ty);
+		cur = cur->next;
+	}
+
+	ty = func_type(ty);
+	ty->params = head.next;
+
+	*rest = tok->next;
+	return ty;
+}
+
+// type-suffix = "(" func-params
+// 		| "[" num "]"
+// 		| NULL
 static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 				struct Type *ty)
 {
 	// deal with function identifier
-	if (equal(tok, "(")) {
-		tok = tok->next;
+	if (equal(tok, "("))
+		return func_params(rest, tok->next, ty);
 
-		struct Type head = {};
-		struct Type *cur = &head;
+	if (equal(tok, "[")) {
+		int sz = get_number(tok->next);
 
-		while (!equal(tok, ")")) {
-			if (cur != &head)
-				tok = skip(tok, ",");
-
-			struct Type *basety = declspec(&tok, tok);
-			struct Type *tmp_ty = declarator(&tok, tok, basety);
-			cur->next = copy_type(tmp_ty);
-			cur = cur->next;
-		}
-
-		ty = func_type(ty);
-		ty->params = head.next;
-
-		*rest = tok->next;
-		return ty;
+		// skip "]"
+		*rest = skip(tok->next->next, "]");
+		return array_of(ty, sz);
 	}
 
 	*rest = tok;

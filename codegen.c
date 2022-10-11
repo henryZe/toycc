@@ -57,7 +57,32 @@ static void gen_addr(struct Node *node)
 static char *argreg[] = { "a0", "a1", "a2", "a3", "a4", "a5" };
 static struct Function *current_fn;
 
-// Traverse the AST to emit assembly.
+// Load a value from where a0 is pointing to.
+static void load(struct Type *ty)
+{
+	if (ty->kind == TY_ARRAY) {
+		// If it is an array, do not attempt to load a value
+		// to the register because in general we can't load
+		// an entire array to a register. As a result,
+		// the result of an evaluation of an array becomes
+		// not the array itself but the address of the array.
+		// This is where "array is automatically converted to
+		// a pointer to the first element of the array in C"
+		// occurs.
+		return;
+	}
+
+	printf("\tld a0, (a0)\n");
+}
+
+// Store a0 to an address that the stack top is pointing to.
+static void store(void)
+{
+	pop("a1");
+	printf("\tsd a0, (a1)\n");
+}
+
+// Generate code for a given node.
 static void gen_expr(struct Node *node)
 {
 	switch (node->kind) {
@@ -71,29 +96,40 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_VAR:
+		debug("\t# ND_VAR load var %s\n",
+					node->var->name);
 		gen_addr(node);
-		printf("\tld a0, (a0)\n");
+		load(node->ty);
+		debug("\t# end ND_VAR load var %s\n",
+					node->var->name);
 		return;
 
 	case ND_DEREF:
+		debug("\t# ND_DEREF load\n");
 		gen_expr(node->lhs);
-		printf("\tld a0, (a0)\n");
+		load(node->ty);
+		debug("\t# end ND_DEREF load\n");
 		return;
 
 	case ND_ADDR:
+		debug("\t# ND_ADDR var\n");
 		gen_addr(node->lhs);
+		debug("\t# end ND_ADDR var\n");
 		return;
 
 	case ND_ASSIGN:
+		debug("\t# ND_ASSIGN var\n");
 		gen_addr(node->lhs);
 		push("a0");
 		gen_expr(node->rhs);
-		pop("a1");
-		printf("\tsd a0, (a1)\n");
+		store();
+		debug("\t# end ND_ASSIGN var\n");
 		return;
 
 	case ND_FUNCALL: {
 		int nargs = 0;
+
+		debug("\t# ND_FUNCALL func %s\n", node->funcname);
 
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
 			gen_expr(arg);
@@ -106,6 +142,8 @@ static void gen_expr(struct Node *node)
 		}
 
 		printf("\tcall %s\n", node->funcname);
+
+		debug("\t# end ND_FUNCALL func %s\n", node->funcname);
 		return;
 	}
 
@@ -162,6 +200,7 @@ static void gen_stmt(struct Node *node)
 	case ND_IF:
 		c = count();
 
+		debug("\t# ND_IF\n");
 		gen_expr(node->cond);
 		printf("\tbeqz a0, else.%d\n", c);
 
@@ -173,11 +212,13 @@ static void gen_stmt(struct Node *node)
 			gen_stmt(node->els);
 
 		printf("end.%d:\n", c);
+		debug("\t# end ND_IF\n");
 		return;
 
 	case ND_FOR:
 		c = count();
 
+		debug("\t# ND_FOR\n");
 		if (node->init)
 			gen_stmt(node->init);
 
@@ -192,6 +233,7 @@ static void gen_stmt(struct Node *node)
 		printf("\tj begin.%d\n", c);
 
 		printf("end.%d:\n", c);
+		debug("\t# end ND_FOR\n");
 		return;
 
 	case ND_BLOCK:
@@ -222,7 +264,7 @@ static void assign_lvar_offsets(struct Function *prog)
 		int offset = 0;
 
 		for (struct Obj *var = fn->locals; var; var = var->next) {
-			offset += sizeof(long);
+			offset += var->ty->size;
 			var->offset = -offset;
 		}
 		fn->stack_size = align_to(offset, sizeof(long));
@@ -246,10 +288,12 @@ void codegen(struct Function *prog)
 
 		// Save passed-by-register arguments to the stack
 		int i = 0;
+		debug("\t# '%s' save args into stack\n", fn->name);
 		for (struct Obj *var = fn->params; var; var = var->next) {
 			printf("\tsd %s, %d(sp)\n", argreg[i++], var->offset);
 		}
 		printf("\tadd sp, sp, -%d\n", fn->stack_size);
+		debug("\t# end '%s' save args\n", fn->name);
 
 		// Emit code
 		int cur_depth = depth;
