@@ -35,16 +35,23 @@ enum TypeKind {
 	TY_INT,
 	TY_PTR,
 	TY_FUNC,
+	TY_ARRAY,
 };
 
 struct Type {
 	enum TypeKind kind;
+	int size;		// sizeof() value
 
-	// pointer
+	// pointer-to or array-of type.
+	// We intentionally use the same member to
+	// represent pointer/array duality in C.
 	struct Type *base;
 
 	// declaration
 	struct Token *name;
+
+	// Array
+	int array_len;
 
 	// function type
 	struct Type *return_ty;
@@ -57,6 +64,7 @@ bool is_integer(struct Type *ty);
 struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);
+struct Type *array_of(struct Type *base, int size);
 
 struct Node;
 void add_type(struct Node *node);
@@ -136,6 +144,12 @@ struct Node {
 struct Function *parser(struct Token *tok);
 
 // codegen.c
+#ifdef DEBUG
+#define debug(fmt, args...) printf(fmt, ##args)
+#else
+#define debug(fmt, args...)
+#endif
+
 void codegen(struct Function *prog);
 
 // utils.c
