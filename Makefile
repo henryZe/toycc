@@ -1,9 +1,12 @@
-CFLAGS=-std=c18 -g -fno-common -Wall -Wextra -Werror -Wno-sign-compare
-TARGET=toycc
-OUTPUT=output
-TEST=test.sh
-INCDIR=.
-SRCDIR=.
+
+CFLAGS = -std=c18 -fno-common -O0 -g
+CFLAGS += -Wall -Wextra -Werror -Wno-sign-compare
+CFLAGS += -DDEBUG
+TARGET = toycc
+OUTPUT = output
+TEST = test.sh
+INCDIR = .
+SRCDIR = .
 SRCFILES := \
 	$(SRCDIR)/utils.c \
 	$(SRCDIR)/tokenize.c \
