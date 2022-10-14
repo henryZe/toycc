@@ -7,7 +7,7 @@ OUTPUT = output
 TEST = test.sh
 INCDIR = .
 SRCDIR = .
-SRCFILES := \
+SRCFILES = \
 	$(SRCDIR)/utils.c \
 	$(SRCDIR)/tokenize.c \
 	$(SRCDIR)/type.c \
@@ -15,7 +15,7 @@ SRCFILES := \
 	$(SRCDIR)/codegen.c \
 	$(SRCDIR)/main.c \
 
-SRC_OBJFILES := $(patsubst $(SRCDIR)/%.c, $(OUTPUT)/%.o, $(SRCFILES))
+SRC_OBJFILES = $(patsubst $(SRCDIR)/%.c, $(OUTPUT)/%.o, $(SRCFILES))
 
 $(OUTPUT)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
