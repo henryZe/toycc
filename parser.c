@@ -402,7 +402,7 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 }
 
 // type-suffix = "(" func-params
-// 		| "[" num "]"
+// 		| "[" num "]" type_suffix
 // 		| NULL
 static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 				struct Type *ty)
@@ -415,7 +415,8 @@ static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 		int sz = get_number(tok->next);
 
 		// skip "]"
-		*rest = skip(tok->next->next, "]");
+		tok = skip(tok->next->next, "]");
+		ty = type_suffix(rest, tok, ty);
 		return array_of(ty, sz);
 	}
 
