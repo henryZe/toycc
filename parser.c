@@ -89,14 +89,15 @@ static struct Obj *new_lvar(const char *name, struct Type *ty)
 }
 
 // parse AST(abstract syntax tree)
-// expr -> assign -> equality -> relational -> add ->
-// mul -> unary -> primary(num -> identifier -> bracket)
-// -> expr -> ...
+// expr -> assign -> equality -> relational -> add -> mul ->
+// unary -> postfix -> primary(num -> identifier -> bracket) ->
+// expr -> ...
 // expr:
 // 	tok: current tok pointer
 // 	rest: return current tok pointer
 static struct Node *expr(struct Token **rest, struct Token *tok);
 static struct Node *assign(struct Token **rest, struct Token *tok);
+static struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok);
 
 // funcall = ident "(" (assign ("," assign)*)? ")"
 static struct Node *funcall(struct Token **rest, struct Token *tok)
@@ -154,8 +155,26 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	error_tok(tok, "expected an expression");
 }
 
+// postfix = primary ("[" expr "]")*
+static struct Node *postfix(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = primary(&tok, tok);
+
+	while (equal(tok, "[")) {
+		// x[y] is short for *(x+y)
+		struct Token *start = tok;
+		struct Node *idx = expr(&tok, tok->next);
+
+		tok = skip(tok, "]");
+		node = new_unary(ND_DEREF, new_add(node, idx, start), start);
+	}
+
+	*rest = tok;
+	return node;
+}
+
 // unary = ("+" | "-" | "*" | "&") unary
-// 		| primary
+// 		| postfix
 static struct Node *unary(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "+"))
@@ -172,7 +191,7 @@ static struct Node *unary(struct Token **rest, struct Token *tok)
 	if (equal(tok, "*"))
 		return new_unary(ND_DEREF, unary(rest, tok->next), tok);
 
-	return primary(rest, tok);
+	return postfix(rest, tok);
 }
 
 static struct Node *mul(struct Token **rest, struct Token *tok)
