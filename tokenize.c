@@ -64,6 +64,7 @@ static bool is_keyword(struct Token *tok)
 		"for",
 		"while",
 		"int",
+		"sizeof",
 	};
 
 	for (int i = 0; i < ARRAY_SIZE(kw); i++)

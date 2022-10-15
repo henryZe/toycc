@@ -98,6 +98,7 @@ static struct Obj *new_lvar(const char *name, struct Type *ty)
 static struct Node *expr(struct Token **rest, struct Token *tok);
 static struct Node *assign(struct Token **rest, struct Token *tok);
 static struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok);
+static struct Node *unary(struct Token **rest, struct Token *tok);
 
 // funcall = ident "(" (assign ("," assign)*)? ")"
 static struct Node *funcall(struct Token **rest, struct Token *tok)
@@ -124,13 +125,21 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// primary = "(" expr ")" | ident (func-args)? | num
+// primary = "(" expr ")" | "sizeof" unary | ident (func-args)? | num
 static struct Node *primary(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "(")) {
 		struct Node *node = expr(&tok, tok->next);
 		*rest = skip(tok, ")");
 		return node;
+	}
+
+	if (equal(tok, "sizeof")) {
+		// update rest pointer
+		struct Node *node = unary(rest, tok->next);
+
+		add_type(node);
+		return new_num(node->ty->size, tok);
 	}
 
 	if (tok->kind == TK_IDENT) {
