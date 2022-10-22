@@ -420,9 +420,14 @@ static int get_number(struct Token *tok)
 	return tok->val;
 }
 
-// declspec = "int"
+// declspec = "char" | "int"
 static struct Type *declspec(struct Token **rest, struct Token *tok)
 {
+	if (equal(tok, "char")) {
+		*rest = tok->next;
+		return p_ty_char();
+	}
+
 	*rest = skip(tok, "int");
 	return p_ty_int();
 }
@@ -606,6 +611,12 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 	return expr_stmt(rest, tok);
 }
 
+// Returns true if a given token represents a type.
+static bool is_typename(struct Token *tok)
+{
+	return equal(tok, "char") || equal(tok, "int");
+}
+
 // compound-stmt = (declaration | stmt)* "}"
 static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 {
@@ -614,7 +625,7 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	struct Node *node = new_node(ND_BLOCK, tok);
 
 	while (!equal(tok, "}")) {
-		if (equal(tok, "int"))
+		if (is_typename(tok))
 			cur->next = declaration(&tok, tok);
 		else
 			cur->next = stmt(&tok, tok);

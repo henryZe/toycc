@@ -8,6 +8,14 @@ static int count(void)
 
 // code generator
 static int depth = 0;
+static char *argreg[] = {
+	"a0",
+	"a1",
+	"a2",
+	"a3",
+	"a4",
+	"a5",
+};
 
 // push reg into 0(sp)
 static void push(char *reg)
@@ -59,7 +67,6 @@ static void gen_addr(struct Node *node)
 	error_tok(node->tok, "not a lvalue");
 }
 
-static char *argreg[] = { "a0", "a1", "a2", "a3", "a4", "a5" };
 static struct Obj *current_fn;
 
 // Load a value from where a0 is pointing to.
@@ -77,14 +84,21 @@ static void load(struct Type *ty)
 		return;
 	}
 
-	printf("\tld a0, (a0)\n");
+	if (ty->size == sizeof(char))
+		printf("\tlb a0, (a0)\n");
+	else
+		printf("\tld a0, (a0)\n");
 }
 
 // Store a0 to an address that the stack top is pointing to.
-static void store(void)
+static void store(struct Type *ty)
 {
 	pop("a1");
-	printf("\tsd a0, (a1)\n");
+
+	if (ty->size == sizeof(char))
+		printf("\tsb a0, (a1)\n");
+	else
+		printf("\tsd a0, (a1)\n");
 }
 
 // Generate code for a given node.
@@ -127,7 +141,7 @@ static void gen_expr(struct Node *node)
 		gen_addr(node->lhs);
 		push("a0");
 		gen_expr(node->rhs);
-		store();
+		store(node->ty);
 		debug("\t# end ND_ASSIGN var\n");
 		return;
 
@@ -313,7 +327,10 @@ static void emit_text(struct Obj *prog)
 		int i = 0;
 		debug("\t# '%s' save args into stack\n", fn->name);
 		for (struct Obj *var = fn->params; var; var = var->next) {
-			printf("\tsd %s, %d(sp)\n", argreg[i++], var->offset);
+			if (var->ty->size == sizeof(char))
+				printf("\tsb %s, %d(sp)\n", argreg[i++], var->offset);
+			else
+				printf("\tsd %s, %d(sp)\n", argreg[i++], var->offset);
 		}
 		printf("\tadd sp, sp, -%d\n", fn->stack_size);
 		debug("\t# end '%s' save args\n", fn->name);
