@@ -32,6 +32,7 @@ struct Token *tokenize(const char *p);
 // type.c
 
 enum TypeKind {
+	TY_CHAR,
 	TY_INT,
 	TY_PTR,
 	TY_FUNC,
@@ -59,6 +60,7 @@ struct Type {
 	struct Type *next;
 };
 
+struct Type *p_ty_char(void);
 struct Type *p_ty_int(void);
 bool is_integer(struct Type *ty);
 struct Type *copy_type(struct Type *ty);
