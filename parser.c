@@ -109,13 +109,11 @@ static struct Obj *new_gvar(const char *name, struct Type *ty)
 	return var;
 }
 
-static char *new_unique_name(void)
+static const char *new_unique_name(void)
 {
 	static int id = 0;
 
-	char *buf = malloc(sizeof(char) * 20);
-	sprintf(buf, ".L..%d", id++);
-	return buf;
+	return format(".L..%d", id++);;
 }
 
 // anonymous global variable

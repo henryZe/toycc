@@ -9,6 +9,7 @@ INCDIR = .
 SRCDIR = .
 SRCFILES = \
 	$(SRCDIR)/utils.c \
+	$(SRCDIR)/string.c \
 	$(SRCDIR)/tokenize.c \
 	$(SRCDIR)/type.c \
 	$(SRCDIR)/parser.c \
