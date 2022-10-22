@@ -1,7 +1,7 @@
 #!/bin/bash
 CROSS_COMPILE=riscv64-linux-gnu-
 
-cat <<EOF | "$CROSS_COMPILE"gcc -march=rv64g -static -xc -c -o output/tmp2.o -
+cat <<EOF | "$CROSS_COMPILE"gcc -march=rv64g -static -xc -c - -o output/tmp2.o
 int ret3() { return 3; }
 int ret5() { return 5; }
 int add(int x, int y) { return x + y; }

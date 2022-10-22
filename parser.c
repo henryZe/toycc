@@ -14,7 +14,8 @@
 
 // All local variable instances created during parsing are
 // accumulated to this list.
-struct Obj *locals;
+static struct Obj *locals;
+static struct Obj *globals;
 
 static struct Token *skip(struct Token *tok, const char *s)
 {
@@ -77,14 +78,28 @@ static struct Obj *find_var(struct Token *tok)
 }
 
 // create variable and link to `locals` list
-static struct Obj *new_lvar(const char *name, struct Type *ty)
+static struct Obj *new_var(const char *name, struct Type *ty)
 {
 	struct Obj *var = malloc(sizeof(struct Obj));
 	var->name = name;
 	var->ty = ty;
+	return var;
+}
 
+static struct Obj *new_lvar(const char *name, struct Type *ty)
+{
+	struct Obj *var = new_var(name, ty);
+	var->is_local = true;
 	var->next = locals;
 	locals = var;
+	return var;
+}
+
+static struct Obj *new_gvar(const char *name, struct Type *ty)
+{
+	struct Obj *var = new_var(name, ty);
+	var->next = globals;
+	globals = var;
 	return var;
 }
 
@@ -125,7 +140,10 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// primary = "(" expr ")" | "sizeof" unary | ident (func-args)? | num
+// primary = "(" expr ")"
+// 		| "sizeof" unary
+// 		| ident (func-args)?
+// 		| num
 static struct Node *primary(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "(")) {
@@ -613,36 +631,33 @@ static void create_param_lvars(struct Type *param)
 	}
 }
 
-static struct Function *function(struct Token **rest, struct Token *tok)
+static struct Token *function(struct Token *tok, struct Type *basety)
 {
-	struct Type *ty = declspec(&tok, tok);
-	ty = declarator(&tok, tok, ty);
+	struct Type *ty = declarator(&tok, tok, basety);
+
+	struct Obj *fn = new_gvar(get_ident(ty->name), ty);
+	fn->is_function = true;
 
 	// initialize local variables list
 	locals = NULL;
-
-	struct Function *fn = malloc(sizeof(struct Function));
-	fn->name = get_ident(ty->name);
-
 	create_param_lvars(ty->params);
 	fn->params = locals;
 
 	tok = skip(tok, "{");
 
-	fn->body = compound_stmt(rest, tok);
+	fn->body = compound_stmt(&tok, tok);
 	fn->locals = locals;
-	return fn;
+	return tok;
 }
 
-// program = (function-definition)*
-struct Function *parser(struct Token *tok)
+// program = (function-definition | global-variable)*
+struct Obj *parser(struct Token *tok)
 {
-	struct Function head = {};
-	struct Function *cur = &head;
+	globals = NULL;
 
 	while (tok->kind != TK_EOF) {
-		cur->next = function(&tok, tok);
-		cur = cur->next;
+		struct Type *basety = declspec(&tok, tok);
+		tok = function(tok, basety);
 	}
-	return head.next;
+	return globals;
 }

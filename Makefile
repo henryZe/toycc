@@ -17,7 +17,7 @@ SRCFILES = \
 
 SRC_OBJFILES = $(patsubst $(SRCDIR)/%.c, $(OUTPUT)/%.o, $(SRCFILES))
 
-$(OUTPUT)/%.o: $(SRCDIR)/%.c
+$(OUTPUT)/%.o: $(SRCDIR)/%.c $(INCDIR)/toycc.h
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
 
