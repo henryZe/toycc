@@ -14,16 +14,19 @@ enum TokenKind {
 	TK_IDENT,	// Identifiers
 	TK_PUNCT,	// punctuators
 	TK_KEYWORD,	// keywords
+	TK_STR,		// String literals
 	TK_NUM,		// numeric literals
 	TK_EOF,		// End-of-file markers
 };
 
 struct Token {
 	enum TokenKind kind;	// Token kind
-	struct Token *next;	// Next token
+	struct Token *next;	// next token
 	int val;		// if kind is TK_NUM, its value
 	const char *loc;	// Token location
 	size_t len;		// Token length
+	struct Type *ty;	// used if TK_STR
+	const char *str;	// string literal contents including terminating '\0'
 };
 
 bool consume(struct Token **rest, struct Token *tok, const char *str);
@@ -85,6 +88,9 @@ struct Obj {
 
 	// global variable or function
 	bool is_function;
+
+	// global variable
+	const char *init_data;
 
 	// function
 	struct Obj *params;

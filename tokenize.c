@@ -74,6 +74,24 @@ static bool is_keyword(struct Token *tok)
 	return false;
 }
 
+static struct Token *read_string_literal(const char *start)
+{
+	// skip '"'
+	const char *p = start + 1;
+
+	for (; *p != '"'; p++)
+		if (*p == '\n' || *p == '\0')
+			error_at(start, "unclosed string literal");
+
+	struct Token *tok = new_token(TK_STR, start, p + 1);
+
+	// string + '\0'
+	tok->ty = array_of(p_ty_char(), p - start);
+	tok->str = strndup(start + 1, p - (start + 1));
+
+	return tok;
+}
+
 static void convert_keywords(struct Token *tok)
 {
 	for (struct Token *t = tok; t->kind != TK_EOF; t = t->next)
@@ -104,6 +122,14 @@ struct Token *tokenize(const char *p)
 			const char *q = p;
 			cur->val = strtol(p, (char **)&p, 10);
 			cur->len = p - q;
+			continue;
+		}
+
+		// string literal
+		if (*p == '"') {
+			cur->next = read_string_literal(p);
+			cur = cur->next;
+			p += cur->len;
 			continue;
 		}
 
