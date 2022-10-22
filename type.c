@@ -1,6 +1,12 @@
 #include <toycc.h>
 
+static struct Type *ty_char = &(struct Type){ .kind = TY_CHAR, .size = sizeof(char) };
 static struct Type *ty_int = &(struct Type){ .kind = TY_INT, .size = sizeof(long) };
+
+struct Type *p_ty_char(void)
+{
+	return ty_char;
+}
 
 struct Type *p_ty_int(void)
 {
@@ -9,7 +15,7 @@ struct Type *p_ty_int(void)
 
 bool is_integer(struct Type *ty)
 {
-	return ty->kind == TY_INT;
+	return ty->kind == TY_CHAR || ty->kind == TY_INT;
 }
 
 struct Type *copy_type(struct Type *ty)
