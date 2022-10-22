@@ -74,6 +74,12 @@ static struct Obj *find_var(struct Token *tok)
 		if (strlen(var->name) == tok->len &&
 			!strncmp(tok->loc, var->name, tok->len))
 			return var;
+
+	for (struct Obj *var = globals; var; var = var->next)
+		if (strlen(var->name) == tok->len &&
+			!strncmp(tok->loc, var->name, tok->len))
+			return var;
+
 	return NULL;
 }
 
@@ -650,6 +656,32 @@ static struct Token *function(struct Token *tok, struct Type *basety)
 	return tok;
 }
 
+static struct Token *global_variable(struct Token *tok, struct Type *basety)
+{
+	bool first = true;
+
+	while (!consume(&tok, tok, ";")) {
+		if (!first)
+			tok = skip(tok, ",");
+		first = false;
+
+		struct Type *ty = declarator(&tok, tok, basety);
+		new_gvar(get_ident(ty->name), ty);
+	}
+	return tok;
+}
+
+static bool is_function(struct Token *tok)
+{
+	if (equal(tok, ";"))
+		return false;
+
+	struct Type dummy = {};
+	struct Type *ty = declarator(&tok, tok, &dummy);
+
+	return ty->kind == TY_FUNC;
+}
+
 // program = (function-definition | global-variable)*
 struct Obj *parser(struct Token *tok)
 {
@@ -657,7 +689,15 @@ struct Obj *parser(struct Token *tok)
 
 	while (tok->kind != TK_EOF) {
 		struct Type *basety = declspec(&tok, tok);
-		tok = function(tok, basety);
+
+		if (is_function(tok)) {
+			// function
+			tok = function(tok, basety);
+		} else {
+			// global variable
+			tok = global_variable(tok, basety);
+		}
 	}
+
 	return globals;
 }

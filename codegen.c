@@ -40,7 +40,12 @@ static void gen_addr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_VAR:
-		printf("\tadd a0, fp, %d\n", node->var->offset);
+		if (node->var->is_local)
+			// local variable
+			printf("\tadd a0, fp, %d\n", node->var->offset);
+		else
+			// global variable
+			printf("\tla a0, %s\n", node->var->name);
 		return;
 
 	case ND_DEREF:
@@ -265,26 +270,37 @@ static void assign_lvar_offsets(struct Obj *prog)
 			continue;
 
 		int offset = 0;
-
+		// initialize var's offset
 		for (struct Obj *var = fn->locals; var; var = var->next) {
 			offset += var->ty->size;
 			var->offset = -offset;
 		}
+		// initialize stack size
 		fn->stack_size = align_to(offset, sizeof(long));
 	}
 }
 
-// Traverse the AST to emit assembly.
-void codegen(struct Obj *prog)
+static void emit_data(struct Obj *prog)
 {
-	assign_lvar_offsets(prog);
+	for (struct Obj *var = prog; var; var = var->next) {
+		if (var->is_function)
+			continue;
 
+		printf(".data\n");
+		printf(".global %s\n", var->name);
+		printf("%s:\n", var->name);
+		printf("\t.zero %d\n", var->ty->size);
+	}
+}
+
+static void emit_text(struct Obj *prog)
+{
 	for (struct Obj *fn = prog; fn; fn = fn->next) {
 		if (!fn->is_function)
 			continue;
 
-		printf(".global %s\n", fn->name);
 		printf(".text\n");
+		printf(".global %s\n", fn->name);
 		printf("%s:\n", fn->name);
 		current_fn = fn;
 
@@ -320,4 +336,12 @@ void codegen(struct Obj *prog)
 
 		assert(!depth);
 	}
+}
+
+// Traverse the AST to emit assembly.
+void codegen(struct Obj *prog)
+{
+	assign_lvar_offsets(prog);
+	emit_data(prog);
+	emit_text(prog);
 }
