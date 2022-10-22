@@ -55,7 +55,7 @@ static void gen_addr(struct Node *node)
 }
 
 static char *argreg[] = { "a0", "a1", "a2", "a3", "a4", "a5" };
-static struct Function *current_fn;
+static struct Obj *current_fn;
 
 // Load a value from where a0 is pointing to.
 static void load(struct Type *ty)
@@ -258,9 +258,12 @@ static void gen_stmt(struct Node *node)
 }
 
 // Assign offsets to local variables.
-static void assign_lvar_offsets(struct Function *prog)
+static void assign_lvar_offsets(struct Obj *prog)
 {
-	for (struct Function *fn = prog; fn; fn = fn->next) {
+	for (struct Obj *fn = prog; fn; fn = fn->next) {
+		if (!fn->is_function)
+			continue;
+
 		int offset = 0;
 
 		for (struct Obj *var = fn->locals; var; var = var->next) {
@@ -272,12 +275,16 @@ static void assign_lvar_offsets(struct Function *prog)
 }
 
 // Traverse the AST to emit assembly.
-void codegen(struct Function *prog)
+void codegen(struct Obj *prog)
 {
 	assign_lvar_offsets(prog);
 
-	for (struct Function *fn = prog; fn; fn = fn->next) {
+	for (struct Obj *fn = prog; fn; fn = fn->next) {
+		if (!fn->is_function)
+			continue;
+
 		printf(".global %s\n", fn->name);
+		printf(".text\n");
 		printf("%s:\n", fn->name);
 		current_fn = fn;
 

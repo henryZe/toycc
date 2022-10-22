@@ -76,15 +76,16 @@ struct Obj {
 	struct Obj *next;
 	const char *name;
 	struct Type *ty;	// Type
+	bool is_local;		// local or global/function
+
+	// local variable
 	int offset;		// Offset from fp
-};
 
-// function
-struct Function {
-	struct Function *next;
-	const char *name;
+	// global variable or function
+	bool is_function;
+
+	// function
 	struct Obj *params;
-
 	struct Node *body;
 	struct Obj *locals;
 	int stack_size;
@@ -141,7 +142,7 @@ struct Node {
 	int val;		// Used if kind == ND_NUM
 };
 
-struct Function *parser(struct Token *tok);
+struct Obj *parser(struct Token *tok);
 
 // codegen.c
 #ifdef DEBUG
@@ -150,7 +151,7 @@ struct Function *parser(struct Token *tok);
 #define debug(fmt, args...)
 #endif
 
-void codegen(struct Function *prog);
+void codegen(struct Obj *prog);
 
 // utils.c
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
