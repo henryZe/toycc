@@ -109,6 +109,28 @@ static struct Obj *new_gvar(const char *name, struct Type *ty)
 	return var;
 }
 
+static char *new_unique_name(void)
+{
+	static int id = 0;
+
+	char *buf = malloc(sizeof(char) * 20);
+	sprintf(buf, ".L..%d", id++);
+	return buf;
+}
+
+// anonymous global variable
+static struct Obj *new_anon_gvar(struct Type *ty)
+{
+	return new_gvar(new_unique_name(), ty);
+}
+
+static struct Obj *new_string_literal(const char *p, struct Type *ty)
+{
+	struct Obj *var = new_anon_gvar(ty);
+	var->init_data = p;
+	return var;
+}
+
 // parse AST(abstract syntax tree)
 // expr -> assign -> equality -> relational -> add -> mul ->
 // unary -> postfix -> primary(num -> identifier -> bracket) ->
@@ -149,6 +171,7 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 // primary = "(" expr ")"
 // 		| "sizeof" unary
 // 		| ident (func-args)?
+// 		| str
 // 		| num
 static struct Node *primary(struct Token **rest, struct Token *tok)
 {
@@ -175,6 +198,12 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		struct Obj *var = find_var(tok);
 		if (!var)
 			error_tok(tok, "undefined variable");
+		*rest = tok->next;
+		return new_var_node(var, tok);
+	}
+
+	if (tok->kind == TK_STR) {
+		struct Obj *var = new_string_literal(tok->str, tok->ty);
 		*rest = tok->next;
 		return new_var_node(var, tok);
 	}
