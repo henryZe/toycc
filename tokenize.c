@@ -74,21 +74,66 @@ static bool is_keyword(struct Token *tok)
 	return false;
 }
 
-static struct Token *read_string_literal(const char *start)
+static int read_escaped_char(const char *p)
 {
-	// skip '"'
-	const char *p = start + 1;
+	switch (*p) {
+	case 'a':
+		return 7;
+	case 'b':
+		return 8;
+	case 't':
+		return 9;
+	case 'n':
+		return 10;
+	case 'v':
+		return 11;
+	case 'f':
+		return 12;
+	case 'r':
+		return 13;
+	// [GNU] \e for the ASCII escape character is a GNU C extension.
+	case 'e':
+		return 27;
+	default:
+		return *p;
+	}
+}
 
-	for (; *p != '"'; p++)
+// Find a closing double-quote.
+static const char *string_literal_end(const char *p)
+{
+	const char *start = p;
+
+	for (; *p != '"'; p++) {
 		if (*p == '\n' || *p == '\0')
 			error_at(start, "unclosed string literal");
+		if (*p == '\\')
+			// skip next char
+			p++;
+	}
+	return p;
+}
 
-	struct Token *tok = new_token(TK_STR, start, p + 1);
+static struct Token *read_string_literal(const char *start)
+{
+	const char *end = string_literal_end(start + 1);
+	char *buf = malloc(sizeof(char) * (end - start));
+	int len = 0;
 
+	// skip '"'
+	for (const char *p = start + 1; p < end; p++) {
+		if (*p == '\\') {
+			buf[len++] = read_escaped_char(p + 1);
+			p++;
+		} else {
+			buf[len++] = *p;
+		}
+	}
+
+	struct Token *tok = new_token(TK_STR, start, end + 1);
 	// string + '\0'
-	tok->ty = array_of(p_ty_char(), p - start);
-	tok->str = strndup(start + 1, p - (start + 1));
-
+	tok->ty = array_of(p_ty_char(), len + 1);
+	tok->str = buf;
 	return tok;
 }
 
