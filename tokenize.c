@@ -57,6 +57,7 @@ static bool is_ident2(char c)
 
 static bool is_keyword(struct Token *tok)
 {
+	size_t i;
 	static const char *kw[] = {
 		"return",
 		"if",
@@ -68,24 +69,52 @@ static bool is_keyword(struct Token *tok)
 		"char",
 	};
 
-	for (int i = 0; i < ARRAY_SIZE(kw); i++)
+	for (i = 0; i < ARRAY_SIZE(kw); i++)
 		if (equal(tok, kw[i]))
 			return true;
 	return false;
 }
 
+static bool isodigit(char c)
+{
+	return '0' <= c && c <= '7';
+}
+
+static int from_oct(char c)
+{
+	return c - '0';
+}
+
+static int from_hex(char c)
+{
+	if ('0' <= c && c <= '9')
+		return c - '0';
+	if ('a' <= c && c <= 'f')
+		return c - 'a' + 10;
+	return c - 'A' + 10;
+}
+
 static int read_escaped_char(const char **new_pos, const char *p)
 {
-	if ('0' <= *p && *p <= '7') {
+	if (isodigit(*p)) {
 		// read an octal number
-		int c = *p++ - '0';
+		int c = 0;
+		// '\xxx'
+		for (int i = 0; isodigit(*p) && i < 3; i++, p++)
+			c = (c << 3) + from_oct(*p);
+		*new_pos = p;
+		return c;
+	}
 
-		if ('0' <= *p && *p <= '7') {
-			c = (c << 3) + (*p++ - '0');
-			if ('0' <= *p && *p <= '7')
-				c = (c << 3) + (*p++ - '0');
-		}
+	if (*p == 'x') {
+		// read a hexadecimal number
+		p++;
+		if (!isxdigit(*p))
+			error_at(p, "invalid hex escape sequence");
 
+		int c = 0;
+		for (; isxdigit(*p); p++)
+			c = (c << 4) + from_hex(*p);
 		*new_pos = p;
 		return c;
 	}
