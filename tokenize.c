@@ -74,8 +74,23 @@ static bool is_keyword(struct Token *tok)
 	return false;
 }
 
-static int read_escaped_char(const char *p)
+static int read_escaped_char(const char **new_pos, const char *p)
 {
+	if ('0' <= *p && *p <= '7') {
+		// read an octal number
+		int c = *p++ - '0';
+
+		if ('0' <= *p && *p <= '7') {
+			c = (c << 3) + (*p++ - '0');
+			if ('0' <= *p && *p <= '7')
+				c = (c << 3) + (*p++ - '0');
+		}
+
+		*new_pos = p;
+		return c;
+	}
+
+	*new_pos = p + 1;
 	switch (*p) {
 	case 'a':
 		return 7;
@@ -121,13 +136,11 @@ static struct Token *read_string_literal(const char *start)
 	int len = 0;
 
 	// skip '"'
-	for (const char *p = start + 1; p < end; p++) {
-		if (*p == '\\') {
-			buf[len++] = read_escaped_char(p + 1);
-			p++;
-		} else {
-			buf[len++] = *p;
-		}
+	for (const char *p = start + 1; p < end;) {
+		if (*p == '\\')
+			buf[len++] = read_escaped_char(&p, p + 1);
+		else
+			buf[len++] = *p++;
 	}
 
 	struct Token *tok = new_token(TK_STR, start, end + 1);
