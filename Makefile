@@ -1,6 +1,6 @@
 
 CFLAGS = -std=c18 -fno-common -O0 -g
-CFLAGS += -Wall -Wextra -Werror -Wno-sign-compare
+CFLAGS += -Wall -Wextra -Werror
 CFLAGS += -DDEBUG
 TARGET = toycc
 OUTPUT = output
