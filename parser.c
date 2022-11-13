@@ -140,6 +140,7 @@ static struct Node *expr(struct Token **rest, struct Token *tok);
 static struct Node *assign(struct Token **rest, struct Token *tok);
 static struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok);
 static struct Node *unary(struct Token **rest, struct Token *tok);
+static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
 
 // funcall = ident "(" (assign ("," assign)*)? ")"
 static struct Node *funcall(struct Token **rest, struct Token *tok)
@@ -166,13 +167,23 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// primary = "(" expr ")"
-// 		| "sizeof" unary
-// 		| ident (func-args)?
-// 		| str
-// 		| num
+// primary = "(" "{" stmt+ "}" ")"
+// 	| "(" expr ")"
+// 	| "sizeof" unary
+// 	| ident (func-args)?
+// 	| str
+// 	| num
 static struct Node *primary(struct Token **rest, struct Token *tok)
 {
+	if (equal(tok, "(") && equal(tok->next, "{")) {
+		// This is a GNU statement expression.
+		struct Node *n = new_node(ND_STMT_EXPR, tok);
+
+		n->body = compound_stmt(&tok, tok->next->next)->body;
+		*rest = skip(tok, ")");
+		return n;
+	}
+
 	if (equal(tok, "(")) {
 		struct Node *node = expr(&tok, tok->next);
 		*rest = skip(tok, ")");
@@ -568,8 +579,6 @@ static struct Node *declaration(struct Token **rest, struct Token *tok)
 	*rest = tok->next;
 	return node;
 }
-
-static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
 
 // stmt = "return" expr ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?

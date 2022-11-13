@@ -41,6 +41,7 @@ static int align_to(int n, int align)
 }
 
 static void gen_expr(struct Node *node);
+static void gen_stmt(struct Node *node);
 
 // Compute the absolute address of a given node.
 // It's an error if a given node does not reside in memory.
@@ -143,6 +144,11 @@ static void gen_expr(struct Node *node)
 		gen_expr(node->rhs);
 		store(node->ty);
 		debug("\t# end ND_ASSIGN var\n");
+		return;
+
+	case ND_STMT_EXPR:
+		for (struct Node *n = node->body; n; n = n->next)
+			gen_stmt(n);
 		return;
 
 	case ND_FUNCALL: {

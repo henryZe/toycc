@@ -119,6 +119,7 @@ enum NodeKind {
 	ND_BLOCK,	// { ... }
 	ND_FUNCALL,	// Function call
 	ND_EXPR_STMT,	// Expression statement
+	ND_STMT_EXPR,	// Statement expression
 	ND_VAR,		// Variable
 	ND_NUM,		// Integer
 };
@@ -144,8 +145,7 @@ struct Node {
 	const char *funcname;
 	struct Node *args;
 
-	// block
-	struct Node *body;
+	struct Node *body;	// Block or statement expression
 	struct Obj *var;	// Used if kind == ND_VAR
 	int val;		// Used if kind == ND_NUM
 };
