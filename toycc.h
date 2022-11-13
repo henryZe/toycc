@@ -154,13 +154,7 @@ struct Node {
 struct Obj *parser(struct Token *tok);
 
 // codegen.c
-#ifdef DEBUG
-#define debug(fmt, args...) printf(fmt, ##args)
-#else
-#define debug(fmt, args...)
-#endif
-
-void codegen(struct Obj *prog);
+void codegen(struct Obj *prog, FILE *out);
 
 // utils.c
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))

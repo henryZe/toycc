@@ -5,6 +5,7 @@ CFLAGS += -DDEBUG
 TARGET = toycc
 OUTPUT = output
 TEST = test.sh
+TEST_DRV = test_driver.sh
 INCDIR = .
 SRCDIR = .
 SRCFILES = \
@@ -28,6 +29,7 @@ $(OUTPUT)/$(TARGET): $(SRC_OBJFILES)
 
 test: $(OUTPUT)/$(TARGET)
 	@sh $(TEST)
+	@sh $(TEST_DRV)
 
 clean:
 	rm -rf $(OUTPUT)
