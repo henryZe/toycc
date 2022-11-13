@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <ctype.h>
 #include <assert.h>
+#include <errno.h>
 
 // tokenize.c
 
@@ -30,7 +31,7 @@ struct Token {
 };
 
 bool consume(struct Token **rest, struct Token *tok, const char *str);
-struct Token *tokenize(const char *p);
+struct Token *tokenize_file(const char *filename);
 
 // type.c
 
@@ -165,7 +166,8 @@ void codegen(struct Obj *prog);
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 bool equal(struct Token *tok, const char *op);
-void error_set_current_input(const char *p);
+void set_cur_input(const char *p);
+void set_cur_filename(const char *filename);
 void __attribute__((noreturn)) error(const char *fmt, ...);
 void __attribute__((noreturn)) verror_at(const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);

@@ -144,13 +144,14 @@ static int read_escaped_char(const char **new_pos, const char *p)
 }
 
 // Find a closing double-quote.
-static const char *string_literal_end(const char *p)
+static const char *string_literal_end(const char *start)
 {
-	const char *start = p;
+	const char *p = start;
 
 	for (; *p != '"'; p++) {
 		if (*p == '\n' || *p == '\0')
-			error_at(start, "unclosed string literal");
+			// error_at(start, "unclosed string literal");
+			continue;
 		if (*p == '\\')
 			// skip next char
 			p++;
@@ -171,6 +172,8 @@ static struct Token *read_string_literal(const char *start)
 		else
 			buf[len++] = *p++;
 	}
+	// terminated with '\0'
+	buf[len] = '\0';
 
 	struct Token *tok = new_token(TK_STR, start, end + 1);
 	// string + '\0'
@@ -187,12 +190,13 @@ static void convert_keywords(struct Token *tok)
 }
 
 // Tokenize a given string and returns new tokens.
-struct Token *tokenize(const char *p)
+static struct Token *tokenize(const char *filename, const char *p)
 {
 	struct Token head;
 	struct Token *cur = &head;
 
-	error_set_current_input(p);
+	set_cur_filename(filename);
+	set_cur_input(p);
 
 	while (*p) {
 		// Skip whitespace characters
@@ -247,4 +251,50 @@ struct Token *tokenize(const char *p)
 
 	convert_keywords(head.next);
 	return head.next;
+}
+
+// Returns the contents of a given file.
+static char *read_file(const char *path)
+{
+	FILE *fp;
+
+	if (!strcmp(path, "-")) {
+		// By convention, read from stdin if a given filename is "-"
+		fp = stdin;
+	} else {
+		fp = fopen(path, "r");
+		if (!fp)
+			error("cannot open %s: %s", path, strerror(errno));
+	}
+
+	// Read the entire file.
+	char *buf;
+	size_t buflen;
+	FILE *out = open_memstream(&buf, &buflen);
+
+	while (1) {
+		char buf2[4096];
+		int n = fread(buf2, 1, sizeof(buf2), fp);
+		if (!n)
+			break;
+		fwrite(buf2, 1, n, out);
+	}
+
+	if (fp != stdin)
+		fclose(fp);
+
+	// make sure that the last line is properly terminated with '\n'
+	fflush(out);
+	if (!buflen || buf[buflen - 1] != '\n')
+		fputc('\n', out);
+	// EOF
+	fputc('\0', out);
+	fclose(out);
+
+	return buf;
+}
+
+struct Token *tokenize_file(const char *path)
+{
+	return tokenize(path, read_file(path));
 }

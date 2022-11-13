@@ -55,17 +55,16 @@ static void gen_addr(struct Node *node)
 		else
 			// global variable
 			printf("\tla a0, %s\n", node->var->name);
-		return;
+		break;
 
 	case ND_DEREF:
 		gen_expr(node->lhs);
-		return;
+		break;
 
 	default:
+		error_tok(node->tok, "not a lvalue");
 		break;
 	}
-
-	error_tok(node->tok, "not a lvalue");
 }
 
 static struct Obj *current_fn;
@@ -117,11 +116,11 @@ static void gen_expr(struct Node *node)
 
 	case ND_VAR:
 		debug("\t# ND_VAR load var %s\n",
-					node->var->name);
+				node->var->name);
 		gen_addr(node);
 		load(node->ty);
 		debug("\t# end ND_VAR load var %s\n",
-					node->var->name);
+				node->var->name);
 		return;
 
 	case ND_DEREF:
