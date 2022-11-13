@@ -16,7 +16,9 @@ assert()
 	expected="$1"
 	input="$2"
 
-	output/toycc "$input" > output/tmp.S || exit
+	# echo "$input" > output/test.c
+	# output/toycc output/test.c > output/tmp.S || exit
+	echo "$input" | output/toycc - > output/tmp.S || exit
 	"$CROSS_COMPILE"gcc -march=rv64g -static output/tmp.S output/tmp2.o -o output/tmp || exit
 	"$CROSS_COMPILE"objdump -S output/tmp > output/tmp.asm
 

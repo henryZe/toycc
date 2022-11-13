@@ -6,7 +6,7 @@ int main(int argc, char **argv)
 		error("%s: invalid number of arguments", argv[0]);
 
 	// Tokenize and parse
-	struct Token *tok = tokenize(argv[1]);
+	struct Token *tok = tokenize_file(argv[1]);
 	struct Obj *prog = parser(tok);
 	codegen(prog);
 

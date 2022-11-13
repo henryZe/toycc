@@ -104,6 +104,7 @@ static struct Obj *new_lvar(const char *name, struct Type *ty)
 static struct Obj *new_gvar(const char *name, struct Type *ty)
 {
 	struct Obj *var = new_var(name, ty);
+	var->is_local = false;
 	var->next = globals;
 	globals = var;
 	return var;
