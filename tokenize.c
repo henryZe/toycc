@@ -150,8 +150,9 @@ static const char *string_literal_end(const char *start)
 
 	for (; *p != '"'; p++) {
 		if (*p == '\n' || *p == '\0')
-			// error_at(start, "unclosed string literal");
 			continue;
+			// error_at(start, "unclosed string literal");
+
 		if (*p == '\\')
 			// skip next char
 			p++;
@@ -199,6 +200,23 @@ static struct Token *tokenize(const char *filename, const char *p)
 	set_cur_input(p);
 
 	while (*p) {
+		// Skip line comments
+		if (startwith(p, "//")) {
+			p += 2;
+			while (*p != '\n')
+				p++;
+			continue;
+		}
+
+		// Skip block comments
+		if (startwith(p, "/*")) {
+			const char *q = strstr(p + 2, "*/");
+			if (!q)
+				error_at(p, "unclosed block comment");
+			p = q + 2;
+			continue;
+		}
+
 		// Skip whitespace characters
 		if (isspace(*p)) {
 			p++;
