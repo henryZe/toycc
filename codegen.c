@@ -1,5 +1,22 @@
 #include <toycc.h>
 
+#ifdef DEBUG
+#define debug(fmt, args...) println(fmt, ##args)
+#else
+#define debug(fmt, args...)
+#endif
+
+static FILE *output_file;
+
+static void println(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vfprintf(output_file, fmt, ap);
+	va_end(ap);
+	fprintf(output_file, "\n");
+}
+
 static int count(void)
 {
 	static int i = 1;
@@ -20,16 +37,16 @@ static char *argreg[] = {
 // push reg into 0(sp)
 static void push(char *reg)
 {
-	printf("\taddi sp, sp, -%ld\n", sizeof(long));
-	printf("\tsd %s, 0(sp)\n", reg);
+	println("\taddi sp, sp, -%ld", sizeof(long));
+	println("\tsd %s, 0(sp)", reg);
 	depth++;
 }
 
 // pop 0(sp) to reg
 static void pop(char *reg)
 {
-	printf("\tld %s, 0(sp)\n", reg);
-	printf("\taddi sp, sp, %ld\n", sizeof(long));
+	println("\tld %s, 0(sp)", reg);
+	println("\taddi sp, sp, %ld", sizeof(long));
 	depth--;
 }
 
@@ -51,10 +68,10 @@ static void gen_addr(struct Node *node)
 	case ND_VAR:
 		if (node->var->is_local)
 			// local variable
-			printf("\tadd a0, fp, %d\n", node->var->offset);
+			println("\tadd a0, fp, %d", node->var->offset);
 		else
 			// global variable
-			printf("\tla a0, %s\n", node->var->name);
+			println("\tla a0, %s", node->var->name);
 		break;
 
 	case ND_DEREF:
@@ -85,9 +102,9 @@ static void load(struct Type *ty)
 	}
 
 	if (ty->size == sizeof(char))
-		printf("\tlb a0, (a0)\n");
+		println("\tlb a0, (a0)");
 	else
-		printf("\tld a0, (a0)\n");
+		println("\tld a0, (a0)");
 }
 
 // Store a0 to an address that the stack top is pointing to.
@@ -96,9 +113,9 @@ static void store(struct Type *ty)
 	pop("a1");
 
 	if (ty->size == sizeof(char))
-		printf("\tsb a0, (a1)\n");
+		println("\tsb a0, (a1)");
 	else
-		printf("\tsd a0, (a1)\n");
+		println("\tsd a0, (a1)");
 }
 
 // Generate code for a given node.
@@ -106,43 +123,43 @@ static void gen_expr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_NUM:
-		printf("\tli a0, %d\n", node->val);
+		println("\tli a0, %d", node->val);
 		return;
 
 	case ND_NEG:
 		gen_expr(node->lhs);
-		printf("\tneg a0, a0\n");
+		println("\tneg a0, a0");
 		return;
 
 	case ND_VAR:
-		debug("\t# ND_VAR load var %s\n",
+		debug("\t# ND_VAR load var %s",
 				node->var->name);
 		gen_addr(node);
 		load(node->ty);
-		debug("\t# end ND_VAR load var %s\n",
+		debug("\t# end ND_VAR load var %s",
 				node->var->name);
 		return;
 
 	case ND_DEREF:
-		debug("\t# ND_DEREF load\n");
+		debug("\t# ND_DEREF load");
 		gen_expr(node->lhs);
 		load(node->ty);
-		debug("\t# end ND_DEREF load\n");
+		debug("\t# end ND_DEREF load");
 		return;
 
 	case ND_ADDR:
-		debug("\t# ND_ADDR var\n");
+		debug("\t# ND_ADDR var");
 		gen_addr(node->lhs);
-		debug("\t# end ND_ADDR var\n");
+		debug("\t# end ND_ADDR var");
 		return;
 
 	case ND_ASSIGN:
-		debug("\t# ND_ASSIGN var\n");
+		debug("\t# ND_ASSIGN var");
 		gen_addr(node->lhs);
 		push("a0");
 		gen_expr(node->rhs);
 		store(node->ty);
-		debug("\t# end ND_ASSIGN var\n");
+		debug("\t# end ND_ASSIGN var");
 		return;
 
 	case ND_STMT_EXPR:
@@ -153,7 +170,7 @@ static void gen_expr(struct Node *node)
 	case ND_FUNCALL: {
 		int nargs = 0;
 
-		debug("\t# ND_FUNCALL func %s\n", node->funcname);
+		debug("\t# ND_FUNCALL func %s", node->funcname);
 
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
 			gen_expr(arg);
@@ -165,9 +182,9 @@ static void gen_expr(struct Node *node)
 			pop(argreg[i]);
 		}
 
-		printf("\tcall %s\n", node->funcname);
+		println("\tcall %s", node->funcname);
 
-		debug("\t# end ND_FUNCALL func %s\n", node->funcname);
+		debug("\t# end ND_FUNCALL func %s", node->funcname);
 		return;
 	}
 
@@ -184,31 +201,31 @@ static void gen_expr(struct Node *node)
 
 	switch (node->kind) {
 	case ND_ADD:
-		printf("\tadd a0, a0, a1\n");
+		println("\tadd a0, a0, a1");
 		break;
 	case ND_SUB:
-		printf("\tsub a0, a0, a1\n");
+		println("\tsub a0, a0, a1");
 		break;
 	case ND_MUL:
-		printf("\tmul a0, a0, a1\n");
+		println("\tmul a0, a0, a1");
 		break;
 	case ND_DIV:
-		printf("\tdiv a0, a0, a1\n");
+		println("\tdiv a0, a0, a1");
 		break;
 	case ND_EQ:
-		printf("\txor a0, a0, a1\n");
-		printf("\tseqz a0, a0\n");
+		println("\txor a0, a0, a1");
+		println("\tseqz a0, a0");
 		break;
 	case ND_NE:
-		printf("\txor a0, a0, a1\n");
-		printf("\tsnez a0, a0\n");
+		println("\txor a0, a0, a1");
+		println("\tsnez a0, a0");
 		break;
 	case ND_LT:
-		printf("\tslt a0, a0, a1\n");
+		println("\tslt a0, a0, a1");
 		break;
 	case ND_LE:
-		printf("\tslt a0, a1, a0\n");
-		printf("\tseqz a0, a0\n");
+		println("\tslt a0, a1, a0");
+		println("\tseqz a0, a0");
 		break;
 	default:
 		error_tok(node->tok, "invalid expression");
@@ -224,40 +241,40 @@ static void gen_stmt(struct Node *node)
 	case ND_IF:
 		c = count();
 
-		debug("\t# ND_IF\n");
+		debug("\t# ND_IF");
 		gen_expr(node->cond);
-		printf("\tbeqz a0, else.%d\n", c);
+		println("\tbeqz a0, else.%d", c);
 
 		gen_stmt(node->then);
-		printf("\tj end.%d\n", c);
+		println("\tj end.%d", c);
 
-		printf("else.%d:\n", c);
+		println("else.%d:", c);
 		if (node->els)
 			gen_stmt(node->els);
 
-		printf("end.%d:\n", c);
-		debug("\t# end ND_IF\n");
+		println("end.%d:", c);
+		debug("\t# end ND_IF");
 		return;
 
 	case ND_FOR:
 		c = count();
 
-		debug("\t# ND_FOR\n");
+		debug("\t# ND_FOR");
 		if (node->init)
 			gen_stmt(node->init);
 
-		printf("begin.%d:\n", c);
+		println("begin.%d:", c);
 		if (node->cond) {
 			gen_expr(node->cond);
-			printf("\tbeqz a0, end.%d\n", c);
+			println("\tbeqz a0, end.%d", c);
 		}
 		gen_stmt(node->then);
 		if (node->inc)
 			gen_expr(node->inc);
-		printf("\tj begin.%d\n", c);
+		println("\tj begin.%d", c);
 
-		printf("end.%d:\n", c);
-		debug("\t# end ND_FOR\n");
+		println("end.%d:", c);
+		debug("\t# end ND_FOR");
 		return;
 
 	case ND_BLOCK:
@@ -267,7 +284,7 @@ static void gen_stmt(struct Node *node)
 
 	case ND_RETURN:
 		gen_expr(node->lhs);
-		printf("\tj return.%s\n", current_fn->name);
+		println("\tj return.%s", current_fn->name);
 		return;
 
 	case ND_EXPR_STMT:
@@ -305,15 +322,15 @@ static void emit_data(struct Obj *prog)
 		if (var->is_function)
 			continue;
 
-		printf(".data\n");
-		printf(".global %s\n", var->name);
-		printf("%s:\n", var->name);
+		println(".data");
+		println(".global %s", var->name);
+		println("%s:", var->name);
 
 		if (var->init_data) {
 			for (int i = 0; i < var->ty->size; i++)
-				printf("\t.byte %d\n", var->init_data[i]);
+				println("\t.byte %d", var->init_data[i]);
 		} else {
-			printf("\t.zero %d\n", var->ty->size);
+			println("\t.zero %d", var->ty->size);
 		}
 	}
 }
@@ -324,27 +341,27 @@ static void emit_text(struct Obj *prog)
 		if (!fn->is_function)
 			continue;
 
-		printf(".text\n");
-		printf(".global %s\n", fn->name);
-		printf("%s:\n", fn->name);
+		println(".text");
+		println(".global %s", fn->name);
+		println("%s:", fn->name);
 		current_fn = fn;
 
 		// Prologue
 		push("fp");
 		push("ra");
-		printf("\tmv fp, sp\n");
+		println("\tmv fp, sp");
 
 		// Save passed-by-register arguments to the stack
 		int i = 0;
-		debug("\t# '%s' save args into stack\n", fn->name);
+		debug("\t# '%s' save args into stack", fn->name);
 		for (struct Obj *var = fn->params; var; var = var->next) {
 			if (var->ty->size == sizeof(char))
-				printf("\tsb %s, %d(sp)\n", argreg[i++], var->offset);
+				println("\tsb %s, %d(sp)", argreg[i++], var->offset);
 			else
-				printf("\tsd %s, %d(sp)\n", argreg[i++], var->offset);
+				println("\tsd %s, %d(sp)", argreg[i++], var->offset);
 		}
-		printf("\tadd sp, sp, -%d\n", fn->stack_size);
-		debug("\t# end '%s' save args\n", fn->name);
+		println("\tadd sp, sp, -%d", fn->stack_size);
+		debug("\t# end '%s' save args", fn->name);
 
 		// Emit code
 		int cur_depth = depth;
@@ -352,23 +369,25 @@ static void emit_text(struct Obj *prog)
 		assert(depth == cur_depth);
 
 		// epilogue
-		printf("return.%s:\n", fn->name);
+		println("return.%s:", fn->name);
 		// restore sp register
-		printf("\tmv sp, fp\n");
+		println("\tmv sp, fp");
 		// restore ra register
 		pop("ra");
 		// restore fp register
 		pop("fp");
 		// mv ra to pc
-		printf("\tret\n");
+		println("\tret");
 
 		assert(!depth);
 	}
 }
 
 // Traverse the AST to emit assembly.
-void codegen(struct Obj *prog)
+void codegen(struct Obj *prog, FILE *out)
 {
+	output_file = out;
+
 	assign_lvar_offsets(prog);
 	emit_data(prog);
 	emit_text(prog);
