@@ -114,6 +114,23 @@ void add_type(struct Node *node)
 		node->ty = node->lhs->ty->base;
 		break;
 
+	case ND_STMT_EXPR:
+		if (node->body) {
+			struct Node *stmt = node->body;
+
+			while (stmt->next)
+				stmt = stmt->next;
+			if (stmt->kind == ND_EXPR_STMT) {
+				node->ty = stmt->lhs->ty;
+				break;
+			}
+
+		} else {
+			error_tok(node->tok,
+				"statement expression returning void is not supported");
+			break;
+		}
+
 	default:
 		break;
 	}
