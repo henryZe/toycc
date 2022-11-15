@@ -12,10 +12,25 @@
 
 #include <toycc.h>
 
+// scope for local or global variables
+struct VarScope {
+	struct VarScope *next;
+	const char *name;
+	struct Obj *var;
+};
+
+// represents a block scope
+struct Scope {
+	struct Scope *next;
+	struct VarScope *vars;
+};
+
 // All local variable instances created during parsing are
 // accumulated to this list.
 static struct Obj *locals;
 static struct Obj *globals;
+
+static struct Scope *scope = &(struct Scope){};
 
 static struct Token *skip(struct Token *tok, const char *s)
 {
@@ -68,19 +83,36 @@ static struct Node *new_num(int val, struct Token *tok)
 	return node;
 }
 
+static void enter_scope(void)
+{
+	struct Scope *sc = malloc(sizeof(struct Scope));
+	sc->vars = NULL;
+	sc->next = scope;
+	scope = sc;
+}
+
+static void leave_scope(void)
+{
+	scope = scope->next;
+}
+
 static struct Obj *find_var(struct Token *tok)
 {
-	for (struct Obj *var = locals; var; var = var->next)
-		if (strlen(var->name) == tok->len &&
-			!strncmp(tok->loc, var->name, tok->len))
-			return var;
-
-	for (struct Obj *var = globals; var; var = var->next)
-		if (strlen(var->name) == tok->len &&
-			!strncmp(tok->loc, var->name, tok->len))
-			return var;
-
+	for (struct Scope *sc = scope; sc; sc = sc->next)
+		for (struct VarScope *vars = sc->vars; vars; vars = vars->next)
+			if (equal(tok, vars->name))
+				return vars->var;
 	return NULL;
+}
+
+static struct VarScope *push_scope(const char *name, struct Obj *var)
+{
+	struct VarScope *sc = malloc(sizeof(struct VarScope));
+	sc->name = name;
+	sc->var = var;
+	sc->next = scope->vars;
+	scope->vars = sc;
+	return sc;
 }
 
 // create variable and link to `locals` list
@@ -89,6 +121,7 @@ static struct Obj *new_var(const char *name, struct Type *ty)
 	struct Obj *var = malloc(sizeof(struct Obj));
 	var->name = name;
 	var->ty = ty;
+	push_scope(name, var);
 	return var;
 }
 
@@ -661,6 +694,7 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	struct Node *cur = &head;
 	struct Node *node = new_node(ND_BLOCK, tok);
 
+	enter_scope();
 	while (!equal(tok, "}")) {
 		if (is_typename(tok))
 			cur->next = declaration(&tok, tok);
@@ -670,6 +704,7 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 		add_type(cur);
 	}
 	node->body = head.next;
+	leave_scope();
 
 	// skip "}"
 	*rest = tok->next;
@@ -694,6 +729,7 @@ static struct Token *function(struct Token *tok, struct Type *basety)
 
 	// initialize local variables list
 	locals = NULL;
+	enter_scope();
 	create_param_lvars(ty->params);
 	fn->params = locals;
 
@@ -701,6 +737,7 @@ static struct Token *function(struct Token *tok, struct Type *basety)
 
 	fn->body = compound_stmt(&tok, tok);
 	fn->locals = locals;
+	leave_scope();
 	return tok;
 }
 
