@@ -9,7 +9,7 @@ static void usage(int status)
 	exit(status);
 }
 
-static void parse_args(int argc, char **argv)
+static void parse_args(int argc, const char **argv)
 {
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i], "--help"))
@@ -49,7 +49,7 @@ static FILE *open_file(const char *path)
 	return out;
 }
 
-int main(int argc, char **argv)
+int main(int argc, const char **argv)
 {
 	parse_args(argc, argv);
 

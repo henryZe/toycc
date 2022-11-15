@@ -147,7 +147,7 @@ static const char *new_unique_name(void)
 {
 	static int id = 0;
 
-	return format(".L..%d", id++);;
+	return format(".L..%d", id++);
 }
 
 // anonymous global variable
@@ -569,7 +569,7 @@ static struct Type *declarator(struct Token **rest, struct Token *tok,
 	return ty;
 }
 
-static char *get_ident(struct Token *tok)
+static const char *get_ident(struct Token *tok)
 {
 	if (tok->kind != TK_IDENT)
 		error_tok(tok, "expected an identifier");
