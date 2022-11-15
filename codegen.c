@@ -25,7 +25,7 @@ static int count(void)
 
 // code generator
 static int depth = 0;
-static char *argreg[] = {
+static const char * const argreg[] = {
 	"a0",
 	"a1",
 	"a2",
@@ -35,7 +35,7 @@ static char *argreg[] = {
 };
 
 // push reg into 0(sp)
-static void push(char *reg)
+static void push(const char *reg)
 {
 	println("\taddi sp, sp, -%ld", sizeof(long));
 	println("\tsd %s, 0(sp)", reg);
@@ -43,7 +43,7 @@ static void push(char *reg)
 }
 
 // pop 0(sp) to reg
-static void pop(char *reg)
+static void pop(const char *reg)
 {
 	println("\tld %s, 0(sp)", reg);
 	println("\taddi sp, sp, %ld", sizeof(long));
