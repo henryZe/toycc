@@ -1,7 +1,7 @@
 #include <toycc.h>
 
 // Takes a printf-style format string and returns a formatted string.
-char *format(const char *fmt, ...)
+const char *format(const char *fmt, ...)
 {
 	char *buf;
 	size_t buflen;

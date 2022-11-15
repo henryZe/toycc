@@ -167,4 +167,4 @@ void __attribute__((noreturn)) verror_at(const char *loc, const char *fmt, va_li
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
 
 // strings.c
-char *format(const char *fmt, ...);
+const char *format(const char *fmt, ...);

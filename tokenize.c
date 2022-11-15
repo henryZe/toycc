@@ -58,7 +58,7 @@ static bool is_ident2(char c)
 static bool is_keyword(struct Token *tok)
 {
 	size_t i;
-	static const char *kw[] = {
+	static const char * const kw[] = {
 		"return",
 		"if",
 		"else",
@@ -150,8 +150,8 @@ static const char *string_literal_end(const char *start)
 
 	for (; *p != '"'; p++) {
 		if (*p == '\n' || *p == '\0')
-			continue;
-			// error_at(start, "unclosed string literal");
+			// continue;
+			error_at(start, "unclosed string literal");
 
 		if (*p == '\\')
 			// skip next char
@@ -272,7 +272,7 @@ static struct Token *tokenize(const char *filename, const char *p)
 }
 
 // Returns the contents of a given file.
-static char *read_file(const char *path)
+static const char *read_file(const char *path)
 {
 	FILE *fp;
 
