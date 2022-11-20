@@ -165,6 +165,37 @@ void set_cur_filename(const char *filename);
 void __attribute__((noreturn)) error(const char *fmt, ...);
 void __attribute__((noreturn)) verror_at(const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
+void set_output_file(FILE *out);
+void println(const char *fmt, ...) __attribute__((__format__(printf, 1, 2)));
 
 // strings.c
 const char *format(const char *fmt, ...);
+
+// asm
+extern const char * const argreg[];
+void push(const char *reg);
+void pop(const char *reg);
+void prologue(void);
+void epilogue(void);
+
+void loadnum(const char *dst, int num);
+void neg(const char *dst, const char *src);
+void addnum(const char *dst, const char *src, int num);
+void addreg(const char *dst, const char *src);
+void subreg(const char *dst, const char *src);
+void mulreg(const char *dst, const char *src);
+void divreg(const char *dst, const char *src);
+
+void eq(const char *dst, const char *src);
+void neq(const char *dst, const char *src);
+void less_than(const char *dst, const char *src);
+void less_equal(const char *dst, const char *src);
+
+void loadb(const char *reg1, const char *reg2, int offset);
+void loadd(const char *reg1, const char *reg2, int offset);
+void storeb(const char *reg1, const char *reg2, int offset);
+void stored(const char *reg1, const char *reg2, int offset);
+void loadaddr(const char *dst, const char *symbol);
+
+void jmp(const char *symbol);
+void call(const char *symbol);

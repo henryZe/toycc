@@ -75,3 +75,19 @@ error_tok(struct Token *tok, const char *fmt, ...)
 	va_start(ap, fmt);
 	verror_at(tok->loc, fmt, ap);
 }
+
+static FILE *output_file;
+
+void set_output_file(FILE *out)
+{
+	output_file = out;
+}
+
+void println(const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	vfprintf(output_file, fmt, ap);
+	va_end(ap);
+	fprintf(output_file, "\n");
+}

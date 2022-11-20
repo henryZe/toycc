@@ -6,48 +6,10 @@
 #define debug(fmt, args...)
 #endif
 
-static FILE *output_file;
-
-static void println(const char *fmt, ...)
-{
-	va_list ap;
-	va_start(ap, fmt);
-	vfprintf(output_file, fmt, ap);
-	va_end(ap);
-	fprintf(output_file, "\n");
-}
-
 static int count(void)
 {
 	static int i = 1;
 	return i++;
-}
-
-// code generator
-static int depth = 0;
-static const char * const argreg[] = {
-	"a0",
-	"a1",
-	"a2",
-	"a3",
-	"a4",
-	"a5",
-};
-
-// push reg into 0(sp)
-static void push(const char *reg)
-{
-	println("\taddi sp, sp, -%ld", sizeof(long));
-	println("\tsd %s, 0(sp)", reg);
-	depth++;
-}
-
-// pop 0(sp) to reg
-static void pop(const char *reg)
-{
-	println("\tld %s, 0(sp)", reg);
-	println("\taddi sp, sp, %ld", sizeof(long));
-	depth--;
 }
 
 // Round up `n` to the nearest multiple of `align`. For instance,
@@ -68,10 +30,10 @@ static void gen_addr(struct Node *node)
 	case ND_VAR:
 		if (node->var->is_local)
 			// local variable
-			println("\tadd a0, fp, %d", node->var->offset);
+			addnum(argreg[0], "fp", node->var->offset);
 		else
 			// global variable
-			println("\tla a0, %s", node->var->name);
+			loadaddr(argreg[0], node->var->name);
 		break;
 
 	case ND_DEREF:
@@ -102,20 +64,37 @@ static void load(struct Type *ty)
 	}
 
 	if (ty->size == sizeof(char))
-		println("\tlb a0, (a0)");
+		loadb(argreg[0], argreg[0], 0);
 	else
-		println("\tld a0, (a0)");
+		loadd(argreg[0], argreg[0], 0);
 }
 
 // Store a0 to an address that the stack top is pointing to.
 static void store(struct Type *ty)
 {
-	pop("a1");
+	pop(argreg[1]);
 
 	if (ty->size == sizeof(char))
-		println("\tsb a0, (a1)");
+		storeb(argreg[0], argreg[1], 0);
 	else
-		println("\tsd a0, (a1)");
+		stored(argreg[0], argreg[1], 0);
+}
+
+void gen_call(struct Node *node)
+{
+	int nargs = 0;
+
+	debug("\t# call %s", node->funcname);
+	for (struct Node *arg = node->args; arg; arg = arg->next) {
+		gen_expr(arg);
+		push(argreg[0]);
+		nargs++;
+	}
+	for (int i = nargs - 1; i >= 0; i--) {
+		pop(argreg[i]);
+	}
+	call(node->funcname);
+	debug("\t# end call %s", node->funcname);
 }
 
 // Generate code for a given node.
@@ -123,43 +102,41 @@ static void gen_expr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_NUM:
-		println("\tli a0, %d", node->val);
+		loadnum(argreg[0], node->val);
 		return;
 
 	case ND_NEG:
 		gen_expr(node->lhs);
-		println("\tneg a0, a0");
+		neg(argreg[0], argreg[0]);
 		return;
 
 	case ND_VAR:
-		debug("\t# ND_VAR load var %s",
-				node->var->name);
+		debug("\t# var %s", node->var->name);
 		gen_addr(node);
 		load(node->ty);
-		debug("\t# end ND_VAR load var %s",
-				node->var->name);
+		debug("\t# end var %s", node->var->name);
 		return;
 
 	case ND_DEREF:
-		debug("\t# ND_DEREF load");
+		debug("\t# deref");
 		gen_expr(node->lhs);
 		load(node->ty);
-		debug("\t# end ND_DEREF load");
+		debug("\t# end deref");
 		return;
 
 	case ND_ADDR:
-		debug("\t# ND_ADDR var");
+		debug("\t# addr");
 		gen_addr(node->lhs);
-		debug("\t# end ND_ADDR var");
+		debug("\t# end addr");
 		return;
 
 	case ND_ASSIGN:
-		debug("\t# ND_ASSIGN var");
+		debug("\t# assign");
 		gen_addr(node->lhs);
-		push("a0");
+		push(argreg[0]);
 		gen_expr(node->rhs);
 		store(node->ty);
-		debug("\t# end ND_ASSIGN var");
+		debug("\t# end assign");
 		return;
 
 	case ND_STMT_EXPR:
@@ -167,26 +144,9 @@ static void gen_expr(struct Node *node)
 			gen_stmt(n);
 		return;
 
-	case ND_FUNCALL: {
-		int nargs = 0;
-
-		debug("\t# ND_FUNCALL func %s", node->funcname);
-
-		for (struct Node *arg = node->args; arg; arg = arg->next) {
-			gen_expr(arg);
-			push("a0");
-			nargs++;
-		}
-
-		for (int i = nargs - 1; i >= 0; i--) {
-			pop(argreg[i]);
-		}
-
-		println("\tcall %s", node->funcname);
-
-		debug("\t# end ND_FUNCALL func %s", node->funcname);
+	case ND_FUNCALL:
+		gen_call(node);
 		return;
-	}
 
 	default:
 		break;
@@ -195,37 +155,34 @@ static void gen_expr(struct Node *node)
 	// left_side -> a0
 	// right_side -> a1
 	gen_expr(node->rhs);
-	push("a0");
+	push(argreg[0]);
 	gen_expr(node->lhs);
-	pop("a1");
+	pop(argreg[1]);
 
 	switch (node->kind) {
 	case ND_ADD:
-		println("\tadd a0, a0, a1");
+		addreg(argreg[0], argreg[1]);
 		break;
 	case ND_SUB:
-		println("\tsub a0, a0, a1");
+		subreg(argreg[0], argreg[1]);
 		break;
 	case ND_MUL:
-		println("\tmul a0, a0, a1");
+		mulreg(argreg[0], argreg[1]);
 		break;
 	case ND_DIV:
-		println("\tdiv a0, a0, a1");
+		divreg(argreg[0], argreg[1]);
 		break;
 	case ND_EQ:
-		println("\txor a0, a0, a1");
-		println("\tseqz a0, a0");
+		eq(argreg[0], argreg[1]);
 		break;
 	case ND_NE:
-		println("\txor a0, a0, a1");
-		println("\tsnez a0, a0");
+		neq(argreg[0], argreg[1]);
 		break;
 	case ND_LT:
-		println("\tslt a0, a0, a1");
+		less_than(argreg[0], argreg[1]);
 		break;
 	case ND_LE:
-		println("\tslt a0, a1, a0");
-		println("\tseqz a0, a0");
+		less_equal(argreg[0], argreg[1]);
 		break;
 	default:
 		error_tok(node->tok, "invalid expression");
@@ -233,69 +190,76 @@ static void gen_expr(struct Node *node)
 	}
 }
 
+static void gen_if(struct Node *node)
+{
+	int c = count();
+
+	debug("\t# %s", __func__);
+	gen_expr(node->cond);
+	println("\tbeqz a0, else.%d", c);
+
+	gen_stmt(node->then);
+	jmp(format("end.%d", c));
+
+	println("else.%d:", c);
+	if (node->els)
+		gen_stmt(node->els);
+
+	println("end.%d:", c);
+	debug("\t# end %s", __func__);
+}
+
+static void gen_for(struct Node *node)
+{
+	int c = count();
+
+	debug("\t# %s", __func__);
+	if (node->init)
+		gen_stmt(node->init);
+
+	println("begin.%d:", c);
+	if (node->cond) {
+		gen_expr(node->cond);
+		println("\tbeqz a0, end.%d", c);
+	}
+	gen_stmt(node->then);
+	if (node->inc)
+		gen_expr(node->inc);
+	jmp(format("begin.%d", c));
+
+	println("end.%d:", c);
+	debug("\t# end %s", __func__);
+}
+
 static void gen_stmt(struct Node *node)
 {
-	int c;
-
 	switch (node->kind) {
 	case ND_IF:
-		c = count();
-
-		debug("\t# ND_IF");
-		gen_expr(node->cond);
-		println("\tbeqz a0, else.%d", c);
-
-		gen_stmt(node->then);
-		println("\tj end.%d", c);
-
-		println("else.%d:", c);
-		if (node->els)
-			gen_stmt(node->els);
-
-		println("end.%d:", c);
-		debug("\t# end ND_IF");
-		return;
+		gen_if(node);
+		break;
 
 	case ND_FOR:
-		c = count();
-
-		debug("\t# ND_FOR");
-		if (node->init)
-			gen_stmt(node->init);
-
-		println("begin.%d:", c);
-		if (node->cond) {
-			gen_expr(node->cond);
-			println("\tbeqz a0, end.%d", c);
-		}
-		gen_stmt(node->then);
-		if (node->inc)
-			gen_expr(node->inc);
-		println("\tj begin.%d", c);
-
-		println("end.%d:", c);
-		debug("\t# end ND_FOR");
-		return;
+		gen_for(node);
+		break;
 
 	case ND_BLOCK:
 		for (struct Node *n = node->body; n; n = n->next)
 			gen_stmt(n);
-		return;
+		break;
 
 	case ND_RETURN:
 		gen_expr(node->lhs);
-		println("\tj return.%s", current_fn->name);
-		return;
+		jmp(format("return.%s", current_fn->name));
+		break;
 
 	case ND_EXPR_STMT:
 		gen_expr(node->lhs);
-		return;
+		break;
 
 	default:
+		error_tok(node->tok, "invalid statement");
 		break;
 	}
-
-	error_tok(node->tok, "invalid statement");
 }
 
 // Assign offsets to local variables.
@@ -346,47 +310,32 @@ static void emit_text(struct Obj *prog)
 		println("%s:", fn->name);
 		current_fn = fn;
 
-		// Prologue
-		push("fp");
-		push("ra");
-		println("\tmv fp, sp");
+		prologue();
 
 		// Save passed-by-register arguments to the stack
 		int i = 0;
 		debug("\t# '%s' save args into stack", fn->name);
 		for (struct Obj *var = fn->params; var; var = var->next) {
 			if (var->ty->size == sizeof(char))
-				println("\tsb %s, %d(sp)", argreg[i++], var->offset);
+				storeb(argreg[i++], "sp", var->offset);
 			else
-				println("\tsd %s, %d(sp)", argreg[i++], var->offset);
+				stored(argreg[i++], "sp", var->offset);
 		}
-		println("\tadd sp, sp, -%d", fn->stack_size);
+		addnum("sp", "sp", -fn->stack_size);
 		debug("\t# end '%s' save args", fn->name);
 
 		// Emit code
-		int cur_depth = depth;
 		gen_stmt(fn->body);
-		assert(depth == cur_depth);
 
-		// epilogue
 		println("return.%s:", fn->name);
-		// restore sp register
-		println("\tmv sp, fp");
-		// restore ra register
-		pop("ra");
-		// restore fp register
-		pop("fp");
-		// mv ra to pc
-		println("\tret");
-
-		assert(!depth);
+		epilogue();
 	}
 }
 
 // Traverse the AST to emit assembly.
 void codegen(struct Obj *prog, FILE *out)
 {
-	output_file = out;
+	set_output_file(out);
 
 	assign_lvar_offsets(prog);
 	emit_data(prog);

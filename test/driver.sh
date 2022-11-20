@@ -15,12 +15,12 @@ check() {
 
 # -o
 rm -f $tmp/out
-output/toycc -o $tmp/out $tmp/empty.c
+output/$1 -o $tmp/out $tmp/empty.c
 [ -f $tmp/out ]
 check -o
 
 # --help
-output/toycc --help 2>&1 | grep -q toycc
+output/$1 --help 2>&1 | grep -q toycc
 check --help
 
 echo OK
