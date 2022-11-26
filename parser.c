@@ -260,18 +260,51 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	error_tok(tok, "expected an expression");
 }
 
-// postfix = primary ("[" expr "]")*
+static struct Member *get_struct_member(struct Type *ty, struct Token *tok)
+{
+	for (struct Member *mem = ty->members; mem; mem = mem->next)
+		if (mem->name->len == tok->len &&
+			!strncmp(mem->name->loc, tok->loc, tok->len))
+			return mem;
+
+	error_tok(tok, "no such member");
+}
+
+static struct Node *struct_ref(struct Node *lhs, struct Token *tok)
+{
+	add_type(lhs);
+	if (lhs->ty->kind != TY_STRUCT)
+		error_tok(lhs->tok, "not a struct");
+
+	struct Node *n = new_unary(ND_MEMBER, lhs, tok);
+	n->member = get_struct_member(lhs->ty, tok);
+	return n;
+}
+
+// postfix = primary ("[" expr "]" | "." ident)*
 static struct Node *postfix(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = primary(&tok, tok);
 
-	while (equal(tok, "[")) {
-		// x[y] is short for *(x+y)
-		struct Token *start = tok;
-		struct Node *idx = expr(&tok, tok->next);
+	while (1) {
+		if (equal(tok, "[")) {
+			// x[y] is short for *(x+y)
+			struct Token *start = tok;
+			struct Node *idx = expr(&tok, tok->next);
 
-		tok = skip(tok, "]");
-		node = new_unary(ND_DEREF, new_add(node, idx, start), start);
+			tok = skip(tok, "]");
+			node = new_unary(ND_DEREF, new_add(node, idx, start), start);
+			continue;
+		}
+
+		if (equal(tok, ".")) {
+			node = struct_ref(node, tok->next);
+			// skip ident
+			tok = tok->next->next;
+			continue;
+		}
+
+		break;
 	}
 
 	*rest = tok;
@@ -499,7 +532,58 @@ static int get_number(struct Token *tok)
 	return tok->val;
 }
 
-// declspec = "char" | "int"
+static struct Type *declspec(struct Token **rest, struct Token *tok);
+static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty);
+
+// struct-members = (declspec declarator ("," declarator)* ";")*
+static void struct_members(struct Token **rest, struct Token *tok, struct Type *ty)
+{
+	struct Member head = {};
+	struct Member *cur = &head;
+
+	while (!equal(tok, "}")) {
+		struct Type *basety = declspec(&tok, tok);
+		int i = 0;
+
+		while (!consume(&tok, tok, ";")) {
+			if (i++)
+				tok = skip(tok, ",");
+
+			struct Member *mem = malloc(sizeof(struct Member));
+			mem->ty = declarator(&tok, tok, basety);
+			mem->name = mem->ty->name;
+			cur->next = mem;
+			cur = cur->next;
+		}
+	}
+
+	// skip "}"
+	*rest = tok->next;
+	ty->members = head.next;
+}
+
+// struct-decl = "{" struct-members
+static struct Type *struct_decl(struct Token **rest, struct Token *tok)
+{
+	tok = skip(tok, "{");
+
+	// Construct a struct object
+	struct Type *ty = malloc(sizeof(struct Type));
+	ty->kind = TY_STRUCT;
+	struct_members(rest, tok, ty);
+
+	// Assign offsets within the struct to members
+	int offset = 0;
+	for (struct Member *mem = ty->members; mem; mem = mem->next) {
+		mem->offset = offset;
+		offset += mem->ty->size;
+	}
+	ty->size = offset;
+
+	return ty;
+}
+
+// declspec = "char" | "int" | struct-decl
 static struct Type *declspec(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "char")) {
@@ -507,11 +591,16 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 		return p_ty_char();
 	}
 
-	*rest = skip(tok, "int");
-	return p_ty_int();
-}
+	if (equal(tok, "int")) {
+		*rest = skip(tok, "int");
+		return p_ty_int();
+	}
 
-static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty);
+	if (equal(tok, "struct"))
+		return struct_decl(rest, tok->next);
+
+	error_tok(tok, "typename expected");
+}
 
 // func-params = (param ("," param)*)? ")"
 // param = declspec declarator
@@ -691,7 +780,9 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 // Returns true if a given token represents a type.
 static bool is_typename(struct Token *tok)
 {
-	return equal(tok, "char") || equal(tok, "int");
+	return equal(tok, "char") ||
+		equal(tok, "int") ||
+		equal(tok, "struct");
 }
 
 // compound-stmt = (declaration | stmt)* "}"

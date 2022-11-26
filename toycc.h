@@ -42,6 +42,15 @@ enum TypeKind {
 	TY_PTR,
 	TY_FUNC,
 	TY_ARRAY,
+	TY_STRUCT,
+};
+
+// struct Member
+struct Member {
+	struct Member *next;
+	struct Type *ty;
+	struct Token *name;
+	int offset;
 };
 
 struct Type {
@@ -58,6 +67,9 @@ struct Type {
 
 	// Array
 	int array_len;
+
+	// struct
+	struct Member *members;
 
 	// function type
 	struct Type *return_ty;
@@ -114,6 +126,7 @@ enum NodeKind {
 	ND_LE,		// <=
 	ND_ASSIGN,	// =
 	ND_COMMA,	// ,
+	ND_MEMBER,	// . (struct member access)
 	ND_ADDR,	// unary &, address
 	ND_DEREF,	// unary *, dereference
 	ND_RETURN,	// "return"
@@ -143,6 +156,9 @@ struct Node {
 	struct Node *els;
 	struct Node *init;
 	struct Node *inc;
+
+	// struct member access
+	struct Member *member;
 
 	// function call
 	const char *funcname;
