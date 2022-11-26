@@ -100,6 +100,10 @@ void add_type(struct Node *node)
 		node->ty = node->var->ty;
 		break;
 
+	case ND_COMMA:
+		node->ty = node->rhs->ty;
+		break;
+
 	case ND_ADDR:
 		if (node->lhs->ty->kind == TY_ARRAY)
 			// TODO: &array is not (array base *).
@@ -120,16 +124,15 @@ void add_type(struct Node *node)
 
 			while (stmt->next)
 				stmt = stmt->next;
-			if (stmt->kind == ND_EXPR_STMT) {
+
+			if (stmt->kind == ND_EXPR_STMT)
 				node->ty = stmt->lhs->ty;
-				break;
-			}
 
 		} else {
 			error_tok(node->tok,
 				"statement expression returning void is not supported");
-			break;
 		}
+		break;
 
 	default:
 		break;
