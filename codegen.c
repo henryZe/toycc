@@ -83,6 +83,11 @@ static void gen_addr(struct Node *node)
 		gen_addr(node->rhs);
 		break;
 
+	case ND_MEMBER:
+		gen_addr(node->lhs);
+		println("\tadd a0, a0, %d", node->member->offset);
+		break;
+
 	default:
 		error_tok(node->tok, "not a lvalue");
 		break;
@@ -139,12 +144,9 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_VAR:
-		debug("\t# ND_VAR load var %s",
-				node->var->name);
+	case ND_MEMBER:
 		gen_addr(node);
 		load(node->ty);
-		debug("\t# end ND_VAR load var %s",
-				node->var->name);
 		return;
 
 	case ND_DEREF:

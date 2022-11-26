@@ -104,6 +104,10 @@ void add_type(struct Node *node)
 		node->ty = node->rhs->ty;
 		break;
 
+	case ND_MEMBER:
+		node->ty = node->member->ty;
+		break;
+
 	case ND_ADDR:
 		if (node->lhs->ty->kind == TY_ARRAY)
 			// TODO: &array is not (array base *).
