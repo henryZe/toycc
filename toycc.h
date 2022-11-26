@@ -173,14 +173,15 @@ const char *format(const char *fmt, ...);
 
 // asm
 extern const char * const argreg[];
+extern const char *retreg;
+
 void push(const char *reg);
 void pop(const char *reg);
-void prologue(void);
+void prologue(struct Obj *fn);
 void epilogue(void);
 
-void loadnum(const char *dst, int num);
+void loadnum(int num);
 void neg(const char *dst, const char *src);
-void addnum(const char *dst, const char *src, int num);
 void addreg(const char *dst, const char *src);
 void subreg(const char *dst, const char *src);
 void mulreg(const char *dst, const char *src);
@@ -191,11 +192,12 @@ void neq(const char *dst, const char *src);
 void less_than(const char *dst, const char *src);
 void less_equal(const char *dst, const char *src);
 
-void loadb(const char *reg1, const char *reg2, int offset);
-void loadd(const char *reg1, const char *reg2, int offset);
-void storeb(const char *reg1, const char *reg2, int offset);
-void stored(const char *reg1, const char *reg2, int offset);
+void load_asm(int size);
+void store_asm(int size);
 void loadaddr(const char *dst, const char *symbol);
 
 void jmp(const char *symbol);
 void call(const char *symbol);
+
+void load_local_var(int stack_offset);
+void load_global_var(const char *name);

@@ -30,10 +30,10 @@ static void gen_addr(struct Node *node)
 	case ND_VAR:
 		if (node->var->is_local)
 			// local variable
-			addnum(argreg[0], "fp", node->var->offset);
+			load_local_var(node->var->offset);
 		else
 			// global variable
-			loadaddr(argreg[0], node->var->name);
+			load_global_var(node->var->name);
 		break;
 
 	case ND_DEREF:
@@ -63,21 +63,13 @@ static void load(struct Type *ty)
 		return;
 	}
 
-	if (ty->size == sizeof(char))
-		loadb(argreg[0], argreg[0], 0);
-	else
-		loadd(argreg[0], argreg[0], 0);
+	load_asm(ty->size);
 }
 
 // Store a0 to an address that the stack top is pointing to.
 static void store(struct Type *ty)
 {
-	pop(argreg[1]);
-
-	if (ty->size == sizeof(char))
-		storeb(argreg[0], argreg[1], 0);
-	else
-		stored(argreg[0], argreg[1], 0);
+	store_asm(ty->size);
 }
 
 void gen_call(struct Node *node)
@@ -87,7 +79,7 @@ void gen_call(struct Node *node)
 	debug("\t# call %s", node->funcname);
 	for (struct Node *arg = node->args; arg; arg = arg->next) {
 		gen_expr(arg);
-		push(argreg[0]);
+		push(retreg);
 		nargs++;
 	}
 	for (int i = nargs - 1; i >= 0; i--) {
@@ -102,7 +94,7 @@ static void gen_expr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_NUM:
-		loadnum(argreg[0], node->val);
+		loadnum(node->val);
 		return;
 
 	case ND_NEG:
@@ -310,18 +302,8 @@ static void emit_text(struct Obj *prog)
 		println("%s:", fn->name);
 		current_fn = fn;
 
-		prologue();
-
-		// Save passed-by-register arguments to the stack
-		int i = 0;
 		debug("\t# '%s' save args into stack", fn->name);
-		for (struct Obj *var = fn->params; var; var = var->next) {
-			if (var->ty->size == sizeof(char))
-				storeb(argreg[i++], "sp", var->offset);
-			else
-				stored(argreg[i++], "sp", var->offset);
-		}
-		addnum("sp", "sp", -fn->stack_size);
+		prologue(fn);
 		debug("\t# end '%s' save args", fn->name);
 
 		// Emit code

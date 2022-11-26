@@ -9,7 +9,14 @@ const char * const argreg[] = {
 	"a5",
 };
 
+const char *retreg = "a0";
+
 static int depth = 0;
+
+static void addnum(const char *dst, const char *src, int num)
+{
+	println("\tadd %s, %s, %d", dst, src, num);
+}
 
 // push reg into 0(sp)
 void push(const char *reg)
@@ -27,7 +34,7 @@ void pop(const char *reg)
 	depth--;
 }
 
-void prologue(void)
+void prologue(struct Obj *fn)
 {
 	// save fp register
 	push("fp");
@@ -35,6 +42,17 @@ void prologue(void)
 	push("ra");
 	// save sp register
 	println("\tmv fp, sp");
+	// expand sp
+	addnum("sp", "sp", -fn->stack_size);
+
+	int i = 0;
+	// Save passed-by-register arguments to the stack
+	for (struct Obj *var = fn->params; var; var = var->next) {
+		if (var->ty->size == sizeof(long))
+			println("\tsd %s, %d(fp)", argreg[i++], var->offset);
+		else
+			println("\tsb %s, %d(fp)", argreg[i++], var->offset);
+	}
 }
 
 void epilogue(void)
@@ -50,19 +68,14 @@ void epilogue(void)
 	assert(!depth);
 }
 
-void loadnum(const char *dst, int num)
+void loadnum(int num)
 {
-	println("\tli %s, %d", dst, num);
+	println("\tli a0, %d", num);
 }
 
 void neg(const char *dst, const char *src)
 {
 	println("\tneg %s, %s", dst, src);
-}
-
-void addnum(const char *dst, const char *src, int num)
-{
-	println("\tadd %s, %s, %d", dst, src, num);
 }
 
 void addreg(const char *dst, const char *src)
@@ -108,24 +121,22 @@ void less_equal(const char *dst, const char *src)
 	println("\tseqz %s, %s", dst, dst);
 }
 
-void loadb(const char *reg1, const char *reg2, int offset)
+void load_asm(int size)
 {
-	println("\tlb %s, %d(%s)", reg1, offset, reg2);
+	if (size == sizeof(long))
+		println("\tld a0, (a0)");
+	else
+		println("\tlb a0, (a0)");
 }
 
-void loadd(const char *reg1, const char *reg2, int offset)
+void store_asm(int size)
 {
-	println("\tld %s, %d(%s)", reg1, offset, reg2);
-}
+	pop("a1");
 
-void storeb(const char *reg1, const char *reg2, int offset)
-{
-	println("\tsb %s, %d(%s)", reg1, offset, reg2);
-}
-
-void stored(const char *reg1, const char *reg2, int offset)
-{
-	println("\tsd %s, %d(%s)", reg1, offset, reg2);
+	if (size == sizeof(long))
+		println("\tsd a0, (a1)");
+	else
+		println("\tsb a0, (a1)");
 }
 
 void loadaddr(const char *dst, const char *symbol)
@@ -141,4 +152,14 @@ void jmp(const char *symbol)
 void call(const char *symbol)
 {
 	println("\tcall %s", symbol);
+}
+
+void load_local_var(int stack_offset)
+{
+	addnum(retreg, "fp", stack_offset);
+}
+
+void load_global_var(const char *name)
+{
+	loadaddr(retreg, name);
 }
