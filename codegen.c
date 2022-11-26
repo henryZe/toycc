@@ -121,6 +121,8 @@ static void store(struct Type *ty)
 // Generate code for a given node.
 static void gen_expr(struct Node *node)
 {
+	println("\t.loc 1 %d", node->tok->line_no);
+
 	switch (node->kind) {
 	case ND_NUM:
 		println("\tli a0, %d", node->val);
@@ -235,6 +237,8 @@ static void gen_expr(struct Node *node)
 
 static void gen_stmt(struct Node *node)
 {
+	println("\t.loc 1 %d", node->tok->line_no);
+
 	int c;
 
 	switch (node->kind) {
