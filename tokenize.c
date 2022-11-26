@@ -3,9 +3,15 @@
 static void __attribute__((noreturn))
 error_at(const char *loc, const char *fmt, ...)
 {
+	// get a line number
+	int line_no = 1;
+
+	for (const char *p = get_cur_input(); p < loc; p++)
+		if (*p == '\n')
+			line_no++;
 	va_list ap;
 	va_start(ap, fmt);
-	verror_at(loc, fmt, ap);
+	verror_at(line_no, loc, fmt, ap);
 }
 
 bool consume(struct Token **rest, struct Token *tok, const char *str)
@@ -183,6 +189,23 @@ static struct Token *read_string_literal(const char *start)
 	return tok;
 }
 
+// initialize line info for all tokens
+static void add_line_number(struct Token *tok)
+{
+	const char *p = get_cur_input();
+	int n = 1;
+
+	do {
+		if (p == tok->loc) {
+			tok->line_no = n;
+			tok = tok->next;
+		}
+
+		if (*p == '\n')
+			n++;
+	} while (*p++);
+}
+
 static void convert_keywords(struct Token *tok)
 {
 	for (struct Token *t = tok; t->kind != TK_EOF; t = t->next)
@@ -264,9 +287,9 @@ static struct Token *tokenize(const char *filename, const char *p)
 
 		error_at(p, "invalid token");
 	}
-
 	cur->next = new_token(TK_EOF, p, p);
 
+	add_line_number(head.next);
 	convert_keywords(head.next);
 	return head.next;
 }
