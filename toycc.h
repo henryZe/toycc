@@ -113,6 +113,7 @@ enum NodeKind {
 	ND_LT,		// <
 	ND_LE,		// <=
 	ND_ASSIGN,	// =
+	ND_COMMA,	// ,
 	ND_ADDR,	// unary &, address
 	ND_DEREF,	// unary *, dereference
 	ND_RETURN,	// "return"

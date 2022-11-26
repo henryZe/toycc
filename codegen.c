@@ -78,6 +78,11 @@ static void gen_addr(struct Node *node)
 		gen_expr(node->lhs);
 		break;
 
+	case ND_COMMA:
+		gen_expr(node->lhs);
+		gen_addr(node->rhs);
+		break;
+
 	default:
 		error_tok(node->tok, "not a lvalue");
 		break;
@@ -169,10 +174,15 @@ static void gen_expr(struct Node *node)
 			gen_stmt(n);
 		return;
 
-	case ND_FUNCALL: {
-		int nargs = 0;
+	case ND_COMMA:
+		gen_expr(node->lhs);
+		gen_expr(node->rhs);
+		return;
 
+	case ND_FUNCALL:
 		debug("\t# ND_FUNCALL func %s", node->funcname);
+
+		int nargs = 0;
 
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
 			gen_expr(arg);
@@ -188,7 +198,6 @@ static void gen_expr(struct Node *node)
 
 		debug("\t# end ND_FUNCALL func %s", node->funcname);
 		return;
-	}
 
 	default:
 		break;

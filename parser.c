@@ -464,9 +464,16 @@ static struct Node *assign(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+// expr = assign ("," expr)?
 static struct Node *expr(struct Token **rest, struct Token *tok)
 {
-	return assign(rest, tok);
+	struct Node *n = assign(&tok, tok);
+
+	if (equal(tok, ","))
+		return new_binary(ND_COMMA, n, expr(rest, tok->next), tok);
+
+	*rest = tok;
+	return n;
 }
 
 // expr_stmt = ";" | expr ";"
