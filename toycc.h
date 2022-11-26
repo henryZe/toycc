@@ -28,6 +28,7 @@ struct Token {
 	size_t len;		// Token length
 	struct Type *ty;	// used if TK_STR
 	const char *str;	// string literal contents including terminating '\0'
+	int line_no;		// line number
 };
 
 bool consume(struct Token **rest, struct Token *tok, const char *str);
@@ -161,9 +162,10 @@ void codegen(struct Obj *prog, FILE *out);
 
 bool equal(struct Token *tok, const char *op);
 void set_cur_input(const char *p);
+const char *get_cur_input(void);
 void set_cur_filename(const char *filename);
 void __attribute__((noreturn)) error(const char *fmt, ...);
-void __attribute__((noreturn)) verror_at(const char *loc, const char *fmt, va_list ap);
+void __attribute__((noreturn)) verror_at(int line_no, const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
 
 // strings.c

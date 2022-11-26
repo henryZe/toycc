@@ -13,6 +13,11 @@ void set_cur_input(const char *p)
 	current_input = p;
 }
 
+const char *get_cur_input(void)
+{
+	return current_input;
+}
+
 void set_cur_filename(const char *filename)
 {
 	current_filename = filename;
@@ -34,7 +39,7 @@ error(const char *fmt, ...)
 // foo.c:10: x = y + 1;
 //               ^ <error message here>
 void __attribute__((noreturn))
-verror_at(const char *loc, const char *fmt, va_list ap)
+verror_at(int line_no, const char *loc, const char *fmt, va_list ap)
 {
 	// find a line containing `loc`
 	const char *line = loc;
@@ -46,12 +51,6 @@ verror_at(const char *loc, const char *fmt, va_list ap)
 	// find ending of the line
 	while (*end != '\n')
 		end++;
-
-	// get a line number
-	int line_no = 1;
-	for (const char *p = current_input; p < line; p++)
-		if (*p == '\n')
-			line_no++;
 
 	// print out the line
 	int indent = fprintf(stderr, "%s:%d: ", current_filename, line_no);
@@ -73,5 +72,5 @@ error_tok(struct Token *tok, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	verror_at(tok->loc, fmt, ap);
+	verror_at(tok->line_no, tok->loc, fmt, ap);
 }
