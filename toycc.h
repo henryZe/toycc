@@ -56,6 +56,7 @@ struct Member {
 struct Type {
 	enum TypeKind kind;
 	int size;		// sizeof() value
+	int align;		// alignment
 
 	// pointer-to or array-of type.
 	// We intentionally use the same member to
@@ -173,6 +174,7 @@ struct Obj *parser(struct Token *tok);
 
 // codegen.c
 void codegen(struct Obj *prog, FILE *out);
+int align_to(int n, int align);
 
 // utils.c
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
