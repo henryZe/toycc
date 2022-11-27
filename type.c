@@ -1,7 +1,17 @@
 #include <toycc.h>
 
-static struct Type *ty_char = &(struct Type){ .kind = TY_CHAR, .size = sizeof(char) };
-static struct Type *ty_int = &(struct Type){ .kind = TY_INT, .size = sizeof(long) };
+static struct Type *ty_char =
+			&(struct Type){
+				.kind = TY_CHAR,
+				.size = sizeof(char),
+				.align = sizeof(char),
+};
+static struct Type *ty_int =
+			&(struct Type){
+				.kind = TY_INT,
+				.size = sizeof(long),
+				.align = sizeof(long),
+};
 
 struct Type *p_ty_char(void)
 {
@@ -11,6 +21,15 @@ struct Type *p_ty_char(void)
 struct Type *p_ty_int(void)
 {
 	return ty_int;
+}
+
+static struct Type *new_type(enum TypeKind kind, int size, int align)
+{
+	struct Type *ty = malloc(sizeof(struct Type));
+	ty->kind = kind;
+	ty->size = size;
+	ty->align = align;
+	return ty;
 }
 
 bool is_integer(struct Type *ty)
@@ -27,9 +46,7 @@ struct Type *copy_type(struct Type *ty)
 
 struct Type *pointer_to(struct Type *base)
 {
-	struct Type *ty = malloc(sizeof(struct Type));
-	ty->kind = TY_PTR;
-	ty->size = sizeof(long);
+	struct Type *ty = new_type(TY_PTR, sizeof(long), sizeof(long));
 	ty->base = base;
 	return ty;
 }
@@ -44,13 +61,9 @@ struct Type *func_type(struct Type *return_ty)
 
 struct Type *array_of(struct Type *base, int len)
 {
-	struct Type *ty = malloc(sizeof(struct Type));
-
-	ty->kind = TY_ARRAY;
-	ty->size = base->size * len;
+	struct Type *ty = new_type(TY_ARRAY, base->size * len, base->align);
 	ty->base = base;
 	ty->array_len = len;
-
 	return ty;
 }
 
