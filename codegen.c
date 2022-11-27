@@ -99,15 +99,17 @@ static struct Obj *current_fn;
 // Load a value from where a0 is pointing to.
 static void load(struct Type *ty)
 {
-	if (ty->kind == TY_ARRAY) {
-		// If it is an array, do not attempt to load a value
-		// to the register because in general we can't load
-		// an entire array to a register. As a result,
-		// the result of an evaluation of an array becomes
-		// not the array itself but the address of the array.
-		// This is where "array is automatically converted to
-		// a pointer to the first element of the array in C"
-		// occurs.
+	// If it is an array, do not attempt to load a value
+	// to the register because in general we can't load
+	// an entire array to a register. As a result,
+	// the result of an evaluation of an array becomes
+	// not the array itself but the address of the array.
+	// This is where "array is automatically converted to
+	// a pointer to the first element of the array in C"
+	// occurs.
+	if (ty->kind == TY_ARRAY ||
+		ty->kind == TY_STRUCT ||
+		ty->kind == TY_UNION) {
 		return;
 	}
 
@@ -121,6 +123,15 @@ static void load(struct Type *ty)
 static void store(struct Type *ty)
 {
 	pop("a1");
+
+	if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
+		for (int i = 0; i < ty->size; i++) {
+			// load & store byte by byte
+			println("\tlb a2, %d(a0)", i);
+			println("\tsb a2, %d(a1)", i);
+		}
+		return;
+	}
 
 	if (ty->size == sizeof(char))
 		println("\tsb a0, (a1)");
