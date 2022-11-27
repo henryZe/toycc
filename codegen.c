@@ -324,6 +324,7 @@ static void assign_lvar_offsets(struct Obj *prog)
 		// initialize var's offset
 		for (struct Obj *var = fn->locals; var; var = var->next) {
 			offset += var->ty->size;
+			offset = align_to(offset, var->ty->align);
 			var->offset = -offset;
 		}
 		// initialize stack size
