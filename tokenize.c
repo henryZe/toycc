@@ -41,11 +41,21 @@ static bool startwith(const char *p, const char *q)
 	return strncmp(p, q, strlen(q)) == 0;
 }
 
+// punctuator
 static int read_punct(const char *p)
 {
-	if (startwith(p, "==") || startwith(p, "!=") ||
-		startwith(p, "<=") || startwith(p, ">="))
-		return 2;
+	static const char * const kw[] = {
+		"==",
+		"!=",
+		"<=",
+		">=",
+		"->",
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
+		if (startwith(p, kw[i]))
+			return strlen(kw[i]);
+
 	return ispunct(*p) ? 1 : 0;
 }
 
@@ -63,7 +73,6 @@ static bool is_ident2(char c)
 
 static bool is_keyword(struct Token *tok)
 {
-	size_t i;
 	static const char * const kw[] = {
 		"return",
 		"if",
@@ -76,7 +85,7 @@ static bool is_keyword(struct Token *tok)
 		"struct",
 	};
 
-	for (i = 0; i < ARRAY_SIZE(kw); i++)
+	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
 		if (equal(tok, kw[i]))
 			return true;
 	return false;
