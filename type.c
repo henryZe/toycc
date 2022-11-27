@@ -9,8 +9,8 @@ static struct Type *ty_char =
 static struct Type *ty_int =
 			&(struct Type){
 				.kind = TY_INT,
-				.size = sizeof(long),
-				.align = sizeof(long),
+				.size = sizeof(int),
+				.align = sizeof(int),
 };
 
 struct Type *p_ty_char(void)

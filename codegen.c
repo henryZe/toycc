@@ -115,6 +115,8 @@ static void load(struct Type *ty)
 
 	if (ty->size == sizeof(char))
 		println("\tlb a0, (a0)");
+	else if (ty->size == sizeof(int))
+		println("\tlw a0, (a0)");
 	else
 		println("\tld a0, (a0)");
 }
@@ -135,6 +137,8 @@ static void store(struct Type *ty)
 
 	if (ty->size == sizeof(char))
 		println("\tsb a0, (a1)");
+	else if (ty->size == sizeof(int))
+		println("\tsw a0, (a1)");
 	else
 		println("\tsd a0, (a1)");
 }
@@ -362,6 +366,27 @@ static void emit_data(struct Obj *prog)
 	}
 }
 
+static void store_args(int r, int offset, int sz)
+{
+	switch (sz) {
+	case sizeof(char):
+		println("\tsb %s, %d(sp)", argreg[r], offset);
+		break;
+
+	case sizeof(int):
+		println("\tsw %s, %d(sp)", argreg[r], offset);
+		break;
+
+	case sizeof(long):
+		println("\tsd %s, %d(sp)", argreg[r], offset);
+		break;
+
+	default:
+		unreachable();
+		break;
+	}
+}
+
 static void emit_text(struct Obj *prog)
 {
 	for (struct Obj *fn = prog; fn; fn = fn->next) {
@@ -381,12 +406,8 @@ static void emit_text(struct Obj *prog)
 		// Save passed-by-register arguments to the stack
 		int i = 0;
 		debug("\t# '%s' save args into stack", fn->name);
-		for (struct Obj *var = fn->params; var; var = var->next) {
-			if (var->ty->size == sizeof(char))
-				println("\tsb %s, %d(sp)", argreg[i++], var->offset);
-			else
-				println("\tsd %s, %d(sp)", argreg[i++], var->offset);
-		}
+		for (struct Obj *var = fn->params; var; var = var->next)
+			store_args(i++, var->offset, var->ty->size);
 		println("\tadd sp, sp, -%d", fn->stack_size);
 		debug("\t# end '%s' save args", fn->name);
 

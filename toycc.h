@@ -10,6 +10,9 @@
 
 // tokenize.c
 
+#define unreachable() \
+	error("internal error at %s:%d", __FILE__, __LINE__)
+
 // token
 enum TokenKind {
 	TK_IDENT,	// Identifiers
