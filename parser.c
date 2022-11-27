@@ -19,15 +19,28 @@ struct VarScope {
 	struct Obj *var;
 };
 
+// scope for struct tags
+struct TagScope {
+	struct TagScope *next;
+	const char *name;
+	struct Type *ty;
+};
+
 // represents a block scope
 struct Scope {
 	struct Scope *next;
+
+	// C has two block scopes:
+	// one is for variables
+	// and the other is for struct tags.
 	struct VarScope *vars;
+	struct TagScope *tags;
 };
 
 // All local variable instances created during parsing are
 // accumulated to this list.
 static struct Obj *locals;
+// Likewise, global variables are accumulated to this list.
 static struct Obj *globals;
 
 static struct Scope *scope = &(struct Scope){};
@@ -103,6 +116,24 @@ static struct Obj *find_var(struct Token *tok)
 			if (equal(tok, vars->name))
 				return vars->var;
 	return NULL;
+}
+
+static struct Type *find_tag(struct Token *tok)
+{
+	for (struct Scope *sc = scope; sc; sc = sc->next)
+		for (struct TagScope *tag = sc->tags; tag; tag = tag->next)
+			if (equal(tok, tag->name))
+				return tag->ty;
+	return NULL;
+}
+
+static void push_tag_scope(struct Token *tok, struct Type *ty)
+{
+	struct TagScope *sc = malloc(sizeof(struct TagScope));
+	sc->name = strndup(tok->loc, tok->len);
+	sc->ty = ty;
+	sc->next = scope->tags;
+	scope->tags = sc;
 }
 
 static struct VarScope *push_scope(const char *name, struct Obj *var)
@@ -562,15 +593,32 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 	ty->members = head.next;
 }
 
-// struct-decl = "{" struct-members
+// struct-decl = ident? "{" struct-members
 static struct Type *struct_decl(struct Token **rest, struct Token *tok)
 {
-	tok = skip(tok, "{");
+	// read a struct tag
+	struct Token *tag = NULL;
+
+	if (tok->kind == TK_IDENT) {
+		tag = tok;
+		tok = tok->next;
+	}
+
+	// var return
+	if (tag && !equal(tok, "{")) {
+		struct Type *ty = find_tag(tag);
+		if (!ty)
+			error_tok(tag, "unknown struct type");
+
+		*rest = tok;
+		return ty;
+	}
 
 	// Construct a struct object
 	struct Type *ty = malloc(sizeof(struct Type));
 	ty->kind = TY_STRUCT;
-	struct_members(rest, tok, ty);
+	// skip "{"
+	struct_members(rest, tok->next, ty);
 	ty->align = 1;
 
 	// Assign offsets within the struct to members
@@ -585,6 +633,9 @@ static struct Type *struct_decl(struct Token **rest, struct Token *tok)
 	}
 	ty->size = align_to(offset, ty->align);
 
+	// register the struct type if a name was given
+	if (tag)
+		push_tag_scope(tag, ty);
 	return ty;
 }
 
