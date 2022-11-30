@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdarg.h>
 #include <ctype.h>
 #include <assert.h>
@@ -26,7 +27,7 @@ enum TokenKind {
 struct Token {
 	enum TokenKind kind;	// Token kind
 	struct Token *next;	// next token
-	int val;		// if kind is TK_NUM, its value
+	int64_t val;		// if kind is TK_NUM, its value
 	const char *loc;	// Token location
 	size_t len;		// Token length
 	struct Type *ty;	// used if TK_STR
@@ -42,6 +43,7 @@ struct Token *tokenize_file(const char *filename);
 enum TypeKind {
 	TY_CHAR,
 	TY_INT,
+	TY_LONG,
 	TY_PTR,
 	TY_FUNC,
 	TY_ARRAY,
@@ -84,6 +86,7 @@ struct Type {
 
 struct Type *p_ty_char(void);
 struct Type *p_ty_int(void);
+struct Type *p_ty_long(void);
 bool is_integer(struct Type *ty);
 struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
@@ -171,7 +174,7 @@ struct Node {
 
 	struct Node *body;	// Block or statement expression
 	struct Obj *var;	// Used if kind == ND_VAR
-	int val;		// Used if kind == ND_NUM
+	int64_t val;		// Used if kind == ND_NUM
 };
 
 struct Obj *parser(struct Token *tok);

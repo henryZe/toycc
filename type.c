@@ -1,16 +1,19 @@
 #include <toycc.h>
 
-static struct Type *ty_char =
-			&(struct Type){
+static struct Type *ty_char = &(struct Type){
 				.kind = TY_CHAR,
 				.size = sizeof(char),
 				.align = sizeof(char),
 };
-static struct Type *ty_int =
-			&(struct Type){
+static struct Type *ty_int = &(struct Type){
 				.kind = TY_INT,
 				.size = sizeof(int),
 				.align = sizeof(int),
+};
+static struct Type *ty_long = &(struct Type){
+				.kind = TY_LONG,
+				.size = sizeof(long),
+				.align = sizeof(long),
 };
 
 struct Type *p_ty_char(void)
@@ -21,6 +24,11 @@ struct Type *p_ty_char(void)
 struct Type *p_ty_int(void)
 {
 	return ty_int;
+}
+
+struct Type *p_ty_long(void)
+{
+	return ty_long;
 }
 
 static struct Type *new_type(enum TypeKind kind, int size, int align)
@@ -34,7 +42,9 @@ static struct Type *new_type(enum TypeKind kind, int size, int align)
 
 bool is_integer(struct Type *ty)
 {
-	return ty->kind == TY_CHAR || ty->kind == TY_INT;
+	return ty->kind == TY_CHAR ||
+		ty->kind == TY_INT ||
+		ty->kind == TY_LONG;
 }
 
 struct Type *copy_type(struct Type *ty)
@@ -106,7 +116,7 @@ void add_type(struct Node *node)
 	case ND_LE:
 	case ND_NUM:
 	case ND_FUNCALL:
-		node->ty = ty_int;
+		node->ty = ty_long;
 		break;
 
 	case ND_VAR:

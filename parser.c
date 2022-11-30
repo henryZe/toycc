@@ -88,7 +88,7 @@ static struct Node *new_var_node(struct Obj *var, struct Token *tok)
 	return node;
 }
 
-static struct Node *new_num(int val, struct Token *tok)
+static struct Node *new_num(int64_t val, struct Token *tok)
 {
 	struct Node *node = new_node(ND_NUM, tok);
 	node->val = val;
@@ -678,7 +678,7 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
-// declspec = "char" | "int" | struct-decl
+// declspec = "char" | "short" | "int" | "long" | struct-decl | union-decl
 static struct Type *declspec(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "char")) {
@@ -687,8 +687,13 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 	}
 
 	if (equal(tok, "int")) {
-		*rest = skip(tok, "int");
+		*rest = tok->next;
 		return p_ty_int();
+	}
+
+	if (equal(tok, "long")) {
+		*rest = tok->next;
+		return p_ty_long();
 	}
 
 	if (equal(tok, "struct"))
@@ -879,7 +884,9 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 static bool is_typename(struct Token *tok)
 {
 	return equal(tok, "char") ||
+		equal(tok, "short") ||
 		equal(tok, "int") ||
+		equal(tok, "long") ||
 		equal(tok, "struct") ||
 		equal(tok, "union");
 }
