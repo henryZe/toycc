@@ -115,6 +115,8 @@ static void load(struct Type *ty)
 
 	if (ty->size == sizeof(char))
 		println("\tlb a0, (a0)");
+	else if (ty->size == sizeof(short))
+		println("\tlh a0, (a0)");
 	else if (ty->size == sizeof(int))
 		println("\tlw a0, (a0)");
 	else
@@ -137,6 +139,8 @@ static void store(struct Type *ty)
 
 	if (ty->size == sizeof(char))
 		println("\tsb a0, (a1)");
+	else if (ty->size == sizeof(short))
+		println("\tsh a0, (a1)");
 	else if (ty->size == sizeof(int))
 		println("\tsw a0, (a1)");
 	else
@@ -371,6 +375,10 @@ static void store_args(int r, int offset, int sz)
 	switch (sz) {
 	case sizeof(char):
 		println("\tsb %s, %d(sp)", argreg[r], offset);
+		break;
+
+	case sizeof(short):
+		println("\tsh %s, %d(sp)", argreg[r], offset);
 		break;
 
 	case sizeof(int):

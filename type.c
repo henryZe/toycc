@@ -5,6 +5,11 @@ static struct Type *ty_char = &(struct Type){
 				.size = sizeof(char),
 				.align = sizeof(char),
 };
+static struct Type *ty_short = &(struct Type){
+				.kind = TY_SHORT,
+				.size = sizeof(short),
+				.align = sizeof(short),
+};
 static struct Type *ty_int = &(struct Type){
 				.kind = TY_INT,
 				.size = sizeof(int),
@@ -19,6 +24,11 @@ static struct Type *ty_long = &(struct Type){
 struct Type *p_ty_char(void)
 {
 	return ty_char;
+}
+
+struct Type *p_ty_short(void)
+{
+	return ty_short;
 }
 
 struct Type *p_ty_int(void)
@@ -43,6 +53,7 @@ static struct Type *new_type(enum TypeKind kind, int size, int align)
 bool is_integer(struct Type *ty)
 {
 	return ty->kind == TY_CHAR ||
+		ty->kind == TY_SHORT ||
 		ty->kind == TY_INT ||
 		ty->kind == TY_LONG;
 }
