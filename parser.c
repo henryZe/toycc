@@ -757,12 +757,27 @@ static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 	return ty;
 }
 
-// declarator = "*"* ident (type-suffix)?
+// declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) (type-suffix)?
 static struct Type *declarator(struct Token **rest, struct Token *tok,
 				struct Type *ty)
 {
 	while (consume(&tok, tok, "*"))
 		ty = pointer_to(ty);
+
+	if (equal(tok, "(")) {
+		struct Token *start = tok->next;
+		struct Type dummy = {};
+
+		// get the token of type_suffix firstly
+		declarator(&tok, start, &dummy);
+		tok = skip(tok, ")");
+
+		// get the type of declarator, and update 'rest'
+		ty = type_suffix(rest, tok, ty);
+
+		// process 'start' token, and keep the 'rest' & return it
+		return declarator(&tok, start, ty);
+	}
 
 	if (tok->kind != TK_IDENT)
 		error_tok(tok, "expected a variable name");
