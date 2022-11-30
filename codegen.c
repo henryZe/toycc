@@ -150,7 +150,7 @@ static void gen_expr(struct Node *node)
 
 	switch (node->kind) {
 	case ND_NUM:
-		println("\tli a0, %d", node->val);
+		println("\tli a0, %ld", node->val);
 		return;
 
 	case ND_NEG:
