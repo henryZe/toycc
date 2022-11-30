@@ -42,6 +42,7 @@ struct Token *tokenize_file(const char *filename);
 
 enum TypeKind {
 	TY_CHAR,
+	TY_SHORT,
 	TY_INT,
 	TY_LONG,
 	TY_PTR,
@@ -85,6 +86,7 @@ struct Type {
 };
 
 struct Type *p_ty_char(void);
+struct Type *p_ty_short(void);
 struct Type *p_ty_int(void);
 struct Type *p_ty_long(void);
 bool is_integer(struct Type *ty);

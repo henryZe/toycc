@@ -43,6 +43,7 @@ int main()
 	ASSERT(5, ({ struct t {char a, b;} x, y; x.a=5; y=x; y.a; }));
 
 	ASSERT(16, ({ struct {char a; long b;} x; sizeof(x); }));
+	ASSERT(4, ({ struct {char a; short b;} x; sizeof(x); }));
 
 	printf("OK\n");
 	return 0;

@@ -686,6 +686,11 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 		return p_ty_char();
 	}
 
+	if (equal(tok, "short")) {
+		*rest = tok->next;
+		return p_ty_short();
+	}
+
 	if (equal(tok, "int")) {
 		*rest = tok->next;
 		return p_ty_int();
