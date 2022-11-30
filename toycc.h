@@ -112,6 +112,8 @@ struct Obj {
 
 	// global variable or function
 	bool is_function;
+	// function definition
+	bool is_definition;
 
 	// global variable
 	const char *init_data;

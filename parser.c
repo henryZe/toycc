@@ -950,6 +950,10 @@ static struct Token *function(struct Token *tok, struct Type *basety)
 
 	struct Obj *fn = new_gvar(get_ident(ty->name), ty);
 	fn->is_function = true;
+	fn->is_definition = !consume(&tok, tok, ";");
+
+	if (!fn->is_definition)
+		return tok;
 
 	// initialize local variables list
 	locals = NULL;

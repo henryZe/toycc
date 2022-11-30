@@ -398,7 +398,8 @@ static void store_args(int r, int offset, int sz)
 static void emit_text(struct Obj *prog)
 {
 	for (struct Obj *fn = prog; fn; fn = fn->next) {
-		if (!fn->is_function)
+		// function definition
+		if (!fn->is_function || !fn->is_definition)
 			continue;
 
 		println(".text");
