@@ -678,9 +678,15 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
-// declspec = "char" | "short" | "int" | "long" | struct-decl | union-decl
+// declspec = "void" | "char" | "short" | "int"
+//	    | "long" | struct-decl | union-decl
 static struct Type *declspec(struct Token **rest, struct Token *tok)
 {
+	if (equal(tok, "void")) {
+		*rest = tok->next;
+		return p_ty_void();
+	}
+
 	if (equal(tok, "char")) {
 		*rest = tok->next;
 		return p_ty_char();
@@ -810,6 +816,9 @@ static struct Node *declaration(struct Token **rest, struct Token *tok)
 			tok = skip(tok, ",");
 
 		struct Type *ty = declarator(&tok, tok, basety);
+		if (ty->kind == TY_VOID)
+			error_tok(tok, "variable declared void");
+
 		struct Obj *var = new_lvar(get_ident(ty->name), ty);
 
 		if (!equal(tok, "="))
@@ -903,12 +912,21 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 // Returns true if a given token represents a type.
 static bool is_typename(struct Token *tok)
 {
-	return equal(tok, "char") ||
-		equal(tok, "short") ||
-		equal(tok, "int") ||
-		equal(tok, "long") ||
-		equal(tok, "struct") ||
-		equal(tok, "union");
+	static const char * const kw[] = {
+		"void",
+		"char",
+		"short",
+		"int",
+		"long",
+		"struct",
+		"union",
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
+		if (equal(tok, kw[i]))
+			return true;
+
+	return false;
 }
 
 // compound-stmt = (declaration | stmt)* "}"

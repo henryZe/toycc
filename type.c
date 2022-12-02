@@ -1,5 +1,10 @@
 #include <toycc.h>
 
+static struct Type *ty_void = &(struct Type){
+				.kind = TY_VOID,
+				.size = 1,
+				.align = 1,
+};
 static struct Type *ty_char = &(struct Type){
 				.kind = TY_CHAR,
 				.size = sizeof(char),
@@ -20,6 +25,11 @@ static struct Type *ty_long = &(struct Type){
 				.size = sizeof(long),
 				.align = sizeof(long),
 };
+
+struct Type *p_ty_void(void)
+{
+	return ty_void;
+}
 
 struct Type *p_ty_char(void)
 {
@@ -153,6 +163,9 @@ void add_type(struct Node *node)
 	case ND_DEREF:
 		if (!node->lhs->ty->base)
 			error_tok(node->tok, "invalid pointer dereference");
+		if (node->lhs->ty->base->kind == TY_VOID)
+			error_tok(node->tok, "dereferencing a void pointer");
+
 		node->ty = node->lhs->ty->base;
 		break;
 

@@ -41,6 +41,7 @@ struct Token *tokenize_file(const char *filename);
 // type.c
 
 enum TypeKind {
+	TY_VOID,
 	TY_CHAR,
 	TY_SHORT,
 	TY_INT,
@@ -85,6 +86,7 @@ struct Type {
 	struct Type *next;
 };
 
+struct Type *p_ty_void(void);
 struct Type *p_ty_char(void);
 struct Type *p_ty_short(void);
 struct Type *p_ty_int(void);
