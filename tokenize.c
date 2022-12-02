@@ -86,6 +86,7 @@ static bool is_keyword(struct Token *tok)
 		"char",
 		"struct",
 		"union",
+		"void",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
