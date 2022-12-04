@@ -771,6 +771,8 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 			break;
 		case LONG:
 		case LONG + INT:
+		case LONG + LONG:
+		case LONG + LONG + INT:
 			ty = p_ty_long();
 			break;
 		default:
