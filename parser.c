@@ -678,42 +678,111 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
-// declspec = "void" | "char" | "short" | "int"
-//	    | "long" | struct-decl | union-decl
+// Returns true if a given token represents a type.
+static bool is_typename(struct Token *tok)
+{
+	static const char * const kw[] = {
+		"void",
+		"char",
+		"short",
+		"int",
+		"long",
+		"struct",
+		"union",
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
+		if (equal(tok, kw[i]))
+			return true;
+
+	return false;
+}
+
+// declspec = ("void" | "char" | "short" | "int" | "long" |
+//              struct-decl | union-decl )+
+//
+// The order of typenames in a type-specifier doesn't matter. For
+// example, `int long static` means the same as `static long int`.
+// That can also be written as `static long` because you can omit
+// `int` if `long` or `short` are specified. However, something like
+// `char int` is not a valid type specifier. We have to accept only a
+// limited combinations of the typenames.
+//
+// In this function, we count the number of occurrences of each typename
+// while keeping the "current" type object that the typenames up
+// until that point represent. When we reach a non-typename token,
+// we returns the current type object.
 static struct Type *declspec(struct Token **rest, struct Token *tok)
 {
-	if (equal(tok, "void")) {
-		*rest = tok->next;
-		return p_ty_void();
+	// We use a single integer as counters for all typenames.
+	// For example, bits 0 and 1 represents how many times we saw the
+	// keyword "void" so far. With this, we can use a switch statement
+	// as you can see below.
+	enum {
+		VOID  = 1 << 0,
+		CHAR  = 1 << 2,
+		SHORT = 1 << 4,
+		INT   = 1 << 6,
+		LONG  = 1 << 8,
+		OTHER = 1 << 10,
+	};
+
+	struct Type *ty = NULL;
+	int counter = 0;
+
+	while (is_typename(tok)) {
+		// Handle user-defined types.
+		if (equal(tok, "struct") || equal(tok, "union")) {
+			if (equal(tok, "struct"))
+				ty = struct_decl(&tok, tok->next);
+			else
+				ty = union_decl(&tok, tok->next);
+			counter += OTHER;
+			continue;
+		}
+
+		// Handle built-in types.
+		if (equal(tok, "void"))
+			counter += VOID;
+		else if (equal(tok, "char"))
+			counter += CHAR;
+		else if (equal(tok, "short"))
+			counter += SHORT;
+		else if (equal(tok, "int"))
+			counter += INT;
+		else if (equal(tok, "long"))
+			counter += LONG;
+		else
+			unreachable();
+
+		switch (counter) {
+		case VOID:
+			ty = p_ty_void();
+			break;
+		case CHAR:
+			ty = p_ty_char();
+			break;
+		case SHORT:
+		case SHORT + INT:
+			ty = p_ty_short();
+			break;
+		case INT:
+			ty = p_ty_int();
+			break;
+		case LONG:
+		case LONG + INT:
+			ty = p_ty_long();
+			break;
+		default:
+			error_tok(tok, "invalid type");
+			break;
+		}
+
+		tok = tok->next;
 	}
 
-	if (equal(tok, "char")) {
-		*rest = tok->next;
-		return p_ty_char();
-	}
-
-	if (equal(tok, "short")) {
-		*rest = tok->next;
-		return p_ty_short();
-	}
-
-	if (equal(tok, "int")) {
-		*rest = tok->next;
-		return p_ty_int();
-	}
-
-	if (equal(tok, "long")) {
-		*rest = tok->next;
-		return p_ty_long();
-	}
-
-	if (equal(tok, "struct"))
-		return struct_decl(rest, tok->next);
-
-	if (equal(tok, "union"))
-		return union_decl(rest, tok->next);
-
-	error_tok(tok, "typename expected");
+	*rest = tok;
+	return ty;
 }
 
 // func-params = (param ("," param)*)? ")"
@@ -907,26 +976,6 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		return compound_stmt(rest, tok->next);
 
 	return expr_stmt(rest, tok);
-}
-
-// Returns true if a given token represents a type.
-static bool is_typename(struct Token *tok)
-{
-	static const char * const kw[] = {
-		"void",
-		"char",
-		"short",
-		"int",
-		"long",
-		"struct",
-		"union",
-	};
-
-	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
-		if (equal(tok, kw[i]))
-			return true;
-
-	return false;
 }
 
 // compound-stmt = (declaration | stmt)* "}"
