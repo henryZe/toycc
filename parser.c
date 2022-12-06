@@ -12,11 +12,12 @@
 
 #include <toycc.h>
 
-// scope for local or global variables
+// scope for local or global variables or typedefs
 struct VarScope {
 	struct VarScope *next;
 	const char *name;
 	struct Obj *var;
+	struct Type *type_def;
 };
 
 // scope for struct tags or union tags
@@ -35,6 +36,11 @@ struct Scope {
 	// and the other is for struct tags.
 	struct VarScope *vars;
 	struct TagScope *tags;
+};
+
+// Variable attributes such as typedef or extern.
+struct VarAttr {
+	bool is_typedef;
 };
 
 // All local variable instances created during parsing are
@@ -109,12 +115,12 @@ static void leave_scope(void)
 	scope = scope->next;
 }
 
-static struct Obj *find_var(struct Token *tok)
+static struct VarScope *find_var(struct Token *tok)
 {
 	for (struct Scope *sc = scope; sc; sc = sc->next)
 		for (struct VarScope *vars = sc->vars; vars; vars = vars->next)
 			if (equal(tok, vars->name))
-				return vars->var;
+				return vars;
 	return NULL;
 }
 
@@ -136,11 +142,10 @@ static void push_tag_scope(struct Token *tok, struct Type *ty)
 	scope->tags = sc;
 }
 
-static struct VarScope *push_scope(const char *name, struct Obj *var)
+static struct VarScope *push_scope(const char *name)
 {
 	struct VarScope *sc = malloc(sizeof(struct VarScope));
 	sc->name = name;
-	sc->var = var;
 	sc->next = scope->vars;
 	scope->vars = sc;
 	return sc;
@@ -152,7 +157,7 @@ static struct Obj *new_var(const char *name, struct Type *ty)
 	struct Obj *var = malloc(sizeof(struct Obj));
 	var->name = name;
 	var->ty = ty;
-	push_scope(name, var);
+	push_scope(name)->var = var;
 	return var;
 }
 
@@ -269,11 +274,11 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 			return funcall(rest, tok);
 
 		// variable
-		struct Obj *var = find_var(tok);
-		if (!var)
+		struct VarScope *sc = find_var(tok);
+		if (!sc || !sc->var)
 			error_tok(tok, "undefined variable");
 		*rest = tok->next;
-		return new_var_node(var, tok);
+		return new_var_node(sc->var, tok);
 	}
 
 	if (tok->kind == TK_STR) {
@@ -573,7 +578,7 @@ static int get_number(struct Token *tok)
 	return tok->val;
 }
 
-static struct Type *declspec(struct Token **rest, struct Token *tok);
+static struct Type *declspec(struct Token **rest, struct Token *tok, struct VarAttr *attr);
 static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty);
 
 // struct-members = (declspec declarator ("," declarator)* ";")*
@@ -583,7 +588,7 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 	struct Member *cur = &head;
 
 	while (!equal(tok, "}")) {
-		struct Type *basety = declspec(&tok, tok);
+		struct Type *basety = declspec(&tok, tok, NULL);
 		int i = 0;
 
 		while (!consume(&tok, tok, ";")) {
@@ -678,6 +683,16 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
+static struct Type *find_typedef(struct Token *tok)
+{
+	if (tok->kind == TK_IDENT) {
+		struct VarScope *sc = find_var(tok);
+		if (sc)
+			return sc->type_def;
+	}
+	return NULL;
+}
+
 // Returns true if a given token represents a type.
 static bool is_typename(struct Token *tok)
 {
@@ -689,17 +704,19 @@ static bool is_typename(struct Token *tok)
 		"long",
 		"struct",
 		"union",
+		"typedef",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
 		if (equal(tok, kw[i]))
 			return true;
 
-	return false;
+	return find_typedef(tok);
 }
 
 // declspec = ("void" | "char" | "short" | "int" | "long" |
-//              struct-decl | union-decl )+
+//		struct-decl | union-decl |
+//		"typedef" | typedef-name)+
 //
 // The order of typenames in a type-specifier doesn't matter. For
 // example, `int long static` means the same as `static long int`.
@@ -712,7 +729,8 @@ static bool is_typename(struct Token *tok)
 // while keeping the "current" type object that the typenames up
 // until that point represent. When we reach a non-typename token,
 // we returns the current type object.
-static struct Type *declspec(struct Token **rest, struct Token *tok)
+static struct Type *declspec(struct Token **rest, struct Token *tok,
+			     struct VarAttr *attr)
 {
 	// We use a single integer as counters for all typenames.
 	// For example, bits 0 and 1 represents how many times we saw the
@@ -727,16 +745,36 @@ static struct Type *declspec(struct Token **rest, struct Token *tok)
 		OTHER = 1 << 10,
 	};
 
-	struct Type *ty = NULL;
+	// "typedef t" means "typedef int t"
+	struct Type *ty = p_ty_int();
 	int counter = 0;
 
 	while (is_typename(tok)) {
+		// handle "typedef" keyword
+		if (equal(tok, "typedef")) {
+			if (!attr)
+				error_tok(tok, "storage class specifier is not allowed in this context");
+			attr->is_typedef = true;
+			tok = tok->next;
+			continue;
+		}
+
 		// Handle user-defined types.
-		if (equal(tok, "struct") || equal(tok, "union")) {
-			if (equal(tok, "struct"))
+		struct Type *ty2 = find_typedef(tok);
+		if (equal(tok, "struct") || equal(tok, "union") || ty2) {
+			if (counter)
+				break;
+
+			if (equal(tok, "struct")) {
 				ty = struct_decl(&tok, tok->next);
-			else
+
+			} else if (equal(tok, "union")) {
 				ty = union_decl(&tok, tok->next);
+
+			} else {
+				ty = ty2;
+				tok = tok->next;
+			}
 			counter += OTHER;
 			continue;
 		}
@@ -798,7 +836,7 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 		if (cur != &head)
 			tok = skip(tok, ",");
 
-		struct Type *basety = declspec(&tok, tok);
+		struct Type *basety = declspec(&tok, tok, NULL);
 		struct Type *tmp_ty = declarator(&tok, tok, basety);
 		cur->next = copy_type(tmp_ty);
 		cur = cur->next;
@@ -873,12 +911,9 @@ static const char *get_ident(struct Token *tok)
 }
 
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
-static struct Node *declaration(struct Token **rest, struct Token *tok)
+static struct Node *declaration(struct Token **rest, struct Token *tok, struct Type *basety)
 {
-	struct Type *basety = declspec(&tok, tok);
-
-	// memset 'head' with 0
-	struct Node head = {};
+	struct Node head = {}; // memset 'head' with 0
 	struct Node *cur = &head;
 	int i = 0;
 
@@ -980,19 +1015,44 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 	return expr_stmt(rest, tok);
 }
 
+static struct Token *parse_typedef(struct Token *tok, struct Type *basety)
+{
+	bool first = true;
+
+	while (!consume(&tok, tok, ";")) {
+		if (!first)
+			tok = skip(tok, ",");
+		first = false;
+
+		struct Type *ty = declarator(&tok, tok, basety);
+		push_scope(get_ident(ty->name))->type_def = ty;
+	}
+
+	return tok;
+}
+
 // compound-stmt = (declaration | stmt)* "}"
 static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 {
-	struct Node head;
+	struct Node head = {};
 	struct Node *cur = &head;
 	struct Node *node = new_node(ND_BLOCK, tok);
 
 	enter_scope();
 	while (!equal(tok, "}")) {
-		if (is_typename(tok))
-			cur->next = declaration(&tok, tok);
-		else
+		if (is_typename(tok)) {
+			struct VarAttr attr = {};
+			struct Type *basety = declspec(&tok, tok, &attr);
+
+			if (attr.is_typedef) {
+				tok = parse_typedef(tok, basety);
+				continue;
+			}
+
+			cur->next = declaration(&tok, tok, basety);
+		} else {
 			cur->next = stmt(&tok, tok);
+		}
 		cur = cur->next;
 		add_type(cur);
 	}
@@ -1064,13 +1124,20 @@ static bool is_function(struct Token *tok)
 	return ty->kind == TY_FUNC;
 }
 
-// program = (function-definition | global-variable)*
+// program = (typedef | function-definition | global-variable)*
 struct Obj *parser(struct Token *tok)
 {
 	globals = NULL;
 
 	while (tok->kind != TK_EOF) {
-		struct Type *basety = declspec(&tok, tok);
+		struct VarAttr attr = {};
+		struct Type *basety = declspec(&tok, tok, &attr);
+
+		// typedef
+		if (attr.is_typedef) {
+			tok = parse_typedef(tok, basety);
+			continue;
+		}
 
 		if (is_function(tok)) {
 			// function
