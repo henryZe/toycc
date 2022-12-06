@@ -23,6 +23,7 @@ TESTDIR = test
 TEST_SRCS = $(wildcard $(TESTDIR)/*.c)
 TESTS = $(patsubst $(TESTDIR)/%.c, $(OUTPUT)/$(TESTDIR)/%, $(TEST_SRCS))
 TEST_DRV = $(TESTDIR)/driver.sh
+TEST_QEMU = qemu.sh
 
 $(OUTPUT)/%.o: $(SRCDIR)/%.c $(INCDIR)/toycc.h
 	@mkdir -p $(@D)
@@ -43,6 +44,10 @@ $(OUTPUT)/$(TESTDIR)/%: $(OUTPUT)/$(TARGET) $(TESTDIR)/%.c
 test: $(TESTS)
 	for i in $^; do echo $$i; /opt/RV64/bin/spike /usr/riscv64-linux-gnu/bin/pk $$i || exit 1; echo; done
 	@sh $(TEST_DRV)
+
+qemu: $(TESTS)
+	@sh $(TEST_DRV)
+	@sh $(TEST_QEMU)
 
 clean:
 	rm -rf $(OUTPUT)
