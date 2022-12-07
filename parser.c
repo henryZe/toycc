@@ -237,14 +237,82 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+static struct Type *type_suffix(struct Token **rest, struct Token *tok, struct Type *ty);
+// abstract_declarator = "*"* ("(" abstract-declarator ")")? type-suffix
+static struct Type *abstract_declarator(struct Token **rest, struct Token *tok, struct Type *ty)
+{
+	// like "sizeof(char *)"
+	while (equal(tok, "*")) {
+		ty = pointer_to(ty);
+		tok = tok->next;
+	}
+
+	// like "sizeof(char(*)[4])"
+	if (equal(tok, "(")) {
+		struct Token *start = tok->next;
+		struct Type dummy = {};
+
+		// get 'type' & update 'rest'
+		abstract_declarator(&tok, start, &dummy);
+		tok = skip(tok, ")");
+		ty = type_suffix(rest, tok, ty);
+
+		return abstract_declarator(&tok, start, ty);
+	}
+
+	// like "sizeof(char[4][4])"
+	return type_suffix(rest, tok, ty);
+}
+
+static struct Type *declspec(struct Token **rest, struct Token *tok, struct VarAttr *attr);
+static struct Type *typename(struct Token **rest, struct Token *tok)
+{
+	struct Type *base = declspec(&tok, tok, NULL);
+	return abstract_declarator(rest, tok, base);
+}
+
+static struct Type *find_typedef(struct Token *tok)
+{
+	if (tok->kind == TK_IDENT) {
+		struct VarScope *sc = find_var(tok);
+		if (sc)
+			return sc->type_def;
+	}
+	return NULL;
+}
+
+// Returns true if a given token represents a type.
+static bool is_typename(struct Token *tok)
+{
+	static const char * const kw[] = {
+		"void",
+		"char",
+		"short",
+		"int",
+		"long",
+		"struct",
+		"union",
+		"typedef",
+	};
+
+	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
+		if (equal(tok, kw[i]))
+			return true;
+
+	return find_typedef(tok);
+}
+
 // primary = "(" "{" stmt+ "}" ")"
 // 	| "(" expr ")"
+//	| "sizeof" "(" type-name ")"
 // 	| "sizeof" unary
 // 	| ident (func-args)?
 // 	| str
 // 	| num
 static struct Node *primary(struct Token **rest, struct Token *tok)
 {
+	struct Token *start = tok;
+
 	if (equal(tok, "(") && equal(tok->next, "{")) {
 		// This is a GNU statement expression.
 		struct Node *n = new_node(ND_STMT_EXPR, tok);
@@ -258,6 +326,13 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		struct Node *node = expr(&tok, tok->next);
 		*rest = skip(tok, ")");
 		return node;
+	}
+
+	if (equal(tok, "sizeof") && equal(tok->next, "(") && is_typename(tok->next->next)) {
+		struct Type *ty = typename(&tok, tok->next->next);
+		// update rest
+		*rest = skip(tok, ")");
+		return new_num(ty->size, start);
 	}
 
 	if (equal(tok, "sizeof")) {
@@ -681,37 +756,6 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	ty->size = align_to(ty->size, ty->align);
 
 	return ty;
-}
-
-static struct Type *find_typedef(struct Token *tok)
-{
-	if (tok->kind == TK_IDENT) {
-		struct VarScope *sc = find_var(tok);
-		if (sc)
-			return sc->type_def;
-	}
-	return NULL;
-}
-
-// Returns true if a given token represents a type.
-static bool is_typename(struct Token *tok)
-{
-	static const char * const kw[] = {
-		"void",
-		"char",
-		"short",
-		"int",
-		"long",
-		"struct",
-		"union",
-		"typedef",
-	};
-
-	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
-		if (equal(tok, kw[i]))
-			return true;
-
-	return find_typedef(tok);
 }
 
 // declspec = ("void" | "char" | "short" | "int" | "long" |
