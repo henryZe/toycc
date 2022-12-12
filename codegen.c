@@ -231,18 +231,22 @@ static void gen_expr(struct Node *node)
 	gen_expr(node->lhs);
 	pop("a1");
 
+	const char *suffix = "w";
+	if (node->lhs->ty->kind == TY_LONG || node->lhs->ty->base)
+		suffix = "";
+
 	switch (node->kind) {
 	case ND_ADD:
-		println("\tadd a0, a0, a1");
+		println("\tadd%s a0, a0, a1", suffix);
 		break;
 	case ND_SUB:
-		println("\tsub a0, a0, a1");
+		println("\tsub%s a0, a0, a1", suffix);
 		break;
 	case ND_MUL:
-		println("\tmul a0, a0, a1");
+		println("\tmul%s a0, a0, a1", suffix);
 		break;
 	case ND_DIV:
-		println("\tdiv a0, a0, a1");
+		println("\tdiv%s a0, a0, a1", suffix);
 		break;
 	case ND_EQ:
 		println("\txor a0, a0, a1");
