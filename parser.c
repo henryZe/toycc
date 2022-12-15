@@ -102,6 +102,20 @@ static struct Node *new_num(int64_t val, struct Token *tok)
 	return node;
 }
 
+static struct Node *new_cast(struct Node *expr, struct Type *ty)
+{
+	add_type(expr);
+
+	struct Node *n = malloc(sizeof(struct Node));
+
+	n->kind = ND_CAST;
+	n->tok = expr->tok;
+	n->lhs = expr;
+	// explicit conversion of type
+	n->ty = copy_type(ty);
+	return n;
+}
+
 static void enter_scope(void)
 {
 	struct Scope *sc = malloc(sizeof(struct Scope));
@@ -432,41 +446,58 @@ static struct Node *postfix(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// unary = ("+" | "-" | "*" | "&") unary
+// cast = "(" type-name ")" cast | unary
+static struct Node *cast(struct Token **rest, struct Token *tok)
+{
+	if (equal(tok, "(") && is_typename(tok->next)) {
+		struct Token *start = tok;
+		struct Type *ty = typename(&tok, tok->next);
+		tok = skip(tok, ")");
+
+		struct Node *n = new_cast(cast(rest, tok), ty);
+		n->tok = start;
+		return n;
+	}
+
+	return unary(rest, tok);
+}
+
+// unary = ("+" | "-" | "*" | "&") cast
 // 		| postfix
 static struct Node *unary(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "+"))
 		// ignore
-		return unary(rest, tok->next);
+		return cast(rest, tok->next);
 
 	if (equal(tok, "-"))
 		// depth--
-		return new_unary(ND_NEG, unary(rest, tok->next), tok);
+		return new_unary(ND_NEG, cast(rest, tok->next), tok);
 
 	if (equal(tok, "&"))
-		return new_unary(ND_ADDR, unary(rest, tok->next), tok);
+		return new_unary(ND_ADDR, cast(rest, tok->next), tok);
 
 	if (equal(tok, "*"))
-		return new_unary(ND_DEREF, unary(rest, tok->next), tok);
+		return new_unary(ND_DEREF, cast(rest, tok->next), tok);
 
 	return postfix(rest, tok);
 }
 
+// mul = cast ("*" cast | "/" cast)*
 static struct Node *mul(struct Token **rest, struct Token *tok)
 {
-	struct Node *node = unary(&tok, tok);
+	struct Node *node = cast(&tok, tok);
 
 	while (1) {
 		struct Token *start = tok;
 
 		if (equal(tok, "*")) {
-			node = new_binary(ND_MUL, node, unary(&tok, tok->next), start);
+			node = new_binary(ND_MUL, node, cast(&tok, tok->next), start);
 			continue;
 		}
 
 		if (equal(tok, "/")) {
-			node = new_binary(ND_DIV, node, unary(&tok, tok->next), start);
+			node = new_binary(ND_DIV, node, cast(&tok, tok->next), start);
 			continue;
 		}
 

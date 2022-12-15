@@ -147,6 +147,53 @@ static void store(struct Type *ty)
 		println("\tsd a0, (a1)");
 }
 
+enum { I8, I16, I32, I64 };
+
+static int getTypeId(struct Type *ty)
+{
+	switch (ty->kind) {
+	case TY_CHAR:
+		return I8;
+	case TY_SHORT:
+		return I16;
+	case TY_INT:
+		return I32;
+	default:
+		return I64;
+	}
+}
+
+static const char * const cast_from[4] = {
+	"sb",
+	"sh",
+	"sw",
+	"sd",
+};
+
+static const char * const cast_to[4] = {
+	"lb",
+	"lh",
+	"lw",
+	"ld",
+};
+
+static void cast(struct Type *from, struct Type *to)
+{
+	if (to->kind == TY_VOID)
+		return;
+
+	int t1 = getTypeId(from);
+	int t2 = getTypeId(to);
+
+	if (t1 == t2)
+		return;
+
+	debug("\t# cast t1 %d t2 %d", t1, t2);
+	println("\t%s a0, -8(sp)", cast_from[t1]);
+	println("\t%s a0, -8(sp)", cast_to[t2]);
+	debug("\t# end cast");
+}
+
 // Generate code for a given node.
 static void gen_expr(struct Node *node)
 {
@@ -198,6 +245,11 @@ static void gen_expr(struct Node *node)
 	case ND_COMMA:
 		gen_expr(node->lhs);
 		gen_expr(node->rhs);
+		return;
+
+	case ND_CAST:
+		gen_expr(node->lhs);
+		cast(node->lhs->ty, node->ty);
 		return;
 
 	case ND_FUNCALL:
