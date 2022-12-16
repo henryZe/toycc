@@ -102,7 +102,15 @@ static struct Node *new_num(int64_t val, struct Token *tok)
 	return node;
 }
 
-static struct Node *new_cast(struct Node *expr, struct Type *ty)
+static struct Node *new_long(int64_t val, struct Token *tok)
+{
+	struct Node *node = new_node(ND_NUM, tok);
+	node->val = val;
+	node->ty = p_ty_long();
+	return node;
+}
+
+struct Node *new_cast(struct Node *expr, struct Type *ty)
 {
 	add_type(expr);
 
@@ -533,7 +541,7 @@ static struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *to
 	}
 
 	// ptr + num
-	rhs = new_binary(ND_MUL, rhs, new_num(lhs->ty->base->size, tok), tok);
+	rhs = new_binary(ND_MUL, rhs, new_long(lhs->ty->base->size, tok), tok);
 	return new_binary(ND_ADD, lhs, rhs, tok);
 }
 
@@ -555,7 +563,7 @@ static struct Node *new_sub(struct Node *lhs, struct Node *rhs, struct Token *to
 
 	// ptr - num
 	if (lhs->ty->base && is_integer(rhs->ty)) {
-		rhs = new_binary(ND_MUL, rhs, new_num(lhs->ty->base->size, tok), tok);
+		rhs = new_binary(ND_MUL, rhs, new_long(lhs->ty->base->size, tok), tok);
 		return new_binary(ND_SUB, lhs, rhs, tok);
 	}
 

@@ -108,11 +108,16 @@ static void load(struct Type *ty)
 	// a pointer to the first element of the array in C"
 	// occurs.
 	if (ty->kind == TY_ARRAY ||
-		ty->kind == TY_STRUCT ||
-		ty->kind == TY_UNION) {
+	    ty->kind == TY_STRUCT ||
+	    ty->kind == TY_UNION) {
 		return;
 	}
 
+	// When we load a char or a short value to a register, we always
+	// extend them to the size of int, so we can assume the lower half of
+	// a register always contains a valid value. The upper half of a
+	// register for char, short and int may contain garbage. When we load
+	// a long value to a register, it simply occupies the entire register.
 	if (ty->size == sizeof(char))
 		println("\tlb a0, (a0)");
 	else if (ty->size == sizeof(short))
@@ -163,18 +168,14 @@ static int getTypeId(struct Type *ty)
 	}
 }
 
-static const char * const cast_from[4] = {
-	"sb",
-	"sh",
-	"sw",
-	"sd",
-};
-
-static const char * const cast_to[4] = {
-	"lb",
-	"lh",
-	"lw",
-	"ld",
+static const char toi8[] = "\tslli a0, a0, 56\n\tsrai a0, a0, 56";
+static const char toi16[] = "\tslli a0, a0, 48\n\tsrai a0, a0, 48";
+static const char toi32[] = "\tslli a0, a0, 32\n\tsrai a0, a0, 32";
+static const char *castMatrix[4][4] = {
+	{ NULL, NULL, NULL, NULL, },	// i8
+	{ toi8, NULL, NULL, NULL, },	// i16 -> i8
+	{ toi8, toi16, NULL, NULL, },	// i32 -> i16, i8
+	{ toi8, toi16, toi32, NULL, },	// i64 -> i32, i16, i8
 };
 
 static void cast(struct Type *from, struct Type *to)
@@ -185,13 +186,11 @@ static void cast(struct Type *from, struct Type *to)
 	int t1 = getTypeId(from);
 	int t2 = getTypeId(to);
 
-	if (t1 == t2)
-		return;
-
-	debug("\t# cast t1 %d t2 %d", t1, t2);
-	println("\t%s a0, -8(sp)", cast_from[t1]);
-	println("\t%s a0, -8(sp)", cast_to[t2]);
-	debug("\t# end cast");
+	if (castMatrix[t1][t2]) {
+		debug("\t# cast t1 %d t2 %d", t1, t2);
+		println("%s", castMatrix[t1][t2]);
+		debug("\t# end cast");
+	}
 }
 
 // Generate code for a given node.
@@ -283,7 +282,9 @@ static void gen_expr(struct Node *node)
 	gen_expr(node->lhs);
 	pop("a1");
 
+	// default type is int
 	const char *suffix = "w";
+	// if type is long or pointer
 	if (node->lhs->ty->kind == TY_LONG || node->lhs->ty->base)
 		suffix = "";
 
