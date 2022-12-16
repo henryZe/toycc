@@ -184,6 +184,7 @@ struct Node {
 	int64_t val;		// Used if kind == ND_NUM
 };
 
+struct Node *new_cast(struct Node *expr, struct Type *ty);
 struct Obj *parser(struct Token *tok);
 
 // codegen.c
