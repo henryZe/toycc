@@ -240,6 +240,13 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 	struct Token *start = tok;
 	tok = tok->next->next;
 
+	struct VarScope *sc = find_var(start);
+	if (!sc)
+		error_tok(start, "implicit declaration of a function");
+	if (!sc->var || sc->var->ty->kind != TY_FUNC)
+		error_tok(start, "not a function");
+
+	struct Type *ty = sc->var->ty->return_ty;
 	struct Node head = {};
 	struct Node *cur = &head;
 
@@ -249,11 +256,13 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 
 		cur->next = assign(&tok, tok);
 		cur = cur->next;
+		add_type(cur);
 	}
 	*rest = skip(tok, ")");
 
 	struct Node *node = new_node(ND_FUNCALL, tok);
 	node->funcname = strndup(start->loc, start->len);
+	node->ty = ty;
 	node->args = head.next;
 
 	return node;

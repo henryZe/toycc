@@ -12,6 +12,7 @@ error_at(const char *loc, const char *fmt, ...)
 	va_list ap;
 	va_start(ap, fmt);
 	verror_at(line_no, loc, fmt, ap);
+	exit(1);
 }
 
 bool consume(struct Token **rest, struct Token *tok, const char *str)
