@@ -51,6 +51,9 @@ static struct Obj *globals;
 
 static struct Scope *scope = &(struct Scope){};
 
+// Points to the function object the parser is currently parsing.
+static struct Obj *current_fn;
+
 static struct Token *skip(struct Token *tok, const char *s)
 {
 	if (!equal(tok, s))
@@ -1050,8 +1053,10 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "return")) {
 		struct Node *node = new_node(ND_RETURN, tok);
-		node->lhs = expr(&tok, tok->next);
+		struct Node *exp = expr(&tok, tok->next);
 		*rest = skip(tok, ";");
+
+		node->lhs = new_cast(exp, current_fn->ty->return_ty);
 		return node;
 	}
 
@@ -1175,6 +1180,8 @@ static struct Token *function(struct Token *tok, struct Type *basety)
 
 	if (!fn->is_definition)
 		return tok;
+
+	current_fn = fn;
 
 	// initialize local variables list
 	locals = NULL;
