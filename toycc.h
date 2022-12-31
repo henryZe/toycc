@@ -177,6 +177,7 @@ struct Node {
 
 	// function call
 	const char *funcname;
+	struct Type *func_ty;
 	struct Node *args;
 
 	struct Node *body;	// Block or statement expression
