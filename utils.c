@@ -34,12 +34,11 @@ error(const char *fmt, ...)
 	exit(1);
 }
 
-// Reports an error message in the following format and exit.
+// Reports an error message in the following format.
 //
 // foo.c:10: x = y + 1;
 //               ^ <error message here>
-void __attribute__((noreturn))
-verror_at(int line_no, const char *loc, const char *fmt, va_list ap)
+void verror_at(int line_no, const char *loc, const char *fmt, va_list ap)
 {
 	// find a line containing `loc`
 	const char *line = loc;
@@ -64,7 +63,6 @@ verror_at(int line_no, const char *loc, const char *fmt, va_list ap)
 	fprintf(stderr, "^ ");
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
-	exit(1);
 }
 
 void __attribute__((noreturn))
@@ -73,4 +71,5 @@ error_tok(struct Token *tok, const char *fmt, ...)
 	va_list ap;
 	va_start(ap, fmt);
 	verror_at(tok->line_no, tok->loc, fmt, ap);
+	exit(1);
 }
