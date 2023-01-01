@@ -5,6 +5,11 @@ static struct Type *ty_void = &(struct Type){
 				.size = 1,
 				.align = 1,
 };
+static struct Type *ty_bool = &(struct Type){
+				.kind = TY_BOOL,
+				.size = 1,
+				.align = 1,
+};
 static struct Type *ty_char = &(struct Type){
 				.kind = TY_CHAR,
 				.size = sizeof(char),
@@ -29,6 +34,11 @@ static struct Type *ty_long = &(struct Type){
 struct Type *p_ty_void(void)
 {
 	return ty_void;
+}
+
+struct Type *p_ty_bool(void)
+{
+	return ty_bool;
 }
 
 struct Type *p_ty_char(void)
@@ -62,7 +72,8 @@ static struct Type *new_type(enum TypeKind kind, int size, int align)
 
 bool is_integer(struct Type *ty)
 {
-	return ty->kind == TY_CHAR ||
+	return ty->kind == TY_BOOL ||
+		ty->kind == TY_CHAR ||
 		ty->kind == TY_SHORT ||
 		ty->kind == TY_INT ||
 		ty->kind == TY_LONG;

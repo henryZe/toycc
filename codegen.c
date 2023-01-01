@@ -174,14 +174,19 @@ static const char toi32[] = "\tslli a0, a0, 32\n\tsrai a0, a0, 32";
 static const char *castMatrix[4][4] = {
 	{ NULL, NULL, NULL, NULL, },	// i8
 	{ toi8, NULL, NULL, NULL, },	// i16 -> i8
-	{ toi8, toi16, NULL, NULL, },	// i32 -> i16, i8
-	{ toi8, toi16, toi32, NULL, },	// i64 -> i32, i16, i8
+	{ toi8, toi16, NULL, NULL, },	// i32 -> i8, i16
+	{ toi8, toi16, toi32, NULL, },	// i64 -> i8, i16, i32
 };
 
 static void cast(struct Type *from, struct Type *to)
 {
 	if (to->kind == TY_VOID)
 		return;
+
+	if (to->kind == TY_BOOL) {
+		println("\tsnez a0, a0");
+		return;
+	}
 
 	int t1 = getTypeId(from);
 	int t2 = getTypeId(to);

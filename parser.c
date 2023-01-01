@@ -332,6 +332,7 @@ static bool is_typename(struct Token *tok)
 {
 	static const char * const kw[] = {
 		"void",
+		"_Bool",
 		"char",
 		"short",
 		"int",
@@ -821,7 +822,8 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
-// declspec = ("void" | "char" | "short" | "int" | "long" |
+// declspec = ("void" | "_Bool" | "char" |
+//		"short" | "int" | "long" |
 //		struct-decl | union-decl |
 //		"typedef" | typedef-name)+
 //
@@ -845,11 +847,12 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 	// as you can see below.
 	enum {
 		VOID  = 1 << 0,
-		CHAR  = 1 << 2,
-		SHORT = 1 << 4,
-		INT   = 1 << 6,
-		LONG  = 1 << 8,
-		OTHER = 1 << 10,
+		BOOL  = 1 << 2,
+		CHAR  = 1 << 4,
+		SHORT = 1 << 6,
+		INT   = 1 << 8,
+		LONG  = 1 << 10,
+		OTHER = 1 << 12,
 	};
 
 	// "typedef t" means "typedef int t"
@@ -889,6 +892,8 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 		// Handle built-in types.
 		if (equal(tok, "void"))
 			counter += VOID;
+		else if (equal(tok, "_Bool"))
+			counter += BOOL;
 		else if (equal(tok, "char"))
 			counter += CHAR;
 		else if (equal(tok, "short"))
@@ -903,6 +908,9 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 		switch (counter) {
 		case VOID:
 			ty = p_ty_void();
+			break;
+		case BOOL:
+			ty = p_ty_bool();
 			break;
 		case CHAR:
 			ty = p_ty_char();
