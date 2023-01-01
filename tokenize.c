@@ -230,6 +230,28 @@ static void convert_keywords(struct Token *tok)
 			t->kind = TK_KEYWORD;
 }
 
+static struct Token *read_char_literal(const char *start)
+{
+	const char *p = start + 1;
+	if (*p == '\0')
+		error_at(start, "unclosed char literal");
+
+	char c;
+	if (*p == '\\')
+		c = read_escaped_char(&p, p + 1);
+	else
+		c = *p++;
+
+	const char *end = strchr(p, '\'');
+	if (!end)
+		error_at(p, "unclosed char literal");
+
+	// skip '\''
+	struct Token *tok = new_token(TK_NUM, start, end + 1);
+	tok->val = c;
+	return tok;
+}
+
 // Tokenize a given string and returns new tokens.
 static struct Token *tokenize(const char *filename, const char *p)
 {
@@ -277,6 +299,14 @@ static struct Token *tokenize(const char *filename, const char *p)
 		// string literal
 		if (*p == '"') {
 			cur->next = read_string_literal(p);
+			cur = cur->next;
+			p += cur->len;
+			continue;
+		}
+
+		// character literal
+		if (*p == '\'') {
+			cur->next = read_char_literal(p);
 			cur = cur->next;
 			p += cur->len;
 			continue;
