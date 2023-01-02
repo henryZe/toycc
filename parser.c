@@ -1179,7 +1179,15 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		struct Node *n = new_node(ND_FOR, tok);
 
 		tok = skip(tok->next, "(");
-		n->init = expr_stmt(&tok, tok);
+
+		enter_scope();
+
+		if (is_typename(tok)) {
+			struct Type *basety = declspec(&tok, tok, NULL);
+			n->init = declaration(&tok, tok, basety);
+		} else {
+			n->init = expr_stmt(&tok, tok);
+		}
 
 		if (!equal(tok, ";"))
 			n->cond = expr(&tok, tok);
@@ -1190,6 +1198,8 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		tok = skip(tok, ")");
 
 		n->then = stmt(rest, tok);
+
+		leave_scope();
 		return n;
 	}
 
