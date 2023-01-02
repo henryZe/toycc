@@ -509,27 +509,6 @@ static struct Node *cast(struct Token **rest, struct Token *tok)
 	return unary(rest, tok);
 }
 
-// unary = ("+" | "-" | "*" | "&") cast
-// 		| postfix
-static struct Node *unary(struct Token **rest, struct Token *tok)
-{
-	if (equal(tok, "+"))
-		// ignore
-		return cast(rest, tok->next);
-
-	if (equal(tok, "-"))
-		// depth--
-		return new_unary(ND_NEG, cast(rest, tok->next), tok);
-
-	if (equal(tok, "&"))
-		return new_unary(ND_ADDR, cast(rest, tok->next), tok);
-
-	if (equal(tok, "*"))
-		return new_unary(ND_DEREF, cast(rest, tok->next), tok);
-
-	return postfix(rest, tok);
-}
-
 // mul = cast ("*" cast | "/" cast)*
 static struct Node *mul(struct Token **rest, struct Token *tok)
 {
@@ -630,6 +609,39 @@ static struct Node *add(struct Token **rest, struct Token *tok)
 		*rest = tok;
 		return node;
 	}
+}
+
+static struct Node *to_assign(struct Node *binary);
+// unary = ("+" | "-" | "*" | "&") cast
+// 	 | ("++" | "--") unary
+// 	 | postfix
+static struct Node *unary(struct Token **rest, struct Token *tok)
+{
+	if (equal(tok, "+"))
+		// ignore
+		return cast(rest, tok->next);
+
+	if (equal(tok, "-"))
+		// depth--
+		return new_unary(ND_NEG, cast(rest, tok->next), tok);
+
+	if (equal(tok, "&"))
+		return new_unary(ND_ADDR, cast(rest, tok->next), tok);
+
+	if (equal(tok, "*"))
+		return new_unary(ND_DEREF, cast(rest, tok->next), tok);
+
+	// read ++i as i+=1
+	if (equal(tok, "++"))
+		return to_assign(new_add(unary(rest, tok->next),
+					 new_num(1, tok), tok));
+
+	// read --i as i-=1
+	if (equal(tok, "--"))
+		return to_assign(new_sub(unary(rest, tok->next),
+					 new_num(1, tok), tok));
+
+	return postfix(rest, tok);
 }
 
 static struct Node *relational(struct Token **rest, struct Token *tok)
