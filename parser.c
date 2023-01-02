@@ -12,15 +12,18 @@
 
 #include <toycc.h>
 
-// scope for local or global variables or typedefs
+// Scope for local variables, global variables,
+// typedefs or enum constants
 struct VarScope {
 	struct VarScope *next;
 	const char *name;
 	struct Obj *var;
 	struct Type *type_def;
+	struct Type *enum_ty;
+	int enum_val;
 };
 
-// scope for struct tags or union tags
+// Scope for struct, union or enum tags
 struct TagScope {
 	struct TagScope *next;
 	const char *name;
@@ -32,9 +35,9 @@ struct Scope {
 	struct Scope *next;
 
 	// C has two block scopes:
-	// one is for variables
-	// and the other is for struct tags.
+	// one is for variables/typedefs
 	struct VarScope *vars;
+	// and the other is for struct/union/enum tags.
 	struct TagScope *tags;
 };
 
@@ -340,6 +343,7 @@ static bool is_typename(struct Token *tok)
 		"struct",
 		"union",
 		"typedef",
+		"enum",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -395,12 +399,20 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		if (equal(tok->next, "("))
 			return funcall(rest, tok);
 
-		// variable
+		// variable or enum constant
 		struct VarScope *sc = find_var(tok);
-		if (!sc || !sc->var)
-			error_tok(tok, "undefined variable");
+		if (!sc || (!sc->var && !sc->enum_ty))
+			error_tok(tok, "undefined variable or enum constant");
+
+		struct Node *n;
+		if (sc->var)
+			// variable
+			n = new_var_node(sc->var, tok);
+		else
+			// enum constant
+			n = new_num(sc->enum_val, tok);
 		*rest = tok->next;
-		return new_var_node(sc->var, tok);
+		return n;
 	}
 
 	if (tok->kind == TK_STR) {
@@ -717,7 +729,6 @@ static int get_number(struct Token *tok)
 	return tok->val;
 }
 
-static struct Type *declspec(struct Token **rest, struct Token *tok, struct VarAttr *attr);
 static struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty);
 
 // struct-members = (declspec declarator ("," declarator)* ";")*
@@ -822,10 +833,73 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
+static const char *get_ident(struct Token *tok)
+{
+	if (tok->kind != TK_IDENT)
+		error_tok(tok, "expected an identifier");
+	return strndup(tok->loc, tok->len);
+}
+
+// enum-specifier = ident? "{" enum-list? "}"
+//		  | ident ("{" enum-list? "}")?
+//
+// enum-list      = ident ("=" num)? ("," ident ("=" num)?)*
+static struct Type *enum_specifier(struct Token **rest, struct Token *tok)
+{
+	struct Type *ty = enum_type();
+
+	// read a enum tag
+	struct Token *tag = NULL;
+	if (tok->kind == TK_IDENT) {
+		tag = tok;
+		tok = tok->next;
+	}
+
+	// enum variable
+	if (tag && !equal(tok, "{")) {
+		struct Type *ty = find_tag(tag);
+		if (!ty)
+			error_tok(tag, "unknown enum type");
+		if (ty->kind != TY_ENUM)
+			error_tok(tag, "not an enum tag");
+		*rest = tok;
+		return ty;
+	}
+
+	// enum definition
+	tok = skip(tok, "{");
+
+	// read an enum-list
+	int i = 0, val = 0;
+	while (!equal(tok, "}")) {
+		if (i++ > 0)
+			tok = skip(tok, ",");
+
+		const char *name = get_ident(tok);
+		tok = tok->next;
+
+		if (equal(tok, "=")) {
+			val = get_number(tok->next);
+			tok = tok->next->next;
+		}
+
+		struct VarScope *sc = push_scope(name);
+		sc->enum_ty = ty;
+		sc->enum_val = val++;
+	}
+
+	*rest = tok->next;
+
+	if (tag)
+		push_tag_scope(tag, ty);
+	return ty;
+}
+
 // declspec = ("void" | "_Bool" | "char" |
 //		"short" | "int" | "long" |
 //		struct-decl | union-decl |
-//		"typedef" | typedef-name)+
+//		"typedef" | typedef-name |
+//		enum-specifier)+
 //
 // The order of typenames in a type-specifier doesn't matter. For
 // example, `int long static` means the same as `static long int`.
@@ -871,7 +945,8 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 
 		// Handle user-defined types.
 		struct Type *ty2 = find_typedef(tok);
-		if (equal(tok, "struct") || equal(tok, "union") || ty2) {
+		if (equal(tok, "struct") || equal(tok, "union") ||
+		    equal(tok, "enum") || ty2) {
 			if (counter)
 				break;
 
@@ -880,6 +955,9 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 
 			} else if (equal(tok, "union")) {
 				ty = union_decl(&tok, tok->next);
+
+			} else if (equal(tok, "enum")) {
+				ty = enum_specifier(&tok, tok->next);
 
 			} else {
 				ty = ty2;
@@ -1016,13 +1094,6 @@ static struct Type *declarator(struct Token **rest, struct Token *tok,
 	ty = type_suffix(rest, tok->next, ty);
 	ty->name = tok;
 	return ty;
-}
-
-static const char *get_ident(struct Token *tok)
-{
-	if (tok->kind != TK_IDENT)
-		error_tok(tok, "expected an identifier");
-	return strndup(tok->loc, tok->len);
 }
 
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"

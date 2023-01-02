@@ -76,7 +76,8 @@ bool is_integer(struct Type *ty)
 		ty->kind == TY_CHAR ||
 		ty->kind == TY_SHORT ||
 		ty->kind == TY_INT ||
-		ty->kind == TY_LONG;
+		ty->kind == TY_LONG ||
+		ty->kind == TY_ENUM;
 }
 
 struct Type *copy_type(struct Type *ty)
@@ -107,6 +108,11 @@ struct Type *array_of(struct Type *base, int len)
 	ty->base = base;
 	ty->array_len = len;
 	return ty;
+}
+
+struct Type *enum_type(void)
+{
+	return new_type(TY_ENUM, 4, 4);
 }
 
 static struct Type *get_common_type(struct Type *ty1, struct Type *ty2)
