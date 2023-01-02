@@ -10,3 +10,5 @@ void assert(int expected, int actual, const char *code)
 
 	printf("%s => %d\n", code, actual);
 }
+
+static int static_fn() { return 5; }

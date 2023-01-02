@@ -465,7 +465,10 @@ static void emit_text(struct Obj *prog)
 			continue;
 
 		println(".text");
-		println(".global %s", fn->name);
+		if (fn->is_static)
+			println(".local %s", fn->name);
+		else
+			println(".global %s", fn->name);
 		println("%s:", fn->name);
 		current_fn = fn;
 
