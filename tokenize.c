@@ -260,6 +260,31 @@ static struct Token *read_char_literal(const char *start)
 	return tok;
 }
 
+static struct Token *read_int_literal(const char *start)
+{
+	const char *p = start;
+	int base = 10;
+
+	// isalnum: is alpha or number
+	if (!strncasecmp(p, "0x", 2) && isalnum(p[2])) {
+		p += 2;
+		base = 16;
+	} else if (!strncasecmp(p, "0b", 2) && isdigit(p[2])) {
+		p += 2;
+		base = 2;
+	} else if (*p == '0') {
+		base = 8;
+	}
+
+	long val = strtoul(p, (char **)&p, base);
+	if (isalnum(*p))
+		error_at(p, "invalid digit");
+
+	struct Token *tok = new_token(TK_NUM, start, p);
+	tok->val = val;
+	return tok;
+}
+
 // Tokenize a given string and returns new tokens.
 static struct Token *tokenize(const char *filename, const char *p)
 {
@@ -295,12 +320,9 @@ static struct Token *tokenize(const char *filename, const char *p)
 
 		// Numeric literal
 		if (isdigit(*p)) {
-			cur->next = new_token(TK_NUM, p, p);
+			cur->next = read_int_literal(p);
 			cur = cur->next;
-
-			const char *q = p;
-			cur->val = strtol(p, (char **)&p, 10);
-			cur->len = p - q;
+			p += cur->len;
 			continue;
 		}
 
