@@ -256,6 +256,11 @@ static void gen_expr(struct Node *node)
 		cast(node->lhs->ty, node->ty);
 		return;
 
+	case ND_NOT:
+		gen_expr(node->lhs);
+		println("\tseqz a0, a0");
+		return;
+
 	case ND_FUNCALL:
 		debug("\t# ND_FUNCALL func %s", node->funcname);
 

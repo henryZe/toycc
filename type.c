@@ -202,6 +202,10 @@ void add_type(struct Node *node)
 		node->ty = p_ty_long();
 		break;
 
+	case ND_NOT:
+		node->ty = p_ty_int();
+		break;
+
 	case ND_VAR:
 		node->ty = node->var->ty;
 		break;

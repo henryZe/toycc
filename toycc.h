@@ -148,6 +148,7 @@ enum NodeKind {
 	ND_MEMBER,	// . (struct member access)
 	ND_ADDR,	// unary &, address
 	ND_DEREF,	// unary *, dereference
+	ND_NOT,		// !
 	ND_RETURN,	// "return"
 	ND_IF,		// "if"
 	ND_FOR,		// "for" or "while"
