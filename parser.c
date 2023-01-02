@@ -658,7 +658,7 @@ static struct Node *add(struct Token **rest, struct Token *tok)
 }
 
 static struct Node *to_assign(struct Node *binary);
-// unary = ("+" | "-" | "*" | "&" | "!") cast
+// unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
 // 	 | ("++" | "--") unary
 // 	 | postfix
 static struct Node *unary(struct Token **rest, struct Token *tok)
@@ -679,6 +679,9 @@ static struct Node *unary(struct Token **rest, struct Token *tok)
 
 	if (equal(tok, "!"))
 		return new_unary(ND_NOT, cast(rest, tok->next), tok);
+
+	if (equal(tok, "~"))
+		return new_unary(ND_BITNOT, cast(rest, tok->next), tok);
 
 	// read ++i as i+=1
 	if (equal(tok, "++"))

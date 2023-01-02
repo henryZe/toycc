@@ -261,6 +261,11 @@ static void gen_expr(struct Node *node)
 		println("\tseqz a0, a0");
 		return;
 
+	case ND_BITNOT:
+		gen_expr(node->lhs);
+		println("\tnot a0, a0");
+		return;
+
 	case ND_FUNCALL:
 		debug("\t# ND_FUNCALL func %s", node->funcname);
 
