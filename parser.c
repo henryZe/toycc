@@ -44,6 +44,7 @@ struct Scope {
 // Variable attributes such as typedef or extern.
 struct VarAttr {
 	bool is_typedef;
+	bool is_static;
 };
 
 // All local variable instances created during parsing are
@@ -344,6 +345,7 @@ static bool is_typename(struct Token *tok)
 		"union",
 		"typedef",
 		"enum",
+		"static",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -895,11 +897,9 @@ static struct Type *enum_specifier(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
-// declspec = ("void" | "_Bool" | "char" |
-//		"short" | "int" | "long" |
-//		struct-decl | union-decl |
-//		"typedef" | typedef-name |
-//		enum-specifier)+
+// declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long" |
+//		struct-decl | union-decl | "typedef" | "static" |
+//		typedef-name | enum-specifier)+
 //
 // The order of typenames in a type-specifier doesn't matter. For
 // example, `int long static` means the same as `static long int`.
@@ -934,11 +934,19 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 	int counter = 0;
 
 	while (is_typename(tok)) {
-		// handle "typedef" keyword
-		if (equal(tok, "typedef")) {
+		// handle "typedef" keyword or handle storage class specifiers
+		if (equal(tok, "typedef") || equal(tok, "static")) {
 			if (!attr)
 				error_tok(tok, "storage class specifier is not allowed in this context");
-			attr->is_typedef = true;
+
+			if (equal(tok, "typedef"))
+				attr->is_typedef = true;
+			else
+				attr->is_static = true;
+
+			if (attr->is_typedef + attr->is_static > 1)
+				error_tok(tok, "typedef and static may not be used together");
+
 			tok = tok->next;
 			continue;
 		}
@@ -1261,13 +1269,15 @@ static void create_param_lvars(struct Type *param)
 	}
 }
 
-static struct Token *function(struct Token *tok, struct Type *basety)
+static struct Token *function(struct Token *tok, struct Type *basety,
+			      const struct VarAttr *attr)
 {
 	struct Type *ty = declarator(&tok, tok, basety);
 
 	struct Obj *fn = new_gvar(get_ident(ty->name), ty);
 	fn->is_function = true;
 	fn->is_definition = !consume(&tok, tok, ";");
+	fn->is_static = attr->is_static;
 
 	if (!fn->is_definition)
 		return tok;
@@ -1331,7 +1341,7 @@ struct Obj *parser(struct Token *tok)
 
 		if (is_function(tok)) {
 			// function
-			tok = function(tok, basety);
+			tok = function(tok, basety, &attr);
 		} else {
 			// global variable
 			tok = global_variable(tok, basety);
