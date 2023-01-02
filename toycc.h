@@ -47,6 +47,7 @@ enum TypeKind {
 	TY_SHORT,
 	TY_INT,
 	TY_LONG,
+	TY_ENUM,
 	TY_PTR,
 	TY_FUNC,
 	TY_ARRAY,
@@ -98,7 +99,7 @@ struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);
 struct Type *array_of(struct Type *base, int size);
-
+struct Type *enum_type(void);
 struct Node;
 void add_type(struct Node *node);
 
