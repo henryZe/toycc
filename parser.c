@@ -454,7 +454,41 @@ static struct Node *struct_ref(struct Node *lhs, struct Token *tok)
 	return n;
 }
 
-// postfix = primary ("[" expr "]" | "." ident | "->" ident)*
+// Convert `A op= B` to `tmp = &A, *tmp = *tmp op B`
+// where tmp is a fresh pointer variable.
+static struct Node *to_assign(struct Node *binary)
+{
+	add_type(binary->lhs);
+	add_type(binary->rhs);
+
+	struct Token *tok = binary->tok;
+	// var tmp
+	struct Obj *var = new_lvar("", pointer_to(binary->lhs->ty));
+	// tmp = &A
+	struct Node *expr1 = new_binary(ND_ASSIGN, new_var_node(var, tok),
+					new_unary(ND_ADDR, binary->lhs, tok),
+					tok);
+	// *tmp = *tmp op B
+	struct Node *expr2 = new_binary(ND_ASSIGN,
+					new_unary(ND_DEREF, new_var_node(var, tok), tok),
+					new_binary(binary->kind,
+						   new_unary(ND_DEREF, new_var_node(var, tok), tok),
+						   binary->rhs, tok),
+					tok);
+
+	return new_binary(ND_COMMA, expr1, expr2, tok);
+}
+
+// Convert A++ to `(typeof A)((A += 1) - 1)`
+static struct Node *new_inc_dec(struct Node *node, struct Token *tok, int addend)
+{
+	add_type(node);
+	return new_cast(new_add(to_assign(new_add(node, new_num(addend, tok), tok)),
+				new_num(-addend, tok), tok),
+			node->ty);
+}
+
+// postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 static struct Node *postfix(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = primary(&tok, tok);
@@ -483,6 +517,18 @@ static struct Node *postfix(struct Token **rest, struct Token *tok)
 			node = struct_ref(node, tok->next);
 			// skip member
 			tok = tok->next->next;
+			continue;
+		}
+
+		if (equal(tok, "++")) {
+			node = new_inc_dec(node, tok, 1);
+			tok = tok->next;
+			continue;
+		}
+
+		if (equal(tok, "--")) {
+			node = new_inc_dec(node, tok, -1);
+			tok = tok->next;
 			continue;
 		}
 
@@ -696,31 +742,6 @@ static struct Node *equality(struct Token **rest, struct Token *tok)
 		*rest = tok;
 		return node;
 	}
-}
-
-// Convert `A op= B` to `tmp = &A, *tmp = *tmp op B`
-// where tmp is a fresh pointer variable.
-static struct Node *to_assign(struct Node *binary)
-{
-	add_type(binary->lhs);
-	add_type(binary->rhs);
-
-	struct Token *tok = binary->tok;
-	// var tmp
-	struct Obj *var = new_lvar("", pointer_to(binary->lhs->ty));
-	// tmp = &A
-	struct Node *expr1 = new_binary(ND_ASSIGN, new_var_node(var, tok),
-					new_unary(ND_ADDR, binary->lhs, tok),
-					tok);
-	// *tmp = *tmp op B
-	struct Node *expr2 = new_binary(ND_ASSIGN,
-					new_unary(ND_DEREF, new_var_node(var, tok), tok),
-					new_binary(binary->kind,
-						   new_unary(ND_DEREF, new_var_node(var, tok), tok),
-						   binary->rhs, tok),
-					tok);
-
-	return new_binary(ND_COMMA, expr1, expr2, tok);
 }
 
 // assign    = equality (assign-op assign)?
