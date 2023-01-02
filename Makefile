@@ -52,4 +52,4 @@ qemu: $(TESTS)
 clean:
 	rm -rf $(OUTPUT)
 
-.PHONY: test clean
+.PHONY: test qemu clean
