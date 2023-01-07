@@ -755,11 +755,53 @@ static struct Node *equality(struct Token **rest, struct Token *tok)
 	}
 }
 
-// assign    = equality (assign-op assign)?
-// assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%="
-static struct Node *assign(struct Token **rest, struct Token *tok)
+// bitand = equality ("&" equality)*
+static struct Node *bitand(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = equality(&tok, tok);
+
+	while (equal(tok, "&")) {
+		struct Token *start = tok;
+		node = new_binary(ND_BITAND, node, equality(&tok, tok->next), start);
+	}
+
+	*rest = tok;
+	return node;
+}
+
+// bitxor = bitand ("&" bitand)*
+static struct Node *bitxor(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = bitand(&tok, tok);
+
+	while (equal(tok, "^")) {
+		struct Token *start = tok;
+		node = new_binary(ND_BITXOR, node, bitand(&tok, tok->next), start);
+	}
+
+	*rest = tok;
+	return node;
+}
+
+// bitor = bitxor ("&" bitxor)*
+static struct Node *bitor(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = bitxor(&tok, tok);
+
+	while (equal(tok, "|")) {
+		struct Token *start = tok;
+		node = new_binary(ND_BITOR, node, bitxor(&tok, tok->next), start);
+	}
+
+	*rest = tok;
+	return node;
+}
+
+// assign    = bitor (assign-op assign)?
+// assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
+static struct Node *assign(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = bitor(&tok, tok);
 
 	if (equal(tok, "="))
 		return new_binary(ND_ASSIGN, node, assign(rest, tok->next), tok);
@@ -778,6 +820,15 @@ static struct Node *assign(struct Token **rest, struct Token *tok)
 
 	if (equal(tok, "%="))
 		return to_assign(new_binary(ND_MOD, node, assign(rest, tok->next), tok));
+
+	if (equal(tok, "&="))
+		return to_assign(new_binary(ND_BITAND, node, assign(rest, tok->next), tok));
+
+	if (equal(tok, "|="))
+		return to_assign(new_binary(ND_BITOR, node, assign(rest, tok->next), tok));
+
+	if (equal(tok, "^="))
+		return to_assign(new_binary(ND_BITXOR, node, assign(rest, tok->next), tok));
 
 	*rest = tok;
 	return node;
