@@ -319,6 +319,15 @@ static void gen_expr(struct Node *node)
 	case ND_MOD:
 		println("\trem%s a0, a0, a1", suffix);
 		break;
+	case ND_BITAND:
+		println("\tand a0, a0, a1");
+		break;
+	case ND_BITOR:
+		println("\tor a0, a0, a1");
+		break;
+	case ND_BITXOR:
+		println("\txor a0, a0, a1");
+		break;
 	case ND_EQ:
 		println("\txor a0, a0, a1");
 		println("\tseqz a0, a0");
