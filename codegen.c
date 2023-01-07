@@ -316,6 +316,9 @@ static void gen_expr(struct Node *node)
 	case ND_DIV:
 		println("\tdiv%s a0, a0, a1", suffix);
 		break;
+	case ND_MOD:
+		println("\trem%s a0, a0, a1", suffix);
+		break;
 	case ND_EQ:
 		println("\txor a0, a0, a1");
 		println("\tseqz a0, a0");

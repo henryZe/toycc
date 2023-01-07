@@ -555,7 +555,7 @@ static struct Node *cast(struct Token **rest, struct Token *tok)
 	return unary(rest, tok);
 }
 
-// mul = cast ("*" cast | "/" cast)*
+// mul = cast ("*" cast | "/" cast | "%" cast)*
 static struct Node *mul(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = cast(&tok, tok);
@@ -570,6 +570,11 @@ static struct Node *mul(struct Token **rest, struct Token *tok)
 
 		if (equal(tok, "/")) {
 			node = new_binary(ND_DIV, node, cast(&tok, tok->next), start);
+			continue;
+		}
+
+		if (equal(tok, "%")) {
+			node = new_binary(ND_MOD, node, cast(&tok, tok->next), start);
 			continue;
 		}
 
@@ -751,7 +756,7 @@ static struct Node *equality(struct Token **rest, struct Token *tok)
 }
 
 // assign    = equality (assign-op assign)?
-// assign-op = "=" | "+=" | "-=" | "*=" | "/="
+// assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%="
 static struct Node *assign(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = equality(&tok, tok);
@@ -770,6 +775,9 @@ static struct Node *assign(struct Token **rest, struct Token *tok)
 
 	if (equal(tok, "/="))
 		return to_assign(new_binary(ND_DIV, node, assign(rest, tok->next), tok));
+
+	if (equal(tok, "%="))
+		return to_assign(new_binary(ND_MOD, node, assign(rest, tok->next), tok));
 
 	*rest = tok;
 	return node;
