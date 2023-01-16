@@ -1477,7 +1477,9 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 
 	enter_scope();
 	while (!equal(tok, "}")) {
-		if (is_typename(tok)) {
+		// make sure it's not a label
+		if (is_typename(tok) && !equal(tok->next, ":")) {
+			// variable declaration
 			struct VarAttr attr = {};
 			struct Type *basety = declspec(&tok, tok, &attr);
 
