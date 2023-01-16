@@ -1212,8 +1212,25 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 	return ty;
 }
 
+// array-dimensions = num? "]" type-suffix
+static struct Type *array_dimension(struct Token **rest, struct Token *tok,
+				    struct Type *ty)
+{
+	if (equal(tok, "]")) {
+		ty = type_suffix(rest, tok->next, ty);
+		// set flag for incomplete array
+		return array_of(ty, -1);
+	}
+
+	int sz = get_number(tok);
+	// skip "]"
+	tok = skip(tok->next, "]");
+	ty = type_suffix(rest, tok, ty);
+	return array_of(ty, sz);
+}
+
 // type-suffix = "(" func-params
-// 		| "[" num "]" type_suffix
+// 		| "[" array_dimension
 // 		| NULL
 static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 				struct Type *ty)
@@ -1222,14 +1239,8 @@ static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 	if (equal(tok, "("))
 		return func_params(rest, tok->next, ty);
 
-	if (equal(tok, "[")) {
-		int sz = get_number(tok->next);
-
-		// skip "]"
-		tok = skip(tok->next->next, "]");
-		ty = type_suffix(rest, tok, ty);
-		return array_of(ty, sz);
-	}
+	if (equal(tok, "["))
+		return array_dimension(rest, tok->next, ty);
 
 	*rest = tok;
 	return ty;
@@ -1237,7 +1248,7 @@ static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) (type-suffix)?
 static struct Type *declarator(struct Token **rest, struct Token *tok,
-				struct Type *ty)
+			       struct Type *ty)
 {
 	while (consume(&tok, tok, "*"))
 		ty = pointer_to(ty);
@@ -1277,9 +1288,12 @@ static struct Node *declaration(struct Token **rest, struct Token *tok, struct T
 		if (i++ > 0)
 			tok = skip(tok, ",");
 
+		struct Token *start = tok;
 		struct Type *ty = declarator(&tok, tok, basety);
+		if (ty->size < 0)
+			error_tok(start, "variable has incomplete type");
 		if (ty->kind == TY_VOID)
-			error_tok(tok, "variable declared void");
+			error_tok(start, "variable declared void");
 
 		struct Obj *var = new_lvar(get_ident(ty->name), ty);
 

@@ -60,6 +60,7 @@ enum TypeKind {
 struct Member {
 	struct Member *next;
 	struct Type *ty;
+	// struct Token *tok;	// for error message
 	struct Token *name;
 	int offset;
 };
