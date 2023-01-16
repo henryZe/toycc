@@ -162,6 +162,8 @@ enum NodeKind {
 	ND_IF,		// "if"
 	ND_FOR,		// "for" or "while"
 	ND_BLOCK,	// { ... }
+	ND_GOTO,	// "goto"
+	ND_LABEL,	// Labeled statement
 	ND_FUNCALL,	// Function call
 	ND_EXPR_STMT,	// Expression statement
 	ND_STMT_EXPR,	// Statement expression
@@ -196,6 +198,12 @@ struct Node {
 	struct Node *args;
 
 	struct Node *body;	// Block or statement expression
+
+	// goto or labeled statement
+	const char *label;
+	const char *unique_label;
+	struct Node *goto_next;
+
 	struct Obj *var;	// Used if kind == ND_VAR
 	int64_t val;		// Used if kind == ND_NUM
 };

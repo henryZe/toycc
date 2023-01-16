@@ -957,13 +957,13 @@ static struct Type *struct_union_decl(struct Token **rest, struct Token *tok)
 	// register the struct type if a name was given
 	if (tag) {
 		// If there is a redefinition, overwrite a previous type.
-		// Otherwise, register the struct type.
 		for (struct TagScope *sc = scope->tags; sc; sc = sc->next) {
 			if (equal(tag, sc->name)) {
 				*sc->ty = *ty;
 				return sc->ty;
 			}
 		}
+		// Otherwise, register the struct type.
 		push_tag_scope(tag, ty);
 	}
 
@@ -1345,10 +1345,16 @@ static struct Node *declaration(struct Token **rest, struct Token *tok, struct T
 	return node;
 }
 
+// Lists of all goto
+struct Node *gotos;
+struct Node *labels;
+
 // stmt = "return" expr ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?
 // 	| "for" "(" expr-stmt expr? ";" expr? ")" stmt
 // 	| "while" "(" expr ")" stmt
+// 	| "goto" ident ";"
+// 	| ident ":" stmt
 // 	| "{" compound-stmt
 // 	| expr_stmt
 static struct Node *stmt(struct Token **rest, struct Token *tok)
@@ -1418,6 +1424,28 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		return n;
 	}
 
+	if (equal(tok, "goto")) {
+		struct Node *node = new_node(ND_GOTO, tok);
+
+		node->label = get_ident(tok->next);
+		node->goto_next = gotos;
+		gotos = node;
+		*rest = skip(tok->next->next, ";");
+		return node;
+	}
+
+	if (tok->kind == TK_IDENT && equal(tok->next, ":")) {
+		struct Node *node = new_node(ND_LABEL, tok);
+
+		node->label = strndup(tok->loc, tok->len);
+		node->unique_label = new_unique_name();
+		// skip ":"
+		node->lhs = stmt(rest, tok->next->next);
+		node->goto_next = labels;
+		labels = node;
+		return node;
+	}
+
 	if (equal(tok, "{"))
 		return compound_stmt(rest, tok->next);
 
@@ -1482,6 +1510,29 @@ static void create_param_lvars(struct Type *param)
 	}
 }
 
+// This function matches gotos with labels.
+//
+// We cannot resolve gotos as we parse a function because gotos
+// can refer a label that appears later in the function.
+// So, we need to do this after we parse the entire function.
+static void resolve_goto_labels(void)
+{
+	for (struct Node *x = gotos; x; x = x->goto_next) {
+		for (struct Node *y = labels; y; y = y->goto_next) {
+			if (!strcmp(x->label, y->label)) {
+				x->unique_label = y->unique_label;
+				break;
+			}
+		}
+
+		if (!x->unique_label)
+			error_tok(x->tok->next, "use of undeclared label");
+	}
+
+	// scope of function
+	gotos = labels = NULL;
+}
+
 static struct Token *function(struct Token *tok, struct Type *basety,
 			      const struct VarAttr *attr)
 {
@@ -1508,6 +1559,8 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	fn->body = compound_stmt(&tok, tok);
 	fn->locals = locals;
 	leave_scope();
+
+	resolve_goto_labels();
 	return tok;
 }
 

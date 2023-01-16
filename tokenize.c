@@ -104,6 +104,7 @@ static bool is_keyword(struct Token *tok)
 		"_Bool",
 		"enum",
 		"static",
+		"goto",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
