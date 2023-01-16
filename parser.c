@@ -797,11 +797,35 @@ static struct Node *bitor(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+// logand = bitor ("&&" bitor)*
+static struct Node *logand(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = bitor(&tok, tok);
+	while (equal(tok, "&&")) {
+		struct Token *start = tok;
+		node = new_binary(ND_LOGAND, node, bitor(&tok, tok->next), start);
+	}
+	*rest = tok;
+	return node;
+}
+
+// logor = logand ("||" logand)*
+static struct Node *logor(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = logand(&tok, tok);
+	while (equal(tok, "||")) {
+		struct Token *start = tok;
+		node = new_binary(ND_LOGOR, node, logand(&tok, tok->next), start);
+	}
+	*rest = tok;
+	return node;
+}
+
 // assign    = bitor (assign-op assign)?
 // assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
 static struct Node *assign(struct Token **rest, struct Token *tok)
 {
-	struct Node *node = bitor(&tok, tok);
+	struct Node *node = logor(&tok, tok);
 
 	if (equal(tok, "="))
 		return new_binary(ND_ASSIGN, node, assign(rest, tok->next), tok);

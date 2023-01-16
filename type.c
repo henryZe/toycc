@@ -207,6 +207,8 @@ void add_type(struct Node *node)
 		break;
 
 	case ND_NOT:
+	case ND_LOGOR:
+	case ND_LOGAND:
 		node->ty = p_ty_int();
 		break;
 

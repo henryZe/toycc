@@ -201,6 +201,8 @@ static void cast(struct Type *from, struct Type *to)
 // Generate code for a given node.
 static void gen_expr(struct Node *node)
 {
+	int c;
+
 	println("\t.loc 1 %d", node->tok->line_no);
 
 	switch (node->kind) {
@@ -264,6 +266,32 @@ static void gen_expr(struct Node *node)
 	case ND_BITNOT:
 		gen_expr(node->lhs);
 		println("\tnot a0, a0");
+		return;
+
+	case ND_LOGAND:
+		c = count();
+		gen_expr(node->lhs);
+		println("\tbeqz a0, .L.false.%d", c);
+		gen_expr(node->rhs);
+		println("\tbeqz a0, .L.false.%d", c);
+		println("\tli a0, 1");
+		println("\tj .L.end.%d", c);
+		println(".L.false.%d:", c);
+		println("\tli a0, 0");
+		println(".L.end.%d:", c);
+		return;
+
+	case ND_LOGOR:
+		c = count();
+		gen_expr(node->lhs);
+		println("\tbnez a0, .L.true.%d", c);
+		gen_expr(node->rhs);
+		println("\tbnez a0, .L.true.%d", c);
+		println("\tli a0, 0");
+		println("\tj .L.end.%d", c);
+		println(".L.true.%d:", c);
+		println("\tli a0, 1");
+		println(".L.end.%d:", c);
 		return;
 
 	case ND_FUNCALL:
