@@ -102,6 +102,7 @@ struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);
 struct Type *array_of(struct Type *base, int size);
 struct Type *enum_type(void);
+struct Type *struct_type(void);
 struct Node;
 void add_type(struct Node *node);
 
