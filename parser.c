@@ -1200,8 +1200,15 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 			tok = skip(tok, ",");
 
 		struct Type *basety = declspec(&tok, tok, NULL);
-		struct Type *tmp_ty = declarator(&tok, tok, basety);
-		cur->next = copy_type(tmp_ty);
+		struct Type *ty2 = declarator(&tok, tok, basety);
+
+		if (ty2->kind == TY_ARRAY) {
+			struct Token *name = ty2->name;
+			ty2 = pointer_to(ty2->base);
+			ty2->name = name;
+		}
+
+		cur->next = copy_type(ty2);
 		cur = cur->next;
 	}
 
