@@ -701,30 +701,54 @@ static struct Node *unary(struct Token **rest, struct Token *tok)
 	return postfix(rest, tok);
 }
 
-static struct Node *relational(struct Token **rest, struct Token *tok)
+// shift = add ("<<" add | ">>" add)*
+static struct Node *shift(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = add(&tok, tok);
 
 	while (1) {
 		struct Token *start = tok;
 
+		if (equal(tok, "<<")) {
+			node = new_binary(ND_SHL, node, add(&tok, tok->next), start);
+			continue;
+		}
+
+		if (equal(tok, ">>")) {
+			node = new_binary(ND_SHR, node, add(&tok, tok->next), start);
+			continue;
+		}
+
+		*rest = tok;
+		return node;
+	}
+}
+
+// relational = shift ("<" shift | "<=" shift | ">" shift | ">=" shift)*
+static struct Node *relational(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = shift(&tok, tok);
+
+	while (1) {
+		struct Token *start = tok;
+
 		if (equal(tok, "<")) {
-			node = new_binary(ND_LT, node, add(&tok, tok->next), start);
+			node = new_binary(ND_LT, node, shift(&tok, tok->next), start);
 			continue;
 		}
 
 		if (equal(tok, "<=")) {
-			node = new_binary(ND_LE, node, add(&tok, tok->next), start);
+			node = new_binary(ND_LE, node, shift(&tok, tok->next), start);
 			continue;
 		}
 
 		if (equal(tok, ">")) {
-			node = new_binary(ND_LT, add(&tok, tok->next), node, start);
+			node = new_binary(ND_LT, shift(&tok, tok->next), node, start);
 			continue;
 		}
 
 		if (equal(tok, ">=")) {
-			node = new_binary(ND_LE, add(&tok, tok->next), node, start);
+			node = new_binary(ND_LE, shift(&tok, tok->next), node, start);
 			continue;
 		}
 
@@ -822,7 +846,8 @@ static struct Node *logor(struct Token **rest, struct Token *tok)
 }
 
 // assign    = bitor (assign-op assign)?
-// assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%=" | "&=" | "|=" | "^="
+// assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%="
+//	     | "&=" | "|=" | "^=" | "<<=" | ">>="
 static struct Node *assign(struct Token **rest, struct Token *tok)
 {
 	struct Node *node = logor(&tok, tok);
@@ -853,6 +878,12 @@ static struct Node *assign(struct Token **rest, struct Token *tok)
 
 	if (equal(tok, "^="))
 		return to_assign(new_binary(ND_BITXOR, node, assign(rest, tok->next), tok));
+
+	if (equal(tok, "<<="))
+		return to_assign(new_binary(ND_SHL, node, assign(rest, tok->next), tok));
+
+	if (equal(tok, ">>="))
+		return to_assign(new_binary(ND_SHR, node, assign(rest, tok->next), tok));
 
 	*rest = tok;
 	return node;

@@ -371,6 +371,18 @@ static void gen_expr(struct Node *node)
 		println("\tslt a0, a1, a0");
 		println("\tseqz a0, a0");
 		break;
+	case ND_SHL:
+		if (node->ty->size == sizeof(long))
+			println("\tsll a0, a0, a1");
+		else
+			println("\tsllw a0, a0, a1");
+		break;
+	case ND_SHR:
+		if (node->ty->size == sizeof(long))
+			println("\tsra a0, a0, a1");
+		else
+			println("\tsraw a0, a0, a1");
+		break;
 	default:
 		error_tok(node->tok, "invalid expression");
 		break;

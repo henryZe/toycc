@@ -46,6 +46,8 @@ static bool startwith(const char *p, const char *q)
 static int read_punct(const char *p)
 {
 	static const char * const kw[] = {
+		"<<=",
+		">>=",
 		"==",
 		"!=",
 		"<=",
@@ -63,6 +65,8 @@ static int read_punct(const char *p)
 		"^=",
 		"&&",
 		"||",
+		"<<",
+		">>",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
