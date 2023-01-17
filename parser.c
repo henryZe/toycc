@@ -1346,14 +1346,18 @@ static struct Node *declaration(struct Token **rest, struct Token *tok, struct T
 }
 
 // Lists of all goto
-struct Node *gotos;
-struct Node *labels;
+static struct Node *gotos;
+static struct Node *labels;
+
+// Current "goto" jump target
+static const char *brk_label;
 
 // stmt = "return" expr ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?
 // 	| "for" "(" expr-stmt expr? ";" expr? ")" stmt
 // 	| "while" "(" expr ")" stmt
 // 	| "goto" ident ";"
+// 	| "break" ";"
 // 	| ident ":" stmt
 // 	| "{" compound-stmt
 // 	| expr_stmt
@@ -1391,6 +1395,10 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		enter_scope();
 
+		const char *prev = brk_label;
+		n->brk_label = new_unique_name();
+		brk_label = n->brk_label;
+
 		if (is_typename(tok)) {
 			struct Type *basety = declspec(&tok, tok, NULL);
 			n->init = declaration(&tok, tok, basety);
@@ -1409,6 +1417,8 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		n->then = stmt(rest, tok);
 
 		leave_scope();
+
+		brk_label = prev;
 		return n;
 	}
 
@@ -1419,8 +1429,14 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		n->cond = expr(&tok, tok);
 
 		tok = skip(tok, ")");
+
+		const char *prev = brk_label;
+		n->brk_label = new_unique_name();
+		brk_label = n->brk_label;
+
 		n->then = stmt(rest, tok);
 
+		brk_label = prev;
 		return n;
 	}
 
@@ -1431,6 +1447,16 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		node->goto_next = gotos;
 		gotos = node;
 		*rest = skip(tok->next->next, ";");
+		return node;
+	}
+
+	if (equal(tok, "break")) {
+		if (!brk_label)
+			error_tok(tok, "stray break");
+
+		struct Node *node = new_node(ND_GOTO, tok);
+		node->unique_label = brk_label;
+		*rest = skip(tok->next, ";");
 		return node;
 	}
 

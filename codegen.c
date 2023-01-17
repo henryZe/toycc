@@ -412,14 +412,14 @@ static void gen_stmt(struct Node *node)
 		println("begin.%d:", c);
 		if (node->cond) {
 			gen_expr(node->cond);
-			println("\tbeqz a0, end.%d", c);
+			println("\tbeqz a0, %s", node->brk_label);
 		}
 		gen_stmt(node->then);
 		if (node->inc)
 			gen_expr(node->inc);
 		println("\tj begin.%d", c);
 
-		println("end.%d:", c);
+		println("%s:", node->brk_label);
 		debug("\t# end ND_FOR");
 		return;
 

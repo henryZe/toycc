@@ -189,6 +189,12 @@ struct Node {
 	struct Node *init;
 	struct Node *inc;
 
+	// "break" label
+	const char *brk_label;
+
+	// Block or statement expression
+	struct Node *body;
+
 	// struct member access
 	struct Member *member;
 
@@ -196,8 +202,6 @@ struct Node {
 	const char *funcname;
 	struct Type *func_ty;
 	struct Node *args;
-
-	struct Node *body;	// Block or statement expression
 
 	// goto or labeled statement
 	const char *label;
