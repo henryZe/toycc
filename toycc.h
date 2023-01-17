@@ -191,6 +191,8 @@ struct Node {
 
 	// "break" label
 	const char *brk_label;
+	// "continue" label
+	const char *cont_label;
 
 	// Block or statement expression
 	struct Node *body;

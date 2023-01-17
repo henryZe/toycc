@@ -106,6 +106,7 @@ static bool is_keyword(struct Token *tok)
 		"static",
 		"goto",
 		"break",
+		"continue",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

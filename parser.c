@@ -1349,8 +1349,10 @@ static struct Node *declaration(struct Token **rest, struct Token *tok, struct T
 static struct Node *gotos;
 static struct Node *labels;
 
-// Current "goto" jump target
+// current "goto" jump target
 static const char *brk_label;
+// current "continue" jump target
+static const char *cont_label;
 
 // stmt = "return" expr ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?
@@ -1358,6 +1360,7 @@ static const char *brk_label;
 // 	| "while" "(" expr ")" stmt
 // 	| "goto" ident ";"
 // 	| "break" ";"
+// 	| "continue" ";"
 // 	| ident ":" stmt
 // 	| "{" compound-stmt
 // 	| expr_stmt
@@ -1395,9 +1398,10 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		enter_scope();
 
-		const char *prev = brk_label;
-		n->brk_label = new_unique_name();
-		brk_label = n->brk_label;
+		const char *brk_prev = brk_label;
+		const char *cont_prev = cont_label;
+		brk_label = n->brk_label = new_unique_name();
+		cont_label = n->cont_label = new_unique_name();
 
 		if (is_typename(tok)) {
 			struct Type *basety = declspec(&tok, tok, NULL);
@@ -1418,7 +1422,8 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		leave_scope();
 
-		brk_label = prev;
+		brk_label = brk_prev;
+		cont_label = cont_prev;
 		return n;
 	}
 
@@ -1430,13 +1435,16 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		tok = skip(tok, ")");
 
-		const char *prev = brk_label;
-		n->brk_label = new_unique_name();
-		brk_label = n->brk_label;
+		const char *brk_prev = brk_label;
+		const char *cont_prev = cont_label;
+
+		brk_label = n->brk_label = new_unique_name();
+		cont_label = n->cont_label = new_unique_name();
 
 		n->then = stmt(rest, tok);
 
-		brk_label = prev;
+		brk_label = brk_prev;
+		cont_label = cont_prev;
 		return n;
 	}
 
@@ -1456,6 +1464,16 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		struct Node *node = new_node(ND_GOTO, tok);
 		node->unique_label = brk_label;
+		*rest = skip(tok->next, ";");
+		return node;
+	}
+
+	if (equal(tok, "continue")) {
+		if (!cont_label)
+			error_tok(tok, "stray continue");
+
+		struct Node *node = new_node(ND_GOTO, tok);
+		node->unique_label = cont_label;
 		*rest = skip(tok->next, ";");
 		return node;
 	}

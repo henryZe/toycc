@@ -415,6 +415,7 @@ static void gen_stmt(struct Node *node)
 			println("\tbeqz a0, %s", node->brk_label);
 		}
 		gen_stmt(node->then);
+		println("%s:", node->cont_label);
 		if (node->inc)
 			gen_expr(node->inc);
 		println("\tj begin.%d", c);
