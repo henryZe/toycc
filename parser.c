@@ -845,12 +845,31 @@ static struct Node *logor(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// assign    = bitor (assign-op assign)?
+// conditional = logor ("?" expr ":" conditional)?
+static struct Node *conditional(struct Token **rest, struct Token *tok)
+{
+	struct Node *cond = logor(&tok, tok);
+
+	if (!equal(tok, "?")) {
+		*rest = tok;
+		return cond;
+	}
+
+	struct Node *node = new_node(ND_COND, tok);
+	node->cond = cond;
+	node->then = expr(&tok, tok->next);
+
+	tok = skip(tok, ":");
+	node->els = conditional(rest, tok);
+	return node;
+}
+
+// assign    = conditional (assign-op assign)?
 // assign-op = "=" | "+=" | "-=" | "*=" | "/=" | "%="
 //	     | "&=" | "|=" | "^=" | "<<=" | ">>="
 static struct Node *assign(struct Token **rest, struct Token *tok)
 {
-	struct Node *node = logor(&tok, tok);
+	struct Node *node = conditional(&tok, tok);
 
 	if (equal(tok, "="))
 		return new_binary(ND_ASSIGN, node, assign(rest, tok->next), tok);

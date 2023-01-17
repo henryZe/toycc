@@ -227,6 +227,15 @@ void add_type(struct Node *node)
 		node->ty = node->var->ty;
 		break;
 
+	case ND_COND:
+		if (node->then->ty->kind == TY_VOID || node->els->ty->kind == TY_VOID) {
+			node->ty = p_ty_void();
+		} else {
+			usual_arith_conv(&node->then, &node->els);
+			node->ty = node->then->ty;
+		}
+		break;
+
 	case ND_COMMA:
 		node->ty = node->rhs->ty;
 		break;

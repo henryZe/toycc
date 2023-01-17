@@ -258,6 +258,17 @@ static void gen_expr(struct Node *node)
 		cast(node->lhs->ty, node->ty);
 		return;
 
+	case ND_COND:
+		c = count();
+		gen_expr(node->cond);
+		println("\tbeqz a0, .L.else.%d", c);
+		gen_expr(node->then);
+		println("\tj .L.end.%d", c);
+		println(".L.else.%d:", c);
+		gen_expr(node->els);
+		println(".L.end.%d:", c);
+		return;
+
 	case ND_NOT:
 		gen_expr(node->lhs);
 		println("\tseqz a0, a0");
