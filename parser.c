@@ -1354,8 +1354,15 @@ static const char *brk_label;
 // current "continue" jump target
 static const char *cont_label;
 
+// Points to a node representing a switch if we are parsing
+// a switch statement. Otherwise, NULL.
+static struct Node *current_switch;
+
 // stmt = "return" expr ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?
+//	| "switch" "(" expr ")" stmt
+//	| "case" num ":" stmt
+//	| "default" ":" stmt
 // 	| "for" "(" expr-stmt expr? ";" expr? ")" stmt
 // 	| "while" "(" expr ")" stmt
 // 	| "goto" ident ";"
@@ -1388,6 +1395,56 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 			n->els = stmt(&tok, tok->next);
 
 		*rest = tok;
+		return n;
+	}
+
+	if (equal(tok, "switch")) {
+		struct Node *n = new_node(ND_SWITCH, tok);
+
+		tok = skip(tok->next, "(");
+		n->cond = expr(&tok, tok);
+		tok = skip(tok, ")");
+
+		struct Node *sw_prev = current_switch;
+		current_switch = n;
+
+		const char *brk_prev = brk_label;
+		brk_label = n->brk_label = new_unique_name();
+
+		// a series of "case"s
+		n->then = stmt(rest, tok);
+
+		current_switch = sw_prev;
+		brk_label = brk_prev;
+		return n;
+	}
+
+	if (equal(tok, "case")) {
+		if (!current_switch)
+			error_tok(tok, "stray case");
+
+		int val = get_number(tok->next);
+		struct Node *n = new_node(ND_CASE, tok);
+
+		tok = skip(tok->next->next, ":");
+		n->label = new_unique_name();
+		n->lhs = stmt(rest, tok);
+		n->val = val;
+		n->case_next = current_switch->case_next;
+		current_switch->case_next = n;
+		return n;
+	}
+
+	if (equal(tok, "default")) {
+		if (!current_switch)
+			error_tok(tok, "stray default");
+
+		struct Node *n = new_node(ND_CASE, tok);
+
+		tok = skip(tok->next, ":");
+		n->label = new_unique_name();
+		n->lhs = stmt(rest, tok);
+		current_switch->default_case = n;
 		return n;
 	}
 

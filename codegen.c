@@ -424,6 +424,28 @@ static void gen_stmt(struct Node *node)
 		debug("\t# end ND_FOR");
 		return;
 
+	case ND_SWITCH:
+		gen_expr(node->cond);
+
+		for (struct Node *n = node->case_next; n; n = n->case_next) {
+			println("\tli a1, %d", n->val);
+			println("\tbeq a0, a1, %s", n->label);
+		}
+
+		if (node->default_case)
+			println("\tj %s", node->default_case->label);
+
+		// "case"s are over
+		println("\tj %s", node->brk_label);
+		gen_stmt(node->then);
+		println("%s:", node->brk_label);
+		return;
+
+	case ND_CASE:
+		println("%s:", node->label);
+		gen_stmt(node->lhs);
+		return;
+
 	case ND_BLOCK:
 		for (struct Node *n = node->body; n; n = n->next)
 			gen_stmt(n);

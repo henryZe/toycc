@@ -161,6 +161,8 @@ enum NodeKind {
 	ND_RETURN,	// "return"
 	ND_IF,		// "if"
 	ND_FOR,		// "for" or "while"
+	ND_SWITCH,	// "switch"
+	ND_CASE,	// "case"
 	ND_BLOCK,	// { ... }
 	ND_GOTO,	// "goto"
 	ND_LABEL,	// Labeled statement
@@ -210,8 +212,14 @@ struct Node {
 	const char *unique_label;
 	struct Node *goto_next;
 
-	struct Obj *var;	// Used if kind == ND_VAR
-	int64_t val;		// Used if kind == ND_NUM
+	// Switch-cases
+	struct Node *case_next;
+	struct Node *default_case;
+
+	// variable
+	struct Obj *var;
+	// numeric literal
+	int64_t val;
 };
 
 struct Node *new_cast(struct Node *expr, struct Type *ty);
