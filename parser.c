@@ -47,6 +47,32 @@ struct VarAttr {
 	bool is_static;
 };
 
+// This struct represents a variable initializer. Since initializers
+// can be nested (e.g. `int x[2][2] = {{1, 2}, {3, 4}}`), this struct
+// is a tree data structure.
+struct Initializer {
+	struct Initializer *next;
+
+	struct Type *ty;
+	struct Token *tok;
+
+	// If it's not an aggregate type and has an initializer,
+	// `expr` has an initialization expression.
+	struct Node *expr;
+
+	// If it's an initializer for an aggregate type (e.g. array or struct),
+	// `children` has initializers for its children.
+	struct Initializer **children;
+};
+
+// For local variable initializer.
+struct InitDesg {
+	// former level of array
+	struct InitDesg *next;
+	int idx;
+	struct Obj *var;
+};
+
 // All local variable instances created during parsing are
 // accumulated to this list.
 static struct Obj *locals;
@@ -1419,8 +1445,105 @@ static struct Type *declarator(struct Token **rest, struct Token *tok,
 	return ty;
 }
 
+static struct Initializer *new_initializer(struct Type *ty)
+{
+	struct Initializer *init = malloc(sizeof(struct Initializer));
+
+	init->ty = ty;
+	if (ty->kind == TY_ARRAY) {
+		init->children = malloc(ty->array_len * sizeof(struct Initializer *));
+
+		for (int i = 0; i < ty->array_len; i++)
+			init->children[i] = new_initializer(ty->base);
+	}
+
+	return init;
+}
+
+// initializer = "{" initializer ("," initializer)* "}"
+//             | assign
+static void initializer2(struct Token **rest, struct Token *tok,
+			 struct Initializer *init)
+{
+	if (init->ty->kind == TY_ARRAY) {
+		tok = skip(tok, "{");
+
+		for (int i = 0; i < init->ty->array_len; i++) {
+			if (i > 0)
+				tok = skip(tok, ",");
+			initializer2(&tok, tok, init->children[i]);
+		}
+
+		*rest = skip(tok, "}");
+		return;
+	}
+
+	init->expr = assign(rest, tok);
+}
+
+static struct Initializer *initializer(struct Token **rest, struct Token *tok,
+				       struct Type *ty)
+{
+	// allocate initializer
+	struct Initializer *init = new_initializer(ty);
+	// assign expr to initializer
+	initializer2(rest, tok, init);
+	return init;
+}
+
+static struct Node *init_desg_expr(struct InitDesg *desg, struct Token *tok)
+{
+	if (desg->var)
+		return new_var_node(desg->var, tok);
+
+	struct Node *lhs = init_desg_expr(desg->next, tok);
+	struct Node *rhs = new_num(desg->idx, tok);
+	// x[a] => *(x + a)
+	return new_unary(ND_DEREF, new_add(lhs, rhs, tok), tok);
+}
+
+static struct Node *create_lvar_init(struct Initializer *init, struct Type *ty,
+				     struct InitDesg *desg, struct Token *tok)
+{
+	if (ty->kind == TY_ARRAY) {
+		struct Node *node = new_node(ND_NULL_EXPR, tok);
+
+		for (int i = 0; i < ty->array_len; i++) {
+			struct InitDesg desg2 = { desg, i, NULL };
+			struct Node *rhs = create_lvar_init(init->children[i], ty->base, &desg2, tok);
+			// node = (node, x[a] = expr)
+			node = new_binary(ND_COMMA, node, rhs, tok);
+		}
+		return node;
+	}
+
+	struct Node *lhs = init_desg_expr(desg, tok);
+	struct Node *rhs = init->expr;
+	// x[a] = expr;
+	return new_binary(ND_ASSIGN, lhs, rhs, tok);
+}
+
+// A variable definition with an initializer is a shorthand notation
+// for a variable definition followed by assignments. This function
+// generates assignment expressions for an initializer. For example,
+// `int x[2][2] = {{6, 7}, {8, 9}}` is converted to the following
+// expressions:
+//
+//   x[0][0] = 6;
+//   x[0][1] = 7;
+//   x[1][0] = 8;
+//   x[1][1] = 9;
+static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
+				     struct Obj *var)
+{
+	struct Initializer *init = initializer(rest, tok, var->ty);
+	struct InitDesg desg = { NULL, 0, var };
+	return create_lvar_init(init, var->ty, &desg, tok);
+}
+
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
-static struct Node *declaration(struct Token **rest, struct Token *tok, struct Type *basety)
+static struct Node *declaration(struct Token **rest, struct Token *tok,
+				struct Type *basety)
 {
 	struct Node head = {}; // memset 'head' with 0
 	struct Node *cur = &head;
@@ -1439,17 +1562,12 @@ static struct Node *declaration(struct Token **rest, struct Token *tok, struct T
 
 		struct Obj *var = new_lvar(get_ident(ty->name), ty);
 
-		if (!equal(tok, "="))
-			continue;
-
-		// "="
-		struct Node *lhs = new_var_node(var, ty->name);
-		struct Node *rhs = assign(&tok, tok->next);
-		struct Node *node = new_binary(ND_ASSIGN, lhs, rhs, tok);
-
-		// "," | ";"
-		cur->next = new_unary(ND_EXPR_STMT, node, tok);
-		cur = cur->next;
+		if (equal(tok, "=")) {
+			// local variable initializer
+			struct Node *expr = lvar_initializer(&tok, tok->next, var);
+			// a series of expressions & statements
+			cur = cur->next = new_unary(ND_EXPR_STMT, expr, tok);
+		}
 	}
 
 	// might empty block here

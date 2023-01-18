@@ -206,6 +206,9 @@ static void gen_expr(struct Node *node)
 	println("\t.loc 1 %d", node->tok->line_no);
 
 	switch (node->kind) {
+	case ND_NULL_EXPR:
+		return;
+
 	case ND_NUM:
 		println("\tli a0, %ld", node->val);
 		return;
