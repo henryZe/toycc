@@ -1460,6 +1460,17 @@ static struct Initializer *new_initializer(struct Type *ty)
 	return init;
 }
 
+static struct Token *skip_excess_element(struct Token *tok)
+{
+	if (equal(tok, "{")) {
+		tok = skip_excess_element(tok->next);
+		return skip(tok, "}");
+	}
+
+	assign(&tok, tok);
+	return tok;
+}
+
 // initializer = "{" initializer ("," initializer)* "}"
 //             | assign
 static void initializer2(struct Token **rest, struct Token *tok,
@@ -1468,13 +1479,17 @@ static void initializer2(struct Token **rest, struct Token *tok,
 	if (init->ty->kind == TY_ARRAY) {
 		tok = skip(tok, "{");
 
-		for (int i = 0; i < init->ty->array_len && !equal(tok, "}"); i++) {
+		for (int i = 0; !consume(rest, tok, "}"); i++) {
 			if (i > 0)
 				tok = skip(tok, ",");
-			initializer2(&tok, tok, init->children[i]);
+
+			if (i < init->ty->array_len)
+				initializer2(&tok, tok, init->children[i]);
+			else
+				// ignore excess elements
+				tok = skip_excess_element(tok);
 		}
 
-		*rest = skip(tok, "}");
 		return;
 	}
 
