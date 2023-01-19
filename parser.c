@@ -1468,7 +1468,7 @@ static void initializer2(struct Token **rest, struct Token *tok,
 	if (init->ty->kind == TY_ARRAY) {
 		tok = skip(tok, "{");
 
-		for (int i = 0; i < init->ty->array_len; i++) {
+		for (int i = 0; i < init->ty->array_len && !equal(tok, "}"); i++) {
 			if (i > 0)
 				tok = skip(tok, ",");
 			initializer2(&tok, tok, init->children[i]);
@@ -1493,6 +1493,7 @@ static struct Initializer *initializer(struct Token **rest, struct Token *tok,
 
 static struct Node *init_desg_expr(struct InitDesg *desg, struct Token *tok)
 {
+	// last one which is the variable self
 	if (desg->var)
 		return new_var_node(desg->var, tok);
 
@@ -1510,12 +1511,17 @@ static struct Node *create_lvar_init(struct Initializer *init, struct Type *ty,
 
 		for (int i = 0; i < ty->array_len; i++) {
 			struct InitDesg desg2 = { desg, i, NULL };
-			struct Node *rhs = create_lvar_init(init->children[i], ty->base, &desg2, tok);
-			// node = (node, x[a] = expr)
+			struct Node *rhs = create_lvar_init(init->children[i],
+							    ty->base, &desg2, tok);
+			// node, x[a] = expr
 			node = new_binary(ND_COMMA, node, rhs, tok);
 		}
 		return node;
 	}
+
+	if (!init->expr)
+		// there is no user-supplied values
+		return new_node(ND_NULL_EXPR, tok);
 
 	struct Node *lhs = init_desg_expr(desg, tok);
 	struct Node *rhs = init->expr;
@@ -1538,7 +1544,17 @@ static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
 {
 	struct Initializer *init = initializer(rest, tok, var->ty);
 	struct InitDesg desg = { NULL, 0, var };
-	return create_lvar_init(init, var->ty, &desg, tok);
+
+	// If a partial initializer list is given, the standard requires
+	// that unspecified elements are set to 0. Here, we simply
+	// zero-initialize the entire memory region of a variable before
+	// initializing it with user-supplied values.
+	struct Node *lhs = new_node(ND_MEMZERO, tok);
+	lhs->var = var;
+
+	// initializing var with user-supplied values.
+	struct Node *rhs = create_lvar_init(init, var->ty, &desg, tok);
+	return new_binary(ND_COMMA, lhs, rhs, tok);
 }
 
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"

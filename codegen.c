@@ -261,6 +261,14 @@ static void gen_expr(struct Node *node)
 		cast(node->lhs->ty, node->ty);
 		return;
 
+	case ND_MEMZERO:
+		debug("\t# ND_MEMZERO size %d", node->var->ty->size);
+		for (int i = 0; i < node->var->ty->size; i++) {
+			println("\tsb zero, %d(fp)", node->var->offset + i);
+		}
+		debug("\t# end ND_MEMZERO");
+		return;
+
 	case ND_COND:
 		c = count();
 		gen_expr(node->cond);
