@@ -1471,25 +1471,49 @@ static struct Token *skip_excess_element(struct Token *tok)
 	return tok;
 }
 
-// initializer = "{" initializer ("," initializer)* "}"
-//             | assign
+// string-initializer = string-literal
+static void string_initializer(struct Token **rest, struct Token *tok,
+			       struct Initializer *init)
+{
+	int len = MIN(init->ty->array_len, tok->ty->array_len);
+
+	for (int i = 0; i < len; i++)
+		init->children[i]->expr = new_num(tok->str[i], tok);
+
+	*rest = tok->next;
+}
+
+static void initializer2(struct Token **rest, struct Token *tok,
+			 struct Initializer *init);
+// array-initializer = "{" initializer ("," initializer)* "}"
+static void array_initializer(struct Token **rest, struct Token *tok,
+			      struct Initializer *init)
+{
+	tok = skip(tok, "{");
+
+	for (int i = 0; !consume(rest, tok, "}"); i++) {
+		if (i > 0)
+			tok = skip(tok, ",");
+
+		if (i < init->ty->array_len)
+			initializer2(&tok, tok, init->children[i]);
+		else
+			// ignore excess elements
+			tok = skip_excess_element(tok);
+	}
+}
+
+// initializer = string-initializer | array-initializer | assign
 static void initializer2(struct Token **rest, struct Token *tok,
 			 struct Initializer *init)
 {
+	if (init->ty->kind == TY_ARRAY && tok->kind == TK_STR) {
+		string_initializer(rest, tok, init);
+		return;
+	}
+
 	if (init->ty->kind == TY_ARRAY) {
-		tok = skip(tok, "{");
-
-		for (int i = 0; !consume(rest, tok, "}"); i++) {
-			if (i > 0)
-				tok = skip(tok, ",");
-
-			if (i < init->ty->array_len)
-				initializer2(&tok, tok, init->children[i]);
-			else
-				// ignore excess elements
-				tok = skip_excess_element(tok);
-		}
-
+		array_initializer(rest, tok, init);
 		return;
 	}
 
