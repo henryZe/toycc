@@ -71,6 +71,7 @@ struct InitDesg {
 	// former level of array
 	struct InitDesg *next;
 	int idx;
+	struct Member *member;
 	struct Obj *var;
 };
 
@@ -1043,18 +1044,21 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 {
 	struct Member head = {};
 	struct Member *cur = &head;
+	int idx = 0;
 
 	while (!equal(tok, "}")) {
 		struct Type *basety = declspec(&tok, tok, NULL);
-		int i = 0;
+		bool first = true;
 
 		while (!consume(&tok, tok, ";")) {
-			if (i++)
+			if (!first)
 				tok = skip(tok, ",");
+			first = false;
 
 			struct Member *mem = malloc(sizeof(struct Member));
 			mem->ty = declarator(&tok, tok, basety);
 			mem->name = mem->ty->name;
+			mem->idx = idx++;
 			cur->next = mem;
 			cur = cur->next;
 		}
@@ -1463,6 +1467,19 @@ static struct Initializer *new_initializer(struct Type *ty, bool is_flexible)
 			init->children[i] = new_initializer(ty->base, false);
 	}
 
+	if (ty->kind == TY_STRUCT) {
+		// count the number of struct members
+		int len = 0;
+		struct Member *start = ty->members;
+		for (struct Member *mem = start; mem; mem = mem->next)
+			len++;
+
+		init->children = malloc(len * sizeof(struct Initializer *));
+
+		for (struct Member *mem = start; mem; mem = mem->next)
+			init->children[mem->idx] = new_initializer(mem->ty, false);
+	}
+
 	return init;
 }
 
@@ -1530,7 +1547,32 @@ static void array_initializer(struct Token **rest, struct Token *tok,
 	}
 }
 
-// initializer = string-initializer | array-initializer | assign
+// struct-initializer = "{" initializer ("," initializer)* "}"
+static void struct_initializer(struct Token **rest, struct Token *tok,
+			       struct Initializer *init)
+{
+	tok = skip(tok, "{");
+
+	bool first = true;
+	struct Member *mem = init->ty->members;
+
+	while (!consume(rest, tok, "}")) {
+		if (!first)
+			tok = skip(tok, ",");
+		first = false;
+
+		if (mem) {
+			initializer2(&tok, tok, init->children[mem->idx]);
+			mem = mem->next;
+		} else {
+			// ignore excess elements
+			tok = skip_excess_element(tok);
+		}
+	}
+}
+
+// initializer = string-initializer | array-initializer |
+//		 struct_initializer | assign
 static void initializer2(struct Token **rest, struct Token *tok,
 			 struct Initializer *init)
 {
@@ -1541,6 +1583,11 @@ static void initializer2(struct Token **rest, struct Token *tok,
 
 	if (init->ty->kind == TY_ARRAY) {
 		array_initializer(rest, tok, init);
+		return;
+	}
+
+	if (init->ty->kind == TY_STRUCT) {
+		struct_initializer(rest, tok, init);
 		return;
 	}
 
@@ -1564,6 +1611,12 @@ static struct Node *init_desg_expr(struct InitDesg *desg, struct Token *tok)
 	if (desg->var)
 		return new_var_node(desg->var, tok);
 
+	if (desg->member) {
+		struct Node *node = new_unary(ND_MEMBER, init_desg_expr(desg->next, tok), tok);
+		node->member = desg->member;
+		return node;
+	}
+
 	struct Node *lhs = init_desg_expr(desg->next, tok);
 	struct Node *rhs = new_num(desg->idx, tok);
 	// x[a] => *(x + a)
@@ -1577,10 +1630,23 @@ static struct Node *create_lvar_init(struct Initializer *init, struct Type *ty,
 		struct Node *node = new_node(ND_NULL_EXPR, tok);
 
 		for (int i = 0; i < ty->array_len; i++) {
-			struct InitDesg desg2 = { desg, i, NULL };
+			struct InitDesg desg2 = { desg, i, NULL, NULL };
 			struct Node *rhs = create_lvar_init(init->children[i],
 							    ty->base, &desg2, tok);
 			// node, x[a] = expr
+			node = new_binary(ND_COMMA, node, rhs, tok);
+		}
+		return node;
+	}
+
+	if (ty->kind == TY_STRUCT) {
+		struct Node *node = new_node(ND_NULL_EXPR, tok);
+
+		for (struct Member *mem = ty->members; mem; mem = mem->next) {
+			struct InitDesg desg2 = { desg, 0, mem, NULL };
+			struct Node *rhs = create_lvar_init(init->children[mem->idx],
+							    mem->ty, &desg2, tok);
+			// node, x.a = expr
 			node = new_binary(ND_COMMA, node, rhs, tok);
 		}
 		return node;
@@ -1610,7 +1676,7 @@ static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
 				     struct Obj *var)
 {
 	struct Initializer *init = initializer(rest, tok, var->ty, &var->ty);
-	struct InitDesg desg = { NULL, 0, var };
+	struct InitDesg desg = { NULL, 0, NULL, var };
 
 	// If a partial initializer list is given, the standard requires
 	// that unspecified elements are set to 0. Here, we simply

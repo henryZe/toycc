@@ -65,6 +65,7 @@ struct Member {
 	struct Type *ty;
 	// struct Token *tok;	// for error message
 	struct Token *name;
+	int idx;
 	int offset;
 };
 
