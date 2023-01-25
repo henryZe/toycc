@@ -2085,6 +2085,49 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	return tok;
 }
 
+static void write_buf(char *buf, uint64_t val, int sz)
+{
+	if (sz == 1)
+		*buf = val;
+	else if (sz == 2)
+		*(uint16_t *)buf = val;
+	else if (sz == 4)
+		*(uint32_t *)buf = val;
+	else if (sz == 8)
+		*(uint64_t *)buf = val;
+	else
+		unreachable();
+}
+
+static void write_gvar_data(struct Initializer *init, struct Type *ty,
+			    char *buf, int offset)
+{
+	if (ty->kind == TY_ARRAY) {
+		int sz = ty->base->size;
+		for (int i = 0; i < ty->array_len; i++)
+			write_gvar_data(init->children[i], ty->base,
+					buf, offset + sz * i);
+		return;
+	}
+
+	if (init->expr)
+		write_buf(buf + offset, eval(init->expr), ty->size);
+}
+
+// Initializers for global variables are evaluated at compile-time and
+// embedded to .data section. This function serializes Initializer
+// objects to a flat byte array. It is a compile error if an
+// initializer list contains a non-constant expression.
+static void gvar_initializer(struct Token **rest, struct Token *tok,
+			     struct Obj *var)
+{
+	struct Initializer *init = initializer(rest, tok, var->ty, &var->ty);
+	char *buf = malloc(var->ty->size);
+
+	write_gvar_data(init, var->ty, buf, 0);
+	var->init_data = buf;
+}
+
 static struct Token *global_variable(struct Token *tok, struct Type *basety)
 {
 	bool first = true;
@@ -2095,7 +2138,9 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety)
 		first = false;
 
 		struct Type *ty = declarator(&tok, tok, basety);
-		new_gvar(get_ident(ty->name), ty);
+		struct Obj *var = new_gvar(get_ident(ty->name), ty);
+		if (equal(tok, "="))
+			gvar_initializer(&tok, tok->next, var);
 	}
 	return tok;
 }
