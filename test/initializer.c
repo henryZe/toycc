@@ -5,7 +5,9 @@ short g4 = 4;
 int g5 = 5;
 long g6 = 6;
 char gstring[] = "abc";
-int garray[] = {1, 2, 3};
+int garray[] = {0, 1, 2};
+struct {char a; int b;} g11[2] = {{1, 2}, {3, 4}};
+struct {int a[2];} g12[2] = {{{1, 2}}};
 
 int main()
 {
@@ -74,7 +76,20 @@ int main()
 	ASSERT(5, g5);
 	ASSERT(6, g6);
 	ASSERT('a', gstring[0]);
-	ASSERT(2, garray[1]);
+
+	ASSERT(0, garray[0]);
+	ASSERT(1, garray[1]);
+	ASSERT(2, garray[2]);
+
+	ASSERT(1, g11[0].a);
+	ASSERT(2, g11[0].b);
+	ASSERT(3, g11[1].a);
+	ASSERT(4, g11[1].b);
+
+	ASSERT(1, g12[0].a[0]);
+	ASSERT(2, g12[0].a[1]);
+	ASSERT(0, g12[1].a[0]);
+	ASSERT(0, g12[1].a[1]);
 
 	printf("OK\n");
 	return 0;
