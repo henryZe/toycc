@@ -55,6 +55,7 @@ struct Initializer {
 
 	struct Type *ty;
 	struct Token *tok;
+	bool is_flexible;
 
 	// If it's not an aggregate type and has an initializer,
 	// `expr` has an initialization expression.
@@ -1445,16 +1446,21 @@ static struct Type *declarator(struct Token **rest, struct Token *tok,
 	return ty;
 }
 
-static struct Initializer *new_initializer(struct Type *ty)
+static struct Initializer *new_initializer(struct Type *ty, bool is_flexible)
 {
 	struct Initializer *init = malloc(sizeof(struct Initializer));
 
 	init->ty = ty;
 	if (ty->kind == TY_ARRAY) {
+		if (is_flexible && ty->size < 0) {
+			init->is_flexible = true;
+			return init;
+		}
+
 		init->children = malloc(ty->array_len * sizeof(struct Initializer *));
 
 		for (int i = 0; i < ty->array_len; i++)
-			init->children[i] = new_initializer(ty->base);
+			init->children[i] = new_initializer(ty->base, false);
 	}
 
 	return init;
@@ -1475,6 +1481,9 @@ static struct Token *skip_excess_element(struct Token *tok)
 static void string_initializer(struct Token **rest, struct Token *tok,
 			       struct Initializer *init)
 {
+	if (init->is_flexible)
+		*init = *new_initializer(array_of(init->ty->base, tok->ty->array_len), false);
+
 	int len = MIN(init->ty->array_len, tok->ty->array_len);
 
 	for (int i = 0; i < len; i++)
@@ -1485,11 +1494,29 @@ static void string_initializer(struct Token **rest, struct Token *tok,
 
 static void initializer2(struct Token **rest, struct Token *tok,
 			 struct Initializer *init);
+static int count_array_init_elements(struct Token *tok, struct Type *ty)
+{
+	struct Initializer *dummy = new_initializer(ty->base, false);
+	int i;
+
+	for (i = 0; !equal(tok, "}"); i++) {
+		if (i > 0)
+			tok = skip(tok, ",");
+		initializer2(&tok, tok, dummy);
+	}
+	return i;
+}
+
 // array-initializer = "{" initializer ("," initializer)* "}"
 static void array_initializer(struct Token **rest, struct Token *tok,
 			      struct Initializer *init)
 {
 	tok = skip(tok, "{");
+
+	if (init->is_flexible) {
+		int len = count_array_init_elements(tok, init->ty);
+		*init = *new_initializer(array_of(init->ty->base, len), false);
+	}
 
 	for (int i = 0; !consume(rest, tok, "}"); i++) {
 		if (i > 0)
@@ -1521,12 +1548,13 @@ static void initializer2(struct Token **rest, struct Token *tok,
 }
 
 static struct Initializer *initializer(struct Token **rest, struct Token *tok,
-				       struct Type *ty)
+				       struct Type *ty, struct Type **new_ty)
 {
 	// allocate initializer
-	struct Initializer *init = new_initializer(ty);
+	struct Initializer *init = new_initializer(ty, true);
 	// assign expr to initializer
 	initializer2(rest, tok, init);
+	*new_ty = init->ty;
 	return init;
 }
 
@@ -1581,7 +1609,7 @@ static struct Node *create_lvar_init(struct Initializer *init, struct Type *ty,
 static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
 				     struct Obj *var)
 {
-	struct Initializer *init = initializer(rest, tok, var->ty);
+	struct Initializer *init = initializer(rest, tok, var->ty, &var->ty);
 	struct InitDesg desg = { NULL, 0, var };
 
 	// If a partial initializer list is given, the standard requires
@@ -1610,8 +1638,6 @@ static struct Node *declaration(struct Token **rest, struct Token *tok,
 
 		struct Token *start = tok;
 		struct Type *ty = declarator(&tok, tok, basety);
-		if (ty->size < 0)
-			error_tok(start, "variable has incomplete type");
 		if (ty->kind == TY_VOID)
 			error_tok(start, "variable declared void");
 
@@ -1623,6 +1649,11 @@ static struct Node *declaration(struct Token **rest, struct Token *tok,
 			// a series of expressions & statements
 			cur = cur->next = new_unary(ND_EXPR_STMT, expr, tok);
 		}
+
+		if (var->ty->size < 0)
+			error_tok(ty->name, "variable has incomplete type");
+		if (var->ty->kind == TY_VOID)
+			error_tok(ty->name, "variable declared void");
 	}
 
 	// might empty block here
