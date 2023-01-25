@@ -1467,7 +1467,7 @@ static struct Initializer *new_initializer(struct Type *ty, bool is_flexible)
 			init->children[i] = new_initializer(ty->base, false);
 	}
 
-	if (ty->kind == TY_STRUCT) {
+	if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
 		// count the number of struct members
 		int len = 0;
 		struct Member *start = ty->members;
@@ -1571,8 +1571,19 @@ static void struct_initializer(struct Token **rest, struct Token *tok,
 	}
 }
 
+static void union_initializer(struct Token **rest, struct Token *tok,
+			      struct Initializer *init)
+{
+	// Unlike structs, union initializers take *only one* initializer,
+	// and that initializes the *first* union member.
+	tok = skip(tok, "{");
+	initializer2(&tok, tok, init->children[0]);
+	*rest = skip(tok, "}");
+}
+
 // initializer = string-initializer | array-initializer |
-//		 struct_initializer | assign
+//		 struct_initializer | union-initializer |
+//		 assign
 static void initializer2(struct Token **rest, struct Token *tok,
 			 struct Initializer *init)
 {
@@ -1600,6 +1611,11 @@ static void initializer2(struct Token **rest, struct Token *tok,
 		}
 
 		struct_initializer(rest, tok, init);
+		return;
+	}
+
+	if (init->ty->kind == TY_UNION) {
+		union_initializer(rest, tok, init);
 		return;
 	}
 
@@ -1662,6 +1678,11 @@ static struct Node *create_lvar_init(struct Initializer *init, struct Type *ty,
 			node = new_binary(ND_COMMA, node, rhs, tok);
 		}
 		return node;
+	}
+
+	if (ty->kind == TY_UNION) {
+		struct InitDesg desg2 = { desg, 0, ty->members, NULL };
+		return create_lvar_init(init->children[0], ty->members->ty, &desg2, tok);
 	}
 
 	if (!init->expr)
