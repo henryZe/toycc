@@ -31,6 +31,7 @@ error(const char *fmt, ...)
 	va_start(ap, fmt);
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
+	va_end(ap);
 	exit(1);
 }
 
@@ -71,5 +72,6 @@ error_tok(struct Token *tok, const char *fmt, ...)
 	va_list ap;
 	va_start(ap, fmt);
 	verror_at(tok->line_no, tok->loc, fmt, ap);
+	va_end(ap);
 	exit(1);
 }

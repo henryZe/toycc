@@ -13,12 +13,12 @@
 #define MAX(x, y) ((x) < (y) ? (y) : (x))
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
-// tokenize.c
+#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 
 #define unreachable() \
 	error("internal error at %s:%d", __FILE__, __LINE__)
 
-// token
+// tokenize.c
 enum TokenKind {
 	TK_IDENT,	// Identifiers
 	TK_PUNCT,	// punctuators
@@ -43,7 +43,6 @@ bool consume(struct Token **rest, struct Token *tok, const char *str);
 struct Token *tokenize_file(const char *filename);
 
 // type.c
-
 enum TypeKind {
 	TY_VOID,
 	TY_BOOL,
@@ -59,7 +58,7 @@ enum TypeKind {
 	TY_UNION,
 };
 
-// struct Member
+// member of struct
 struct Member {
 	struct Member *next;
 	struct Type *ty;
@@ -111,34 +110,7 @@ struct Node;
 void add_type(struct Node *node);
 
 // parser.c
-
-// local variable
-struct Obj {
-	struct Obj *next;
-	const char *name;
-	struct Type *ty;	// Type
-	bool is_local;		// local or global/function
-
-	// local variable
-	int offset;		// Offset from fp
-
-	// global variable or function
-	bool is_function;
-	// function definition
-	bool is_definition;
-	bool is_static;
-
-	// global variable
-	const char *init_data;
-
-	// function
-	struct Obj *params;
-	struct Node *body;
-	struct Obj *locals;
-	int stack_size;
-};
-
-// AST node
+// AST(abstract syntax tree) node type
 enum NodeKind {
 	ND_NULL_EXPR,	// do nothing
 	ND_ADD,
@@ -183,7 +155,7 @@ enum NodeKind {
 	ND_MEMZERO,	// Zero-clear a stack variable
 };
 
-// AST(abstract syntax tree) node type
+// AST node
 struct Node {
 	enum NodeKind kind;
 	struct Node *next;
@@ -231,6 +203,45 @@ struct Node {
 	int64_t val;
 };
 
+// Global variable can be initialized either by
+// 1. a constant expression or
+// 2. a pointer to another global variable.
+//
+// This struct represents the latter.
+struct Relocation {
+	struct Relocation *next;
+	int offset;
+	const char *label;
+	long addend;
+};
+
+// local variable
+struct Obj {
+	struct Obj *next;
+	const char *name;
+	struct Type *ty;	// Type
+	bool is_local;		// local or global/function
+
+	// local variable
+	int offset;		// Offset from fp
+
+	// global variable or function
+	bool is_function;
+	// function definition
+	bool is_definition;
+	bool is_static;
+
+	// global variable
+	const char *init_data;
+	struct Relocation *rel;
+
+	// function
+	struct Obj *params;
+	struct Node *body;
+	struct Obj *locals;
+	int stack_size;
+};
+
 struct Node *new_cast(struct Node *expr, struct Type *ty);
 struct Obj *parser(struct Token *tok);
 
@@ -239,8 +250,6 @@ void codegen(struct Obj *prog, FILE *out);
 int align_to(int n, int align);
 
 // utils.c
-#define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
-
 bool equal(struct Token *tok, const char *op);
 void set_cur_input(const char *p);
 const char *get_cur_input(void);
@@ -249,5 +258,5 @@ void __attribute__((noreturn)) error(const char *fmt, ...);
 void verror_at(int line_no, const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
 
-// strings.c
+// string.c
 const char *format(const char *fmt, ...);

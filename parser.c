@@ -892,70 +892,157 @@ static struct Node *conditional(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+static int64_t eval2(struct Node *node, const char **label);
 // Evaluate a given node as a constant expression.
 static int64_t eval(struct Node *node)
+{
+	return eval2(node, NULL);
+}
+
+static int64_t eval_rval(struct Node *node, const char **label);
+// Evaluate a given node as a constant expression.
+// A constant expression is either just a number or ptr+n
+// where ptr is a pointer to a global variable and
+// n is a positive/negative number.
+// The latter form is accepted only as an initialization
+// expression for a global variable.
+static int64_t eval2(struct Node *node, const char **label)
 {
 	add_type(node);
 
 	switch (node->kind) {
 	case ND_ADD:
-		return eval(node->lhs) + eval(node->rhs);
+		return eval2(node->lhs, label) + eval(node->rhs);
+
 	case ND_SUB:
-		return eval(node->lhs) - eval(node->rhs);
+		return eval2(node->lhs, label) - eval(node->rhs);
+
 	case ND_MUL:
 		return eval(node->lhs) * eval(node->rhs);
+
 	case ND_DIV:
 		return eval(node->lhs) / eval(node->rhs);
+
 	case ND_NEG:
 		return -eval(node->lhs);
+
 	case ND_MOD:
 		return eval(node->lhs) % eval(node->rhs);
+
 	case ND_BITAND:
 		return eval(node->lhs) & eval(node->rhs);
+
 	case ND_BITOR:
 		return eval(node->lhs) | eval(node->rhs);
+
 	case ND_BITXOR:
 		return eval(node->lhs) ^ eval(node->rhs);
+
 	case ND_SHL:
 		return eval(node->lhs) << eval(node->rhs);
+
 	case ND_SHR:
 		return eval(node->lhs) >> eval(node->rhs);
+
 	case ND_EQ:
 		return eval(node->lhs) == eval(node->rhs);
+
 	case ND_NE:
 		return eval(node->lhs) != eval(node->rhs);
+
 	case ND_LT:
 		return eval(node->lhs) < eval(node->rhs);
+
 	case ND_LE:
 		return eval(node->lhs) <= eval(node->rhs);
+
 	case ND_COND:
-		return eval(node->cond) ? eval(node->then) : eval(node->els);
+		return eval(node->cond) ?
+		       eval2(node->then, label) : eval2(node->els, label);
+
 	case ND_COMMA:
-		return eval(node->rhs);
+		return eval2(node->rhs, label);
+
 	case ND_NOT:
 		return !eval(node->lhs);
+
 	case ND_BITNOT:
 		return ~eval(node->lhs);
+
 	case ND_LOGAND:
 		return eval(node->lhs) && eval(node->rhs);
+
 	case ND_LOGOR:
 		return eval(node->lhs) || eval(node->rhs);
+
 	case ND_CAST:
+		int64_t val = eval2(node->lhs, label);
+
 		if (is_integer(node->ty)) {
 			switch (node->ty->size) {
 			case 1:
-				return (uint8_t)eval(node->lhs);
+				return (uint8_t)val;
 			case 2:
-				return (uint16_t)eval(node->lhs);
+				return (uint16_t)val;
 			case 4:
-				return (uint32_t)eval(node->lhs);
+				return (uint32_t)val;
 			}
 		}
-		return eval(node->lhs);
+		return val;
+
+	case ND_ADDR:
+		// return label
+		return eval_rval(node->lhs, label);
+
+	case ND_MEMBER:
+		if (!label)
+			error_tok(node->tok, "not a compile-time constant");
+		if (node->ty->kind != TY_ARRAY)
+			error_tok(node->tok, "invalid initializer");
+
+		// return address
+		return eval_rval(node->lhs, label) + node->member->offset;
+
+	case ND_VAR:
+		if (!label)
+			error_tok(node->tok, "not a compile-time constant");
+		if (node->var->ty->kind != TY_ARRAY &&
+		    node->var->ty->kind != TY_FUNC)
+			error_tok(node->tok, "invalid initializer");
+
+		// return label
+		*label = node->var->name;
+		return 0;
+
 	case ND_NUM:
 		return node->val;
+
 	default:
 		error_tok(node->tok, "not a compile-time constant");
+	}
+}
+
+static int64_t eval_rval(struct Node *node, const char **label)
+{
+	switch (node->kind) {
+		case ND_VAR:
+			if (node->var->is_local)
+				error_tok(node->tok, "not a compile-time constant");
+
+			// return variable name
+			*label = node->var->name;
+			return 0;
+
+		case ND_DEREF:
+			return eval2(node->lhs, label);
+
+		case ND_MEMBER:
+			// return address
+			return eval_rval(node->lhs, label) +
+					 node->member->offset;
+
+		default:
+			error_tok(node->tok, "invalid initializer");
 	}
 }
 
@@ -2099,26 +2186,48 @@ static void write_buf(char *buf, uint64_t val, int sz)
 		unreachable();
 }
 
-static void write_gvar_data(struct Initializer *init, struct Type *ty,
-			    char *buf, int offset)
+static struct Relocation *write_gvar_data(struct Relocation *cur,
+					  struct Initializer *init,
+					  struct Type *ty, char *buf,
+					  int offset)
 {
 	if (ty->kind == TY_ARRAY) {
 		int sz = ty->base->size;
 		for (int i = 0; i < ty->array_len; i++)
-			write_gvar_data(init->children[i], ty->base,
-					buf, offset + sz * i);
-		return;
+			cur = write_gvar_data(cur, init->children[i],
+					ty->base, buf, offset + sz * i);
+		return cur;
 	}
 
 	if (ty->kind == TY_STRUCT) {
 		for (struct Member *mem = ty->members; mem; mem = mem->next)
-			write_gvar_data(init->children[mem->idx], mem->ty,
-					buf, offset + mem->offset);
-		return;
+			cur = write_gvar_data(cur, init->children[mem->idx],
+					mem->ty, buf, offset + mem->offset);
+		return cur;
 	}
 
-	if (init->expr)
-		write_buf(buf + offset, eval(init->expr), ty->size);
+	if (ty->kind == TY_UNION)
+		return write_gvar_data(cur, init->children[0],
+					ty->members->ty, buf, offset);
+
+	if (!init->expr)
+		return cur;
+
+	const char *label = NULL;
+	uint64_t val = eval2(init->expr, &label);
+
+	if (!label) {
+		write_buf(buf + offset, val, ty->size);
+		return cur;
+	}
+
+	struct Relocation *rel = malloc(sizeof(struct Relocation));
+	rel->next = NULL;
+	rel->offset = offset;
+	rel->label = label;
+	rel->addend = val;
+	cur->next = rel;
+	return rel;
 }
 
 // Initializers for global variables are evaluated at compile-time and
@@ -2129,10 +2238,12 @@ static void gvar_initializer(struct Token **rest, struct Token *tok,
 			     struct Obj *var)
 {
 	struct Initializer *init = initializer(rest, tok, var->ty, &var->ty);
+	struct Relocation head = {};
 	char *buf = malloc(var->ty->size);
 
-	write_gvar_data(init, var->ty, buf, 0);
+	write_gvar_data(&head, init, var->ty, buf, 0);
 	var->init_data = buf;
+	var->rel = head.next;
 }
 
 static struct Token *global_variable(struct Token *tok, struct Type *basety)
