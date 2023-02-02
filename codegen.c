@@ -540,8 +540,19 @@ static void emit_data(struct Obj *prog)
 		println("%s:", var->name);
 
 		if (var->init_data) {
-			for (int i = 0; i < var->ty->size; i++)
-				println("\t.byte %d", var->init_data[i]);
+			struct Relocation *rel = var->rel;
+			int pos = 0;
+
+			while (pos < var->ty->size) {
+				if (rel && rel->offset == pos) {
+					// declare as a pointer
+					println("\t.quad %s+%ld", rel->label, rel->addend);
+					rel = rel->next;
+					pos += 8;
+				} else {
+					println("\t.byte %d", var->init_data[pos++]);
+				}
+			}
 		} else {
 			println("\t.zero %d", var->ty->size);
 		}

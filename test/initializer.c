@@ -112,6 +112,32 @@ int main()
 	ASSERT(8, g13[1].b[0]);
 	ASSERT(7, g13[1].b[1]);
 
+	ASSERT(7, sizeof(g17));
+	ASSERT(10, sizeof(g18));
+	ASSERT(3, sizeof(g19));
+
+	ASSERT(0, memcmp(g17, "foobar", 7));
+	ASSERT(0, memcmp(g18, "foobar\0\0\0", 10));
+	ASSERT(0, memcmp(g19, "foo", 3));
+
+	ASSERT(0, strcmp(g20, "foobar"));
+	ASSERT(0, strcmp(g21, "bar"));
+	ASSERT(0, strcmp(g22+3, "foobar"));
+
+	ASSERT(0, strcmp(g23[0], "foobar"));
+	ASSERT(0, strcmp(g23[1], "bar"));
+	ASSERT(0, strcmp(g23[2]+3, "foobar"));
+
+	ASSERT(3, g24);
+	ASSERT(3, *g25);
+	ASSERT(2, *g27);
+	ASSERT(3, *g28);
+	ASSERT(1, *(int *)g29);
+
+	ASSERT(1, g31[0]);
+	ASSERT(2, g31[1]);
+	ASSERT(3, g31[2]);
+
 	printf("OK\n");
 	return 0;
 }
