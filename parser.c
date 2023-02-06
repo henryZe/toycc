@@ -1311,7 +1311,7 @@ static struct Type *enum_specifier(struct Token **rest, struct Token *tok)
 
 	// read an enum-list
 	int i = 0, val = 0;
-	while (!equal(tok, "}")) {
+	while (!consume_end(rest, tok)) {
 		if (i++ > 0)
 			tok = skip(tok, ",");
 
@@ -1326,8 +1326,6 @@ static struct Type *enum_specifier(struct Token **rest, struct Token *tok)
 		sc->enum_ty = ty;
 		sc->enum_val = val++;
 	}
-
-	*rest = tok->next;
 
 	if (tag)
 		push_tag_scope(tag, ty);
