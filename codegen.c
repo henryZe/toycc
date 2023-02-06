@@ -535,26 +535,30 @@ static void emit_data(struct Obj *prog)
 		if (var->is_function)
 			continue;
 
-		println(".data");
 		println(".global %s", var->name);
+
+		if (!var->init_data) {
+			println(".bss");
+			println("%s:", var->name);
+			println("\t.zero %d", var->ty->size);
+			continue;
+		}
+
+		struct Relocation *rel = var->rel;
+		int pos = 0;
+
+		println(".data");
 		println("%s:", var->name);
 
-		if (var->init_data) {
-			struct Relocation *rel = var->rel;
-			int pos = 0;
-
-			while (pos < var->ty->size) {
-				if (rel && rel->offset == pos) {
-					// declare as a pointer
-					println("\t.quad %s+%ld", rel->label, rel->addend);
-					rel = rel->next;
-					pos += 8;
-				} else {
-					println("\t.byte %d", var->init_data[pos++]);
-				}
+		while (pos < var->ty->size) {
+			if (rel && rel->offset == pos) {
+				// declare as a pointer
+				println("\t.quad %s+%ld", rel->label, rel->addend);
+				rel = rel->next;
+				pos += 8;
+			} else {
+				println("\t.byte %d", var->init_data[pos++]);
 			}
-		} else {
-			println("\t.zero %d", var->ty->size);
 		}
 	}
 }
