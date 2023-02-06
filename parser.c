@@ -1760,6 +1760,15 @@ static void initializer2(struct Token **rest, struct Token *tok,
 		return;
 	}
 
+	if (equal(tok, "{")) {
+		// An initializer for a scalar variable can be surrounded by
+		// braces.
+		// E.g. `int x = {3};`. Handle that case.
+		initializer2(&tok, tok->next, init);
+		*rest = skip(tok, "}");
+		return;
+	}
+
 	init->expr = assign(rest, tok);
 }
 
