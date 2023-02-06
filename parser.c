@@ -986,6 +986,8 @@ static int64_t eval2(struct Node *node, const char **label)
 				return (uint16_t)val;
 			case 4:
 				return (uint32_t)val;
+			default:
+				break;
 			}
 		}
 		return val;
@@ -1611,9 +1613,9 @@ static int count_array_init_elements(struct Token *tok, struct Type *ty)
 	return i;
 }
 
-// array-initializer = "{" initializer ("," initializer)* "}"
-static void array_initializer(struct Token **rest, struct Token *tok,
-			      struct Initializer *init)
+// array-initializer1 = "{" initializer ("," initializer)* "}"
+static void array_initializer1(struct Token **rest, struct Token *tok,
+				struct Initializer *init)
 {
 	tok = skip(tok, "{");
 
@@ -1622,7 +1624,7 @@ static void array_initializer(struct Token **rest, struct Token *tok,
 		*init = *new_initializer(array_of(init->ty->base, len), false);
 	}
 
-	for (int i = 0; !consume(rest, tok, "}"); i++) {
+	for (int i = 0; !equal(tok, "}"); i++) {
 		if (i > 0)
 			tok = skip(tok, ",");
 
@@ -1632,18 +1634,38 @@ static void array_initializer(struct Token **rest, struct Token *tok,
 			// ignore excess elements
 			tok = skip_excess_element(tok);
 	}
+
+	*rest = skip(tok, "}");
 }
 
-// struct-initializer = "{" initializer ("," initializer)* "}"
-static void struct_initializer(struct Token **rest, struct Token *tok,
-			       struct Initializer *init)
+// array-initializer2 = initializer ("," initializer)*
+static void array_initializer2(struct Token **rest, struct Token *tok,
+				struct Initializer *init)
+{
+	if (init->is_flexible) {
+		int len = count_array_init_elements(tok, init->ty);
+		*init = *new_initializer(array_of(init->ty->base, len), false);
+	}
+
+	for (int i = 0; i < init->ty->array_len && !equal(tok, "}"); i++) {
+		if (i > 0)
+			tok = skip(tok, ",");
+		initializer2(&tok, tok, init->children[i]);
+	}
+
+	*rest = tok;
+}
+
+// struct-initializer1 = "{" initializer ("," initializer)* "}"
+static void struct_initializer1(struct Token **rest, struct Token *tok,
+				struct Initializer *init)
 {
 	tok = skip(tok, "{");
 
 	bool first = true;
 	struct Member *mem = init->ty->members;
 
-	while (!consume(rest, tok, "}")) {
+	while (!equal(tok, "}")) {
 		if (!first)
 			tok = skip(tok, ",");
 		first = false;
@@ -1656,16 +1678,42 @@ static void struct_initializer(struct Token **rest, struct Token *tok,
 			tok = skip_excess_element(tok);
 		}
 	}
+
+	*rest = skip(tok, "}");
+}
+
+// struct-initializer2 = initializer ("," initializer)*
+static void struct_initializer2(struct Token **rest, struct Token *tok,
+				struct Initializer *init)
+{
+	bool first = true;
+
+	for (struct Member *mem = init->ty->members;
+		mem && !equal(tok, "}"); mem = mem->next) {
+		if (!first)
+			tok = skip(tok, ",");
+		first = false;
+		initializer2(&tok, tok, init->children[mem->idx]);
+	}
+
+	*rest = tok;
 }
 
 static void union_initializer(struct Token **rest, struct Token *tok,
 			      struct Initializer *init)
 {
+	bool parentheses = equal(tok, "{");
+	if (parentheses)
+		tok = tok->next;
+
 	// Unlike structs, union initializers take *only one* initializer,
 	// and that initializes the *first* union member.
-	tok = skip(tok, "{");
 	initializer2(&tok, tok, init->children[0]);
-	*rest = skip(tok, "}");
+
+	if (parentheses)
+		*rest = skip(tok, "}");
+	else
+		*rest = tok;
 }
 
 // initializer = string-initializer | array-initializer |
@@ -1680,24 +1728,30 @@ static void initializer2(struct Token **rest, struct Token *tok,
 	}
 
 	if (init->ty->kind == TY_ARRAY) {
-		array_initializer(rest, tok, init);
+		if (equal(tok, "{"))
+			array_initializer1(rest, tok, init);
+		else
+			array_initializer2(rest, tok, init);
 		return;
 	}
 
 	if (init->ty->kind == TY_STRUCT) {
+		if (equal(tok, "{")) {
+			struct_initializer1(rest, tok, init);
+			return;
+		}
+
 		// A struct can be initialized with another struct. E.g.
 		// `struct T x = y;` where y is a variable of type `struct T`.
 		// Handle that case first.
-		if (!equal(tok, "{")) {
-			struct Node *expr = assign(rest, tok);
-			add_type(expr);
-			if (expr->ty->kind == TY_STRUCT) {
-				init->expr = expr;
-				return;
-			}
+		struct Node *expr = assign(rest, tok);
+		add_type(expr);
+		if (expr->ty->kind == TY_STRUCT) {
+			init->expr = expr;
+			return;
 		}
 
-		struct_initializer(rest, tok, init);
+		struct_initializer2(rest, tok, init);
 		return;
 	}
 
