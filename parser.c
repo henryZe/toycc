@@ -1260,6 +1260,26 @@ static const char *get_ident(struct Token *tok)
 	return strndup(tok->loc, tok->len);
 }
 
+static bool is_end(struct Token *tok)
+{
+	return equal(tok, "}") || (equal(tok, ",") && equal(tok->next, "}"));
+}
+
+static bool consume_end(struct Token **rest, struct Token *tok)
+{
+	if (equal(tok, "}")) {
+		*rest = tok->next;
+		return true;
+	}
+
+	if (equal(tok, ",") && equal(tok->next, "}")) {
+		*rest = tok->next->next;
+		return true;
+	}
+
+	return false;
+}
+
 // enum-specifier = ident? "{" enum-list? "}"
 //		  | ident ("{" enum-list? "}")?
 //
@@ -1605,7 +1625,7 @@ static int count_array_init_elements(struct Token *tok, struct Type *ty)
 	struct Initializer *dummy = new_initializer(ty->base, false);
 	int i;
 
-	for (i = 0; !equal(tok, "}"); i++) {
+	for (i = 0; !consume_end(&tok, tok); i++) {
 		if (i > 0)
 			tok = skip(tok, ",");
 		initializer2(&tok, tok, dummy);
@@ -1613,7 +1633,7 @@ static int count_array_init_elements(struct Token *tok, struct Type *ty)
 	return i;
 }
 
-// array-initializer1 = "{" initializer ("," initializer)* "}"
+// array-initializer1 = "{" initializer ("," initializer)* ","? "}"
 static void array_initializer1(struct Token **rest, struct Token *tok,
 				struct Initializer *init)
 {
@@ -1624,7 +1644,7 @@ static void array_initializer1(struct Token **rest, struct Token *tok,
 		*init = *new_initializer(array_of(init->ty->base, len), false);
 	}
 
-	for (int i = 0; !equal(tok, "}"); i++) {
+	for (int i = 0; !consume_end(rest, tok); i++) {
 		if (i > 0)
 			tok = skip(tok, ",");
 
@@ -1634,8 +1654,6 @@ static void array_initializer1(struct Token **rest, struct Token *tok,
 			// ignore excess elements
 			tok = skip_excess_element(tok);
 	}
-
-	*rest = skip(tok, "}");
 }
 
 // array-initializer2 = initializer ("," initializer)*
@@ -1647,7 +1665,7 @@ static void array_initializer2(struct Token **rest, struct Token *tok,
 		*init = *new_initializer(array_of(init->ty->base, len), false);
 	}
 
-	for (int i = 0; i < init->ty->array_len && !equal(tok, "}"); i++) {
+	for (int i = 0; i < init->ty->array_len && !is_end(tok); i++) {
 		if (i > 0)
 			tok = skip(tok, ",");
 		initializer2(&tok, tok, init->children[i]);
@@ -1656,7 +1674,7 @@ static void array_initializer2(struct Token **rest, struct Token *tok,
 	*rest = tok;
 }
 
-// struct-initializer1 = "{" initializer ("," initializer)* "}"
+// struct-initializer1 = "{" initializer ("," initializer)* ","? "}"
 static void struct_initializer1(struct Token **rest, struct Token *tok,
 				struct Initializer *init)
 {
@@ -1665,7 +1683,7 @@ static void struct_initializer1(struct Token **rest, struct Token *tok,
 	bool first = true;
 	struct Member *mem = init->ty->members;
 
-	while (!equal(tok, "}")) {
+	while (!consume_end(rest, tok)) {
 		if (!first)
 			tok = skip(tok, ",");
 		first = false;
@@ -1678,8 +1696,6 @@ static void struct_initializer1(struct Token **rest, struct Token *tok,
 			tok = skip_excess_element(tok);
 		}
 	}
-
-	*rest = skip(tok, "}");
 }
 
 // struct-initializer2 = initializer ("," initializer)*
@@ -1689,7 +1705,7 @@ static void struct_initializer2(struct Token **rest, struct Token *tok,
 	bool first = true;
 
 	for (struct Member *mem = init->ty->members;
-		mem && !equal(tok, "}"); mem = mem->next) {
+		mem && !is_end(tok); mem = mem->next) {
 		if (!first)
 			tok = skip(tok, ",");
 		first = false;
@@ -1710,10 +1726,12 @@ static void union_initializer(struct Token **rest, struct Token *tok,
 	// and that initializes the *first* union member.
 	initializer2(&tok, tok, init->children[0]);
 
-	if (parentheses)
+	if (parentheses) {
+		consume(&tok, tok, ",");
 		*rest = skip(tok, "}");
-	else
+	} else {
 		*rest = tok;
+	}
 }
 
 // initializer = string-initializer | array-initializer |
