@@ -536,6 +536,7 @@ static void emit_data(struct Obj *prog)
 			continue;
 
 		println(".global %s", var->name);
+		println(".align %d", var->ty->align);
 
 		if (!var->init_data) {
 			println(".bss");
