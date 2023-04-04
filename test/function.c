@@ -1,6 +1,6 @@
 #include "test.h"
 
-int ret3()
+int ret3(void)
 {
 	return 3;
 	return 5;
@@ -50,7 +50,7 @@ int fib(int x)
 
 int g1;
 
-int *g1_ptr()
+int *g1_ptr(void)
 {
 	return &g1;
 }
@@ -68,7 +68,7 @@ int div_long(long a, long b)
 _Bool bool_fn_add(_Bool x) { return x + 1; }
 _Bool bool_fn_sub(_Bool x) { return x - 1; }
 
-static int static_fn() { return 3; }
+static int static_fn(void) { return 3; }
 
 int param_decay(int x[]) { return x[0]; }
 

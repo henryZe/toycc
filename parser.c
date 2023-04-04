@@ -1469,10 +1469,15 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 	return ty;
 }
 
-// func-params = (param ("," param)*)? ")"
+// func-params = ("void" | param ("," param)*)? ")"
 // param = declspec declarator
 static struct Type *func_params(struct Token **rest, struct Token *tok, struct Type *ty)
 {
+	if (equal(tok, "void") && equal(tok->next, ")")) {
+		*rest = tok->next->next;
+		return func_type(ty);
+	}
+
 	struct Type head = {};
 	struct Type *cur = &head;
 
