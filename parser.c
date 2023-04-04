@@ -2217,39 +2217,15 @@ static struct Token *parse_typedef(struct Token *tok, struct Type *basety)
 	return tok;
 }
 
-// compound-stmt = (declaration | stmt)* "}"
-static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
+static bool is_function(struct Token *tok)
 {
-	struct Node head = {};
-	struct Node *cur = &head;
-	struct Node *node = new_node(ND_BLOCK, tok);
+	if (equal(tok, ";"))
+		return false;
 
-	enter_scope();
-	while (!equal(tok, "}")) {
-		// make sure it's not a label
-		if (is_typename(tok) && !equal(tok->next, ":")) {
-			// variable declaration
-			struct VarAttr attr = {};
-			struct Type *basety = declspec(&tok, tok, &attr);
+	struct Type dummy = {};
+	struct Type *ty = declarator(&tok, tok, &dummy);
 
-			if (attr.is_typedef) {
-				tok = parse_typedef(tok, basety);
-				continue;
-			}
-
-			cur->next = declaration(&tok, tok, basety);
-		} else {
-			cur->next = stmt(&tok, tok);
-		}
-		cur = cur->next;
-		add_type(cur);
-	}
-	node->body = head.next;
-	leave_scope();
-
-	// skip "}"
-	*rest = tok->next;
-	return node;
+	return ty->kind == TY_FUNC;
 }
 
 static void create_param_lvars(struct Type *param)
@@ -2408,15 +2384,49 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety, str
 	return tok;
 }
 
-static bool is_function(struct Token *tok)
+// compound-stmt = (declaration | stmt)* "}"
+static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 {
-	if (equal(tok, ";"))
-		return false;
+	struct Node head = {};
+	struct Node *cur = &head;
+	struct Node *node = new_node(ND_BLOCK, tok);
 
-	struct Type dummy = {};
-	struct Type *ty = declarator(&tok, tok, &dummy);
+	enter_scope();
+	while (!equal(tok, "}")) {
+		// make sure it's not a label
+		if (is_typename(tok) && !equal(tok->next, ":")) {
+			// variable declaration
+			struct VarAttr attr = {};
+			struct Type *basety = declspec(&tok, tok, &attr);
 
-	return ty->kind == TY_FUNC;
+			if (attr.is_typedef) {
+				tok = parse_typedef(tok, basety);
+				continue;
+			}
+
+			if (is_function(tok)) {
+				tok = function(tok, basety, &attr);
+				continue;
+			}
+
+			if (attr.is_extern) {
+				tok = global_variable(tok, basety, &attr);
+				continue;
+			}
+
+			cur->next = declaration(&tok, tok, basety);
+		} else {
+			cur->next = stmt(&tok, tok);
+		}
+		cur = cur->next;
+		add_type(cur);
+	}
+	node->body = head.next;
+	leave_scope();
+
+	// skip "}"
+	*rest = tok->next;
+	return node;
 }
 
 // program = (typedef | function-definition | global-variable)*
