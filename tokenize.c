@@ -115,6 +115,7 @@ static bool is_keyword(struct Token *tok)
 		"switch",
 		"case",
 		"default",
+		"extern",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

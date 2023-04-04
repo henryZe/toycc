@@ -45,6 +45,7 @@ struct Scope {
 struct VarAttr {
 	bool is_typedef;
 	bool is_static;
+	bool is_extern;
 };
 
 // This struct represents a variable initializer. Since initializers
@@ -232,6 +233,7 @@ static struct Obj *new_gvar(const char *name, struct Type *ty)
 	struct Obj *var = new_var(name, ty);
 	var->is_local = false;
 	var->next = globals;
+	var->is_definition = true;
 	globals = var;
 	return var;
 }
@@ -374,6 +376,7 @@ static bool is_typename(struct Token *tok)
 		"typedef",
 		"enum",
 		"static",
+		"extern",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -1341,8 +1344,9 @@ static struct Type *enum_specifier(struct Token **rest, struct Token *tok)
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long" |
-//		struct-decl | union-decl | "typedef" | "static" |
-//		typedef-name | enum-specifier)+
+//		"typedef" | "static" | "extern" |
+//		struct-decl | union-decl | typedef-name |
+//		enum-specifier)+
 //
 // The order of typenames in a type-specifier doesn't matter. For
 // example, `int long static` means the same as `static long int`.
@@ -1378,17 +1382,19 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 
 	while (is_typename(tok)) {
 		// handle "typedef" keyword or handle storage class specifiers
-		if (equal(tok, "typedef") || equal(tok, "static")) {
+		if (equal(tok, "typedef") || equal(tok, "static") || equal(tok, "extern")) {
 			if (!attr)
 				error_tok(tok, "storage class specifier is not allowed in this context");
 
 			if (equal(tok, "typedef"))
 				attr->is_typedef = true;
-			else
+			else if (equal(tok, "static"))
 				attr->is_static = true;
+			else
+				attr->is_extern = true;
 
-			if (attr->is_typedef + attr->is_static > 1)
-				error_tok(tok, "typedef and static may not be used together");
+			if (attr->is_typedef && (attr->is_static || attr->is_extern))
+				error_tok(tok, "typedef may not be used together with static or extern");
 
 			tok = tok->next;
 			continue;
@@ -2383,7 +2389,7 @@ static void gvar_initializer(struct Token **rest, struct Token *tok,
 	var->rel = head.next;
 }
 
-static struct Token *global_variable(struct Token *tok, struct Type *basety)
+static struct Token *global_variable(struct Token *tok, struct Type *basety, struct VarAttr *attr)
 {
 	bool first = true;
 
@@ -2394,6 +2400,8 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety)
 
 		struct Type *ty = declarator(&tok, tok, basety);
 		struct Obj *var = new_gvar(get_ident(ty->name), ty);
+		var->is_definition = !attr->is_extern;
+
 		if (equal(tok, "="))
 			gvar_initializer(&tok, tok->next, var);
 	}
@@ -2431,7 +2439,7 @@ struct Obj *parser(struct Token *tok)
 			tok = function(tok, basety, &attr);
 		} else {
 			// global variable
-			tok = global_variable(tok, basety);
+			tok = global_variable(tok, basety, &attr);
 		}
 	}
 

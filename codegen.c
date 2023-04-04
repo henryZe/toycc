@@ -532,7 +532,7 @@ static void assign_lvar_offsets(struct Obj *prog)
 static void emit_data(struct Obj *prog)
 {
 	for (struct Obj *var = prog; var; var = var->next) {
-		if (var->is_function)
+		if (var->is_function || !var->is_definition)
 			continue;
 
 		println(".global %s", var->name);
