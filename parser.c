@@ -1156,8 +1156,10 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 	// If the last element is an array of incomplete type, it's
 	// called a "flexible array member". It should behave as it
 	// were a zero-sized array.
-	if (cur != &head && cur->ty->kind == TY_ARRAY && cur->ty->array_len < 0)
+	if (cur != &head && cur->ty->kind == TY_ARRAY && cur->ty->array_len < 0) {
 		cur->ty = array_of(cur->ty->base, 0);
+		ty->is_flexible = true;
+	}
 
 	// skip "}"
 	*rest = tok->next;
@@ -1589,8 +1591,18 @@ static struct Initializer *new_initializer(struct Type *ty, bool is_flexible)
 
 		init->children = malloc(len * sizeof(struct Initializer *));
 
-		for (struct Member *mem = start; mem; mem = mem->next)
-			init->children[mem->idx] = new_initializer(mem->ty, false);
+		for (struct Member *mem = start; mem; mem = mem->next) {
+			if (is_flexible && ty->is_flexible && !mem->next) {
+				struct Initializer *child = malloc(sizeof(struct Initializer));
+
+				child->ty = mem->ty;
+				child->is_flexible = true;
+				init->children[mem->idx] = child;
+
+			} else {
+				init->children[mem->idx] = new_initializer(mem->ty, false);
+			}
+		}
 	}
 
 	return init;
@@ -1794,6 +1806,25 @@ static void initializer2(struct Token **rest, struct Token *tok,
 	init->expr = assign(rest, tok);
 }
 
+static struct Type *copy_struct_type(struct Type *ty)
+{
+	ty = copy_type(ty);
+
+	struct Member head = {};
+	struct Member *cur = &head;
+
+	for (struct Member *mem = ty->members; mem; mem = mem->next) {
+		struct Member *m = malloc(sizeof(struct Member));
+
+		*m = *mem;
+		cur->next = m;
+		cur = cur->next;
+	}
+
+	ty->members = head.next;
+	return ty;
+}
+
 static struct Initializer *initializer(struct Token **rest, struct Token *tok,
 				       struct Type *ty, struct Type **new_ty)
 {
@@ -1801,6 +1832,22 @@ static struct Initializer *initializer(struct Token **rest, struct Token *tok,
 	struct Initializer *init = new_initializer(ty, true);
 	// assign expr to initializer
 	initializer2(rest, tok, init);
+
+	if ((ty->kind == TY_STRUCT || ty->kind == TY_UNION) && ty->is_flexible) {
+		// allocate new ty, just for calculate the size of the last member
+		ty = copy_struct_type(ty);
+
+		struct Member *mem = ty->members;
+		while (mem->next)
+			mem = mem->next;
+
+		mem->ty = init->children[mem->idx]->ty;
+		ty->size += mem->ty->size;
+
+		*new_ty = ty;
+		return init;
+	}
+
 	*new_ty = init->ty;
 	return init;
 }

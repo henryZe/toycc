@@ -86,6 +86,7 @@ struct Type {
 
 	// struct
 	struct Member *members;
+	bool is_flexible;
 
 	// function type
 	struct Type *return_ty;
