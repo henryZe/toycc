@@ -46,6 +46,7 @@ struct VarAttr {
 	bool is_typedef;
 	bool is_static;
 	bool is_extern;
+	int align;
 };
 
 // This struct represents a variable initializer. Since initializers
@@ -215,6 +216,7 @@ static struct Obj *new_var(const char *name, struct Type *ty)
 	struct Obj *var = malloc(sizeof(struct Obj));
 	var->name = name;
 	var->ty = ty;
+	var->align = ty->align;
 	push_scope(name)->var = var;
 	return var;
 }
@@ -377,6 +379,7 @@ static bool is_typename(struct Token *tok)
 		"enum",
 		"static",
 		"extern",
+		"_Alignas",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -390,6 +393,7 @@ static bool is_typename(struct Token *tok)
 // 	| "(" expr ")"
 //	| "sizeof" "(" type-name ")"
 // 	| "sizeof" unary
+//	| "_Alignof" "(" type-name ")"
 // 	| ident (func-args)?
 // 	| str
 // 	| num
@@ -425,6 +429,14 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 
 		add_type(node);
 		return new_num(node->ty->size, tok);
+	}
+
+	if (equal(tok, "_Alignof")) {
+		tok = skip(tok->next, "(");
+		struct Type *ty = typename(&tok, tok);
+		*rest = skip(tok, ")");
+
+		return new_num(ty->align, tok);
 	}
 
 	if (tok->kind == TK_IDENT) {
@@ -1139,7 +1151,8 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 	int idx = 0;
 
 	while (!equal(tok, "}")) {
-		struct Type *basety = declspec(&tok, tok, NULL);
+		struct VarAttr attr = {};
+		struct Type *basety = declspec(&tok, tok, &attr);
 		bool first = true;
 
 		while (!consume(&tok, tok, ";")) {
@@ -1151,6 +1164,9 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 			mem->ty = declarator(&tok, tok, basety);
 			mem->name = mem->ty->name;
 			mem->idx = idx++;
+			// if _Alignas set, refer to attr.align,
+			// otherwise refer to ty->align.
+			mem->align = attr.align ? attr.align : mem->ty->align;
 			cur->next = mem;
 			cur = cur->next;
 		}
@@ -1229,12 +1245,13 @@ static struct Type *struct_decl(struct Token **rest, struct Token *tok)
 	// Assign offsets within the struct to members
 	int offset = 0;
 	for (struct Member *mem = ty->members; mem; mem = mem->next) {
-		offset = align_to(offset, mem->ty->align);
+		offset = align_to(offset, mem->align);
 		mem->offset = offset;
 		offset += mem->ty->size;
 
-		if (ty->align < mem->ty->align)
-			ty->align = mem->ty->align;
+		// align of struct is max among each member's alignment
+		if (ty->align < mem->align)
+			ty->align = mem->align;
 	}
 	ty->size = align_to(offset, ty->align);
 
@@ -1254,8 +1271,8 @@ static struct Type *union_decl(struct Token **rest, struct Token *tok)
 	// are already initialized to 0.
 	// We need to compute the alignment and the size though.
 	for (struct Member *mem = ty->members; mem; mem = mem->next) {
-		if (ty->align < mem->ty->align)
-			ty->align = mem->ty->align;
+		if (ty->align < mem->align)
+			ty->align = mem->align;
 		if (ty->size < mem->ty->size)
 			ty->size = mem->ty->size;
 	}
@@ -1397,6 +1414,22 @@ static struct Type *declspec(struct Token **rest, struct Token *tok,
 				error_tok(tok, "typedef may not be used together with static or extern");
 
 			tok = tok->next;
+			continue;
+		}
+
+		// if _Alignas then set attr->align
+		if (equal(tok, "_Alignas")) {
+			if (!attr)
+				error_tok(tok, "_Alignas is not allowed in this context");
+			tok = skip(tok->next, "(");
+
+			if (is_typename(tok)) {
+				attr->align = typename(&tok, tok)->align;
+			} else {
+				attr->align = const_expr(&tok, tok);
+			}
+
+			tok = skip(tok, ")");
 			continue;
 		}
 
@@ -1955,7 +1988,7 @@ static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
 
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
 static struct Node *declaration(struct Token **rest, struct Token *tok,
-				struct Type *basety)
+				struct Type *basety, struct VarAttr *attr)
 {
 	struct Node head = {}; // memset 'head' with 0
 	struct Node *cur = &head;
@@ -1971,6 +2004,8 @@ static struct Node *declaration(struct Token **rest, struct Token *tok,
 			error_tok(start, "variable declared void");
 
 		struct Obj *var = new_lvar(get_ident(ty->name), ty);
+		if (attr && attr->align)
+			var->align = attr->align;
 
 		if (equal(tok, "=")) {
 			// local variable initializer
@@ -2110,7 +2145,7 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		if (is_typename(tok)) {
 			struct Type *basety = declspec(&tok, tok, NULL);
-			n->init = declaration(&tok, tok, basety);
+			n->init = declaration(&tok, tok, basety, NULL);
 		} else {
 			n->init = expr_stmt(&tok, tok);
 		}
@@ -2365,7 +2400,8 @@ static void gvar_initializer(struct Token **rest, struct Token *tok,
 	var->rel = head.next;
 }
 
-static struct Token *global_variable(struct Token *tok, struct Type *basety, struct VarAttr *attr)
+static struct Token *global_variable(struct Token *tok, struct Type *basety,
+				     struct VarAttr *attr)
 {
 	bool first = true;
 
@@ -2377,6 +2413,8 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety, str
 		struct Type *ty = declarator(&tok, tok, basety);
 		struct Obj *var = new_gvar(get_ident(ty->name), ty);
 		var->is_definition = !attr->is_extern;
+		if (attr->align)
+			var->align = attr->align;
 
 		if (equal(tok, "="))
 			gvar_initializer(&tok, tok->next, var);
@@ -2414,7 +2452,7 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 				continue;
 			}
 
-			cur->next = declaration(&tok, tok, basety);
+			cur->next = declaration(&tok, tok, basety, &attr);
 		} else {
 			cur->next = stmt(&tok, tok);
 		}

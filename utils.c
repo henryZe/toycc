@@ -75,3 +75,18 @@ error_tok(struct Token *tok, const char *fmt, ...)
 	va_end(ap);
 	exit(1);
 }
+
+int llog2(int num)
+{
+	int n = num;
+	int ret = 0;
+
+	while (n > 1) {
+		if (n % 2)
+			error("wrong input value %d", num);
+		n /= 2;
+		ret++;
+	}
+
+	return ret;
+}

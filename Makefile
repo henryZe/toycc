@@ -1,11 +1,13 @@
 CROSS_COMPILE = riscv64-linux-gnu-
 CC = gcc
 
-CFLAGS = -std=c18 -fno-common -O0 -g
-CFLAGS += -Wall -Wextra -Werror
+CFLAGS = -std=c2x -g -O0
+CFLAGS += -fno-common -Wall -Wextra -Werror
 CFLAGS += -DDEBUG
+
 TARGET = toycc
 OUTPUT = output
+
 INCDIR = .
 SRCDIR = .
 SRCFILES = \
@@ -38,7 +40,8 @@ $(OUTPUT)/$(TARGET): $(SRC_OBJFILES)
 # -o-: set output as stdout
 $(OUTPUT)/$(TESTDIR)/%: $(OUTPUT)/$(TARGET) $(TESTDIR)/%.c
 	@mkdir -p $(@D)
-	$(CROSS_COMPILE)$(CC) -o- -E -P -C $(TESTDIR)/$*.c | $(OUTPUT)/$(TARGET) -o $(OUTPUT)/$(TESTDIR)/$*.s -
+	$(CROSS_COMPILE)$(CC) -E -P -C $(TESTDIR)/$*.c -o $(OUTPUT)/$(TESTDIR)/$*.c
+	$(OUTPUT)/$(TARGET) $(OUTPUT)/$(TESTDIR)/$*.c -o $(OUTPUT)/$(TESTDIR)/$*.s
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $(OUTPUT)/$(TESTDIR)/$*.s -xc $(TESTDIR)/common
 
 test: $(TESTS)

@@ -65,6 +65,7 @@ struct Member {
 	// struct Token *tok;	// for error message
 	struct Token *name;
 	int idx;
+	int align;
 	int offset;
 };
 
@@ -222,6 +223,7 @@ struct Obj {
 	const char *name;
 	struct Type *ty;	// Type
 	bool is_local;		// local or global/function
+	int align;		// alignment
 
 	// local variable
 	int offset;		// Offset from fp
@@ -258,6 +260,7 @@ void set_cur_filename(const char *filename);
 void __attribute__((noreturn)) error(const char *fmt, ...);
 void verror_at(int line_no, const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
+int llog2(int num);
 
 // string.c
 const char *format(const char *fmt, ...);

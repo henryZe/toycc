@@ -521,7 +521,7 @@ static void assign_lvar_offsets(struct Obj *prog)
 		// initialize var's offset
 		for (struct Obj *var = fn->locals; var; var = var->next) {
 			offset += var->ty->size;
-			offset = align_to(offset, var->ty->align);
+			offset = align_to(offset, var->align);
 			var->offset = -offset;
 		}
 		// initialize stack size
@@ -536,7 +536,7 @@ static void emit_data(struct Obj *prog)
 			continue;
 
 		println(".global %s", var->name);
-		println(".align %d", var->ty->align);
+		println(".align %d", llog2(var->align));
 
 		if (!var->init_data) {
 			println(".bss");
