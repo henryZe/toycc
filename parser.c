@@ -1994,6 +1994,8 @@ static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
 	return new_binary(ND_COMMA, lhs, rhs, tok);
 }
 
+static void gvar_initializer(struct Token **rest, struct Token *tok,
+			     struct Obj *var);
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
 static struct Node *declaration(struct Token **rest, struct Token *tok,
 				struct Type *basety, struct VarAttr *attr)
@@ -2010,6 +2012,16 @@ static struct Node *declaration(struct Token **rest, struct Token *tok,
 		struct Type *ty = declarator(&tok, tok, basety);
 		if (ty->kind == TY_VOID)
 			error_tok(start, "variable declared void");
+
+		if (attr && attr->is_static) {
+			// static local variable
+			struct Obj *var = new_anon_gvar(ty);
+			push_scope(get_ident(ty->name))->var = var;
+
+			if (equal(tok, "="))
+				gvar_initializer(&tok, tok->next, var);
+			continue;
+		}
 
 		struct Obj *var = new_lvar(get_ident(ty->name), ty);
 		if (attr && attr->align)
