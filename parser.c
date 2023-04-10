@@ -539,9 +539,34 @@ static struct Node *new_inc_dec(struct Node *node, struct Token *tok, int addend
 			node->ty);
 }
 
-// postfix = primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
+static void gvar_initializer(struct Token **rest, struct Token *tok,
+			     struct Obj *var);
+static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
+				     struct Obj *var);
+// postfix = "(" type-name ")" "{" initializer-list "}"
+//	   | primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
 static struct Node *postfix(struct Token **rest, struct Token *tok)
 {
+	if (equal(tok, "(") && is_typename(tok->next)) {
+		// Compound literal
+		struct Token *start = tok;
+		struct Type *ty = typename(&tok, tok->next);
+		tok = skip(tok, ")");
+
+		if (scope->next == NULL) {
+			// never enter scope, so allocate global var
+			struct Obj *var = new_anon_gvar(ty);
+			gvar_initializer(rest, tok, var);
+			return new_var_node(var, start);
+		}
+
+		struct Obj *var = new_lvar("", ty);
+		struct Node *lhs = lvar_initializer(rest, tok, var);
+		// refer to var self under dereference case
+		struct Node *rhs = new_var_node(var, tok);
+		return new_binary(ND_COMMA, lhs, rhs, start);
+	}
+
 	struct Node *node = primary(&tok, tok);
 
 	while (1) {
@@ -598,6 +623,11 @@ static struct Node *cast(struct Token **rest, struct Token *tok)
 		struct Type *ty = typename(&tok, tok->next);
 		tok = skip(tok, ")");
 
+		// compound literal
+		if (equal(tok, "{"))
+			return unary(rest, start);
+
+		// type cast
 		struct Node *n = new_cast(cast(rest, tok), ty);
 		n->tok = start;
 		return n;
@@ -1994,8 +2024,6 @@ static struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
 	return new_binary(ND_COMMA, lhs, rhs, tok);
 }
 
-static void gvar_initializer(struct Token **rest, struct Token *tok,
-			     struct Obj *var);
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
 static struct Node *declaration(struct Token **rest, struct Token *tok,
 				struct Type *basety, struct VarAttr *attr)
