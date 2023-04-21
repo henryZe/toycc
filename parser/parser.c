@@ -20,17 +20,6 @@
 // Points to the function object the parser is currently parsing.
 static struct Obj *current_fn;
 
-// parse AST(abstract syntax tree)
-// expr -> assign -> equality -> relational -> add -> mul ->
-// unary -> postfix -> primary(num -> identifier -> bracket) ->
-// expr -> ...
-// expr:
-// 	tok: current tok pointer
-// 	rest: return current tok pointer
-static struct Node *expr(struct Token **rest, struct Token *tok);
-static struct Node *unary(struct Token **rest, struct Token *tok);
-static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
-
 // funcall = ident "(" (assign ("," assign)*)? ")"
 static struct Node *funcall(struct Token **rest, struct Token *tok)
 {
@@ -77,6 +66,16 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+// parse AST(abstract syntax tree)
+// expr -> assign -> equality -> relational -> add -> mul ->
+// unary -> postfix -> primary(num -> identifier -> bracket) ->
+// expr -> ...
+// expr:
+// 	tok: current tok pointer
+// 	rest: return current tok pointer
+static struct Node *expr(struct Token **rest, struct Token *tok);
+static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
+static struct Node *unary(struct Token **rest, struct Token *tok);
 // primary = "(" "{" stmt+ "}" ")"
 // 	| "(" expr ")"
 //	| "sizeof" "(" type-name ")"
@@ -734,7 +733,7 @@ static const char *cont_label;
 // a switch statement. Otherwise, NULL.
 static struct Node *current_switch;
 
-// stmt = "return" expr ";"
+// stmt = "return" expr? ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?
 //	| "switch" "(" expr ")" stmt
 //	| "case" const-expr ":" stmt
@@ -751,6 +750,9 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "return")) {
 		struct Node *node = new_node(ND_RETURN, tok);
+		if (consume(rest, tok->next, ";"))
+			return node;
+
 		struct Node *exp = expr(&tok, tok->next);
 		*rest = skip(tok, ";");
 

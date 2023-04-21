@@ -496,7 +496,8 @@ static void gen_stmt(struct Node *node)
 		return;
 
 	case ND_RETURN:
-		gen_expr(node->lhs);
+		if (node->lhs)
+			gen_expr(node->lhs);
 		println("\tj return.%s", current_fn->name);
 		return;
 
