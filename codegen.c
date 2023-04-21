@@ -1,4 +1,5 @@
 #include <toycc.h>
+#include <type.h>
 
 #ifdef DEBUG
 #define debug(fmt, args...) println(fmt, ##args)

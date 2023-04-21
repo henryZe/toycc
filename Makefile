@@ -8,18 +8,23 @@ CFLAGS += -DDEBUG
 TARGET = toycc
 OUTPUT = output
 
-INCDIR = .
+INCDIR = -I. -Iparser
 SRCDIR = .
+
 SRCFILES = \
 	$(SRCDIR)/utils.c \
 	$(SRCDIR)/string.c \
 	$(SRCDIR)/tokenize.c \
 	$(SRCDIR)/type.c \
-	$(SRCDIR)/parser.c \
+	$(SRCDIR)/parser/common.c \
+	$(SRCDIR)/parser/initializer.c \
+	$(SRCDIR)/parser/declarator.c \
+	$(SRCDIR)/parser/scope.c \
+	$(SRCDIR)/parser/parser.c \
 	$(SRCDIR)/codegen.c \
 	$(SRCDIR)/main.c \
 
-SRC_OBJFILES = $(patsubst $(SRCDIR)/%.c, $(OUTPUT)/%.o, $(SRCFILES))
+SRC_OBJFILES := $(patsubst $(SRCDIR)/%.c, $(OUTPUT)/%.o, $(SRCFILES))
 
 TESTDIR = test
 TEST_SRCS = $(wildcard $(TESTDIR)/*.c)
@@ -27,9 +32,9 @@ TESTS = $(patsubst $(TESTDIR)/%.c, $(OUTPUT)/$(TESTDIR)/%, $(TEST_SRCS))
 TEST_DRV = $(TESTDIR)/driver.sh
 TEST_QEMU = qemu.sh
 
-$(OUTPUT)/%.o: $(SRCDIR)/%.c $(INCDIR)/toycc.h
+$(OUTPUT)/%.o: $(SRCDIR)/%.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) -I$(INCDIR) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCDIR) -c $< -o $@
 
 $(OUTPUT)/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)

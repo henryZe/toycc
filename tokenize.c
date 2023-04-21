@@ -1,4 +1,5 @@
 #include <toycc.h>
+#include <type.h>
 
 static void __attribute__((noreturn))
 error_at(const char *loc, const char *fmt, ...)

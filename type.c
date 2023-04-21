@@ -1,4 +1,5 @@
 #include <toycc.h>
+#include <type.h>
 
 static struct Type *ty_void = &(struct Type){
 				.kind = TY_VOID,
