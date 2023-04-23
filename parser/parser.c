@@ -1017,7 +1017,10 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety,
 
 		struct Type *ty = declarator(&tok, tok, basety);
 		struct Obj *var = new_gvar(get_ident(ty->name), ty);
+
+		var->is_static = attr->is_static;
 		var->is_definition = !attr->is_extern;
+
 		if (attr->align)
 			var->align = attr->align;
 

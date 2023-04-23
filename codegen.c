@@ -537,7 +537,11 @@ static void emit_data(struct Obj *prog)
 		if (var->is_function || !var->is_definition)
 			continue;
 
-		println(".global %s", var->name);
+		if (var->is_static)
+			println(".local %s", var->name);
+		else
+			println(".global %s", var->name);
+
 		println(".align %d", llog2(var->align));
 
 		if (!var->init_data) {
