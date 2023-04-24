@@ -95,6 +95,7 @@ static struct Obj *new_var(const char *name, struct Type *ty)
 	var->name = name;
 	var->ty = ty;
 	var->align = ty->align;
+	var->next = NULL;
 	push_scope(name)->var = var;
 	return var;
 }

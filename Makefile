@@ -1,5 +1,6 @@
 CROSS_COMPILE = riscv64-linux-gnu-
 CC = gcc
+OBJDUMP = objdump
 
 CFLAGS = -std=c2x -g -O0
 CFLAGS += -fno-common -Wall -Wextra -Werror
@@ -39,6 +40,7 @@ $(OUTPUT)/%.o: $(SRCDIR)/%.c
 $(OUTPUT)/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
+	$(OBJDUMP) -S $@ > $@.asm
 
 # -E: preprocess C files
 # -xc: compile following files as C language

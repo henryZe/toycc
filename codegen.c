@@ -459,6 +459,19 @@ static void gen_stmt(struct Node *node)
 		debug("\t# end ND_FOR");
 		return;
 
+	case ND_DO:
+		c = count();
+
+		println("begin.%d:", c);
+		gen_stmt(node->then);
+		println("%s:", node->cont_label);
+
+		gen_expr(node->cond);
+		println("\tbnez a0, begin.%d", c);
+
+		println("%s:", node->brk_label);
+		return;
+
 	case ND_SWITCH:
 		gen_expr(node->cond);
 

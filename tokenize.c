@@ -119,6 +119,7 @@ static bool is_keyword(struct Token *tok)
 		"extern",
 		"_Alignof",
 		"_Alignas",
+		"do",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

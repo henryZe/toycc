@@ -221,9 +221,12 @@ static struct Node *to_assign(struct Node *binary)
 static struct Node *new_inc_dec(struct Node *node, struct Token *tok, int addend)
 {
 	add_type(node);
-	return new_cast(new_add(to_assign(new_add(node, new_num(addend, tok), tok)),
-				new_num(-addend, tok), tok),
-			node->ty);
+
+	struct Node *node_add = new_add(node, new_num(addend, tok), tok);
+	struct Node *node_to_assign = to_assign(node_add);
+	struct Node *node_minus = new_add(node_to_assign, new_num(-addend, tok), tok);
+
+	return new_cast(node_minus, node->ty);
 }
 
 // postfix = "(" type-name ")" "{" initializer-list "}"
@@ -740,6 +743,7 @@ static struct Node *current_switch;
 //	| "default" ":" stmt
 // 	| "for" "(" expr-stmt expr? ";" expr? ")" stmt
 // 	| "while" "(" expr ")" stmt
+// 	| "do" stmt "while" "(" expr ")" ";"
 // 	| "goto" ident ";"
 // 	| "break" ";"
 // 	| "continue" ";"
@@ -870,17 +874,44 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		tok = skip(tok, ")");
 
-		const char *brk_prev = brk_label;
-		const char *cont_prev = cont_label;
+		// save
+		const char *brk_tmp = brk_label;
+		const char *cont_tmp = cont_label;
 
 		brk_label = n->brk_label = new_unique_name();
 		cont_label = n->cont_label = new_unique_name();
 
 		n->then = stmt(rest, tok);
 
-		brk_label = brk_prev;
-		cont_label = cont_prev;
+		// resume
+		brk_label = brk_tmp;
+		cont_label = cont_tmp;
 		return n;
+	}
+
+	if (equal(tok, "do")) {
+		struct Node *node = new_node(ND_DO, tok);
+
+		// save
+		const char *brk_tmp = brk_label;
+		const char *cont_tmp = cont_label;
+
+		brk_label = node->brk_label = new_unique_name();
+		cont_label = node->cont_label = new_unique_name();
+
+		node->then = stmt(&tok, tok->next);
+
+		// resume
+		brk_label = brk_tmp;
+		cont_label = cont_tmp;
+
+		tok = skip(tok, "while");
+		tok = skip(tok, "(");
+		node->cond = expr(&tok, tok);
+		tok = skip(tok, ")");
+		*rest = skip(tok, ";");
+
+		return node;
 	}
 
 	if (equal(tok, "goto")) {
