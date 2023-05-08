@@ -425,7 +425,7 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 	return ty;
 }
 
-// func-params = ("void" | param ("," param)*)? ")"
+// func-params = ("void" | param ("," param)*?)? ")"
 // param = declspec declarator
 static struct Type *func_params(struct Token **rest, struct Token *tok, struct Type *ty)
 {

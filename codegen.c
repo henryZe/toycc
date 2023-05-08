@@ -334,6 +334,25 @@ static void gen_expr(struct Node *node)
 
 		println("\tcall %s", node->funcname);
 
+		// It looks like the most significant 48 or 56 bits in RAX may
+		// contain garbage if a function return type is short or bool/char,
+		// respectively. We clear the upper bits here.
+		switch (node->ty->kind) {
+		case TY_BOOL:
+		case TY_CHAR:
+			println("\tslli a0, a0, 56");
+			println("\tsrli a0, a0, 56");
+			break;
+
+		case TY_SHORT:
+			println("\tslli a0, a0, 48");
+			println("\tsrli a0, a0, 48");
+			break;
+
+		default:
+			break;
+		}
+
 		debug("\t# end ND_FUNCALL func %s", node->funcname);
 		return;
 
