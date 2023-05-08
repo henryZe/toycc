@@ -204,6 +204,7 @@ struct Obj {
 	struct Obj *params;
 	struct Node *body;
 	struct Obj *locals;
+	struct Obj *va_area;
 	int stack_size;
 };
 

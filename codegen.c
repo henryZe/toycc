@@ -33,6 +33,8 @@ static const char * const argreg[] = {
 	"a3",
 	"a4",
 	"a5",
+	"a6",
+	"a7",
 };
 
 // push reg into 0(sp)
@@ -652,6 +654,22 @@ static void emit_text(struct Obj *prog)
 		debug("\t# '%s' save args into stack", fn->name);
 		for (struct Obj *var = fn->params; var; var = var->next)
 			store_args(i++, var->offset, var->ty->size);
+
+		// Save arg registers if function is variadic
+		if (fn->va_area) {
+			debug("\t# '%s' save variadic args into stack", fn->va_area->name);
+
+			// store "__va_area__"(local variable) into stack
+			int off = fn->va_area->offset;
+
+			while((unsigned)i < ARRAY_SIZE(argreg)) {
+				store_args(i++, off, sizeof(long));
+				off += sizeof(long);
+			}
+
+			debug("\t# end '%s' save variadic args into stack", fn->va_area->name);
+		}
+
 		println("\tadd sp, sp, -%d", fn->stack_size);
 		debug("\t# end '%s' save args", fn->name);
 

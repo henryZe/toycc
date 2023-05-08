@@ -1025,6 +1025,8 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	enter_scope();
 	create_param_lvars(ty->params);
 	fn->params = ret_locals();
+	if (ty->is_variadic)
+		fn->va_area = new_lvar("__va_area__", array_of(p_ty_char(), 64));
 
 	tok = skip(tok, "{");
 

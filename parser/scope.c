@@ -94,6 +94,7 @@ static struct Obj *new_var(const char *name, struct Type *ty)
 	struct Obj *var = malloc(sizeof(struct Obj));
 	var->name = name;
 	var->ty = ty;
+	var->offset = 0;
 	var->align = ty->align;
 	var->next = NULL;
 	push_scope(name)->var = var;
