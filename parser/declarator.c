@@ -425,7 +425,7 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 	return ty;
 }
 
-// func-params = ("void" | param ("," param)*?)? ")"
+// func-params = ("void" | param ("," param)* ("," "...")?)? ")"
 // param = declspec declarator
 static struct Type *func_params(struct Token **rest, struct Token *tok, struct Type *ty)
 {
@@ -436,10 +436,18 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 
 	struct Type head = {};
 	struct Type *cur = &head;
+	bool is_variadic = false;
 
 	while (!equal(tok, ")")) {
 		if (cur != &head)
 			tok = skip(tok, ",");
+
+		if (equal(tok, "...")) {
+			is_variadic = true;
+			tok = tok->next;
+			skip(tok, ")");
+			break;
+		}
 
 		struct Type *basety = declspec(&tok, tok, NULL);
 		struct Type *ty2 = declarator(&tok, tok, basety);
@@ -456,6 +464,7 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 
 	ty = func_type(ty);
 	ty->params = head.next;
+	ty->is_variadic = is_variadic;
 
 	*rest = tok->next;
 	return ty;

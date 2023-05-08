@@ -24,6 +24,7 @@ struct Type {
 	// function type
 	struct Type *return_ty;
 	struct Type *params;
+	bool is_variadic;
 	struct Type *next;
 };
 

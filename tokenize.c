@@ -50,6 +50,7 @@ static int read_punct(const char *p)
 	static const char * const kw[] = {
 		"<<=",
 		">>=",
+		"...",
 		"==",
 		"!=",
 		"<=",
