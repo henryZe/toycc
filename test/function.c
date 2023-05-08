@@ -152,6 +152,10 @@ int main()
 	ASSERT(0, ({ char buf[100]; sprintf(buf, "%d %d %s", 1, 2, "foo"); strcmp("1 2 foo", buf); }));
 	ASSERT(0, ({ char buf[100]; fmt(buf, "%d %d %s", 1, 2, "foo"); strcmp("1 2 foo", buf); }));
 
+	// test for commit-129:
+	// bool_fn_sub();
+	// bool_fn_sub(1, 2);
+
 	printf("OK\n");
 	return 0;
 }

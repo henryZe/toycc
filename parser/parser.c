@@ -45,6 +45,9 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 		struct Node *arg = assign(&tok, tok);
 		add_type(arg);
 
+		if (!param_ty && !ty->is_variadic)
+			error_tok(tok, "too many arguments");
+
 		if (param_ty) {
 			if (param_ty->kind == TY_STRUCT || param_ty->kind == TY_UNION) {
 				error_tok(arg->tok, "passing struct or union is not supported yet");
@@ -56,6 +59,10 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 		cur->next = arg;
 		cur = cur->next;
 	}
+
+	if (param_ty)
+		error_tok(tok, "too few arguments");
+
 	*rest = skip(tok, ")");
 
 	struct Node *node = new_node(ND_FUNCALL, tok);
