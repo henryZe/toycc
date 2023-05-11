@@ -32,6 +32,31 @@ static struct Type *ty_long = &(struct Type){
 				.align = sizeof(long),
 };
 
+static struct Type *ty_uchar = &(struct Type){
+				.kind = TY_CHAR,
+				.size = sizeof(char),
+				.align = sizeof(char),
+				.is_unsigned = true,
+};
+static struct Type *ty_ushort = &(struct Type){
+				.kind = TY_SHORT,
+				.size = sizeof(short),
+				.align = sizeof(short),
+				.is_unsigned = true,
+};
+static struct Type *ty_uint = &(struct Type){
+				.kind = TY_INT,
+				.size = sizeof(int),
+				.align = sizeof(int),
+				.is_unsigned = true,
+};
+static struct Type *ty_ulong = &(struct Type){
+				.kind = TY_LONG,
+				.size = sizeof(long),
+				.align = sizeof(long),
+				.is_unsigned = true,
+};
+
 struct Type *p_ty_void(void)
 {
 	return ty_void;
@@ -60,6 +85,26 @@ struct Type *p_ty_int(void)
 struct Type *p_ty_long(void)
 {
 	return ty_long;
+}
+
+struct Type *p_ty_uchar(void)
+{
+	return ty_uchar;
+}
+
+struct Type *p_ty_ushort(void)
+{
+	return ty_ushort;
+}
+
+struct Type *p_ty_uint(void)
+{
+	return ty_uint;
+}
+
+struct Type *p_ty_ulong(void)
+{
+	return ty_ulong;
 }
 
 static struct Type *new_type(enum TypeKind kind, int size, int align)
@@ -126,10 +171,19 @@ static struct Type *get_common_type(struct Type *ty1, struct Type *ty2)
 	if (ty1->base)
 		return pointer_to(ty1->base);
 
-	if (ty1->size == sizeof(long) || ty2->size == sizeof(long))
-		return p_ty_long();
+	if (ty1->size < 4)
+		ty1 = p_ty_int();
+	if (ty2->size < 4)
+		ty2 = p_ty_int();
 
-	return p_ty_int();
+	if (ty1->size != ty2->size)
+		return ty1->size < ty2->size ? ty2 : ty1;
+
+	// unsigned-number takes priority over signed-number
+	if (ty2->is_unsigned)
+		return ty2;
+
+	return ty1;
 }
 
 // For many binary operators, we implicitly promote operands so that

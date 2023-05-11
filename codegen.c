@@ -116,17 +116,19 @@ static void load(struct Type *ty)
 		return;
 	}
 
+	char *suffix = ty->is_unsigned ? "u" : "";
+
 	// When we load a char or a short value to a register, we always
 	// extend them to the size of int, so we can assume the lower half of
 	// a register always contains a valid value. The upper half of a
 	// register for char, short and int may contain garbage. When we load
 	// a long value to a register, it simply occupies the entire register.
 	if (ty->size == sizeof(char))
-		println("\tlb a0, (a0)");
+		println("\tlb%s a0, (a0)", suffix);
 	else if (ty->size == sizeof(short))
-		println("\tlh a0, (a0)");
+		println("\tlh%s a0, (a0)", suffix);
 	else if (ty->size == sizeof(int))
-		println("\tlw a0, (a0)");
+		println("\tlw%s a0, (a0)", suffix);
 	else
 		println("\tld a0, (a0)");
 }
@@ -155,30 +157,46 @@ static void store(struct Type *ty)
 		println("\tsd a0, (a1)");
 }
 
-enum { I8, I16, I32, I64 };
+enum { I8, I16, I32, I64, U8, U16, U32, U64, CAST_MAX_TYPE };
 
 static int getTypeId(struct Type *ty)
 {
 	switch (ty->kind) {
 	case TY_CHAR:
-		return I8;
+		return ty->is_unsigned ? U8 : I8;
 	case TY_SHORT:
-		return I16;
+		return ty->is_unsigned ? U16 : I16;
 	case TY_INT:
-		return I32;
+		return ty->is_unsigned ? U32 : I32;
+	case TY_LONG:
+		return ty->is_unsigned ? U64 : I64;
 	default:
-		return I64;
+		return U64;
 	}
 }
 
-static const char toi8[] = "\tslli a0, a0, 56\n\tsrai a0, a0, 56";
-static const char toi16[] = "\tslli a0, a0, 48\n\tsrai a0, a0, 48";
-static const char toi32[] = "\tslli a0, a0, 32\n\tsrai a0, a0, 32";
-static const char *castMatrix[4][4] = {
-	{ NULL, NULL, NULL, NULL, },	// i8
-	{ toi8, NULL, NULL, NULL, },	// i16 -> i8
-	{ toi8, toi16, NULL, NULL, },	// i32 -> i8, i16
-	{ toi8, toi16, toi32, NULL, },	// i64 -> i8, i16, i32
+// signed => shift right Arithmetic
+static const char tos8[] = "\tslli a0, a0, 56\n\tsrai a0, a0, 56";
+static const char tos16[] = "\tslli a0, a0, 48\n\tsrai a0, a0, 48";
+static const char tos32[] = "\tslli a0, a0, 32\n\tsrai a0, a0, 32";
+
+// unsigned => shift right Logical
+static const char tou8[] = "\tslli a0, a0, 56\n\tsrli a0, a0, 56";
+static const char tou16[] = "\tslli a0, a0, 48\n\tsrli a0, a0, 48";
+static const char tou32[] = "\tslli a0, a0, 32\n\tsrli a0, a0, 32";
+
+// cast_matrix[from][to]
+static const char *cast_matrix[CAST_MAX_TYPE][CAST_MAX_TYPE] = {
+	// to
+	// i8,   i16,   i32,   i64,  u8,   u16,   u32,   u64,      // from
+	{  NULL, NULL,  NULL,  NULL, NULL, NULL,  NULL,  NULL, },  // i8
+	{  tos8, NULL,  NULL,  NULL, tou8, NULL,  NULL,  NULL, },  // i16
+	{  tos8, tos16, NULL,  NULL, tou8, tou16, NULL,  NULL, },  // i32
+	{  tos8, tos16, tos32, NULL, tou8, tou16, tou32, NULL, },  // i64
+	{  NULL, NULL,  NULL,  NULL, NULL, NULL,  NULL,  NULL, },  // u8
+	{  tos8, NULL,  NULL,  NULL, tou8, NULL,  NULL,  NULL, },  // u16
+	{  tos8, tos16, NULL,  NULL, tou8, tou16, NULL,  NULL, },  // u32
+	{  tos8, tos16, tos32, NULL, tou8, tou16, tou32, NULL, },  // u64
 };
 
 static void cast(struct Type *from, struct Type *to)
@@ -194,9 +212,9 @@ static void cast(struct Type *from, struct Type *to)
 	int t1 = getTypeId(from);
 	int t2 = getTypeId(to);
 
-	if (castMatrix[t1][t2]) {
+	if (cast_matrix[t1][t2]) {
 		debug("\t# cast t1 %d t2 %d", t1, t2);
-		println("%s", castMatrix[t1][t2]);
+		println("%s", cast_matrix[t1][t2]);
 		debug("\t# end cast");
 	}
 }
@@ -336,19 +354,25 @@ static void gen_expr(struct Node *node)
 
 		println("\tcall %s", node->funcname);
 
-		// It looks like the most significant 48 or 56 bits in RAX may
+		// It looks like the most significant 48 or 56 bits in a0 may
 		// contain garbage if a function return type is short or bool/char,
 		// respectively. We clear the upper bits here.
 		switch (node->ty->kind) {
 		case TY_BOOL:
 		case TY_CHAR:
 			println("\tslli a0, a0, 56");
-			println("\tsrli a0, a0, 56");
+			if (node->ty->is_unsigned)
+				println("\tsrli a0, a0, 56");
+			else
+				println("\tsrai a0, a0, 56");
 			break;
 
 		case TY_SHORT:
 			println("\tslli a0, a0, 48");
-			println("\tsrli a0, a0, 48");
+			if (node->ty->is_unsigned)
+				println("\tsrli a0, a0, 48");
+			else
+				println("\tsrai a0, a0, 48");
 			break;
 
 		default:
@@ -369,11 +393,13 @@ static void gen_expr(struct Node *node)
 	gen_expr(node->lhs);
 	pop("a1");
 
-	// default type is int
-	const char *suffix = "w";
+	const char *suffix;
 	// if type is long or pointer
 	if (node->lhs->ty->kind == TY_LONG || node->lhs->ty->base)
 		suffix = "";
+	else
+		// default type is int
+		suffix = "w";
 
 	switch (node->kind) {
 	case ND_ADD:
@@ -386,10 +412,16 @@ static void gen_expr(struct Node *node)
 		println("\tmul%s a0, a0, a1", suffix);
 		break;
 	case ND_DIV:
-		println("\tdiv%s a0, a0, a1", suffix);
+		if (node->ty->is_unsigned)
+			println("\tdivu%s a0, a0, a1", suffix);
+		else
+			println("\tdiv%s a0, a0, a1", suffix);
 		break;
 	case ND_MOD:
-		println("\trem%s a0, a0, a1", suffix);
+		if (node->ty->is_unsigned)
+			println("\tremu%s a0, a0, a1", suffix);
+		else
+			println("\trem%s a0, a0, a1", suffix);
 		break;
 	case ND_BITAND:
 		println("\tand a0, a0, a1");
@@ -409,23 +441,26 @@ static void gen_expr(struct Node *node)
 		println("\tsnez a0, a0");
 		break;
 	case ND_LT:
-		println("\tslt a0, a0, a1");
+		if (node->lhs->ty->is_unsigned)
+			println("\tsltu a0, a0, a1");
+		else
+			println("\tslt a0, a0, a1");
 		break;
 	case ND_LE:
-		println("\tslt a0, a1, a0");
+		if (node->ty->is_unsigned)
+			println("\tsltu a0, a1, a0");
+		else
+			println("\tslt a0, a1, a0");
 		println("\tseqz a0, a0");
 		break;
 	case ND_SHL:
-		if (node->ty->size == sizeof(long))
-			println("\tsll a0, a0, a1");
-		else
-			println("\tsllw a0, a0, a1");
+		println("\tsll%s a0, a0, a1", suffix);
 		break;
 	case ND_SHR:
-		if (node->ty->size == sizeof(long))
-			println("\tsra a0, a0, a1");
+		if (node->ty->is_unsigned)
+			println("\tsrl%s a0, a0, a1", suffix);
 		else
-			println("\tsraw a0, a0, a1");
+			println("\tsra%s a0, a0, a1", suffix);
 		break;
 	default:
 		error_tok(node->tok, "invalid expression");

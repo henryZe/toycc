@@ -122,6 +122,7 @@ static bool is_keyword(struct Token *tok)
 		"_Alignas",
 		"do",
 		"signed",
+		"unsigned",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -300,7 +301,7 @@ static struct Token *read_int_literal(const char *start)
 		base = 8;
 	}
 
-	long val = strtoul(p, (char **)&p, base);
+	int64_t val = strtoul(p, (char **)&p, base);
 	if (isalnum(*p))
 		error_at(p, "invalid digit");
 

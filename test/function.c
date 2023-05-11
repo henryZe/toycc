@@ -88,6 +88,12 @@ _Bool false_fn();
 char char_fn();
 short short_fn();
 
+unsigned char uchar_fn();
+unsigned short ushort_fn();
+
+char schar_fn();
+short sshort_fn();
+
 int add_all(int n, ...);
 
 typedef void* va_list;
@@ -155,6 +161,11 @@ int main()
 	// test for commit-129:
 	// bool_fn_sub();
 	// bool_fn_sub(1, 2);
+
+	ASSERT(251, uchar_fn());
+	ASSERT(65528, ushort_fn());
+	ASSERT(-5, schar_fn());
+	ASSERT(-8, sshort_fn());
 
 	printf("OK\n");
 	return 0;

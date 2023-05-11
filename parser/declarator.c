@@ -269,6 +269,7 @@ bool is_typename(struct Token *tok)
 		"extern",
 		"_Alignas",
 		"signed",
+		"unsigned",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -279,7 +280,8 @@ bool is_typename(struct Token *tok)
 }
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long" |
-//		"typedef" | "static" | "extern" | "signed" |
+//		"typedef" | "static" | "extern" |
+//		"signed" | "unsigned" |
 //		struct-decl | union-decl | typedef-name |
 //		enum-specifier)+
 //
@@ -302,14 +304,15 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 	// keyword "void" so far. With this, we can use a switch statement
 	// as you can see below.
 	enum {
-		VOID   = 1 << 0,
-		BOOL   = 1 << 2,
-		CHAR   = 1 << 4,
-		SHORT  = 1 << 6,
-		INT    = 1 << 8,
-		LONG   = 1 << 10,
-		OTHER  = 1 << 12,
-		SIGNED = 1 << 13,
+		VOID     = 1 << 0,
+		BOOL     = 1 << 2,
+		CHAR     = 1 << 4,
+		SHORT    = 1 << 6,
+		INT      = 1 << 8,
+		LONG     = 1 << 10,
+		OTHER    = 1 << 12,
+		SIGNED   = 1 << 13,
+		UNSIGNED = 1 << 14,
 	};
 
 	// "typedef t" means "typedef int t"
@@ -391,6 +394,8 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 			counter += LONG;
 		else if (equal(tok, "signed"))
 			counter |= SIGNED;
+		else if (equal(tok, "unsigned"))
+			counter |= UNSIGNED;
 		else
 			unreachable();
 
@@ -405,16 +410,27 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 		case SIGNED + CHAR:
 			ty = p_ty_char();
 			break;
+		case UNSIGNED + CHAR:
+			ty = p_ty_uchar();
+			break;
 		case SHORT:
 		case SHORT + INT:
 		case SIGNED + SHORT:
 		case SIGNED + SHORT + INT:
 			ty = p_ty_short();
 			break;
+		case UNSIGNED + SHORT:
+		case UNSIGNED + SHORT + INT:
+			ty = p_ty_ushort();
+			break;
 		case INT:
 		case SIGNED:
 		case SIGNED + INT:
 			ty = p_ty_int();
+			break;
+		case UNSIGNED:
+		case UNSIGNED + INT:
+			ty = p_ty_uint();
 			break;
 		case LONG:
 		case LONG + INT:
@@ -425,6 +441,12 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 		case SIGNED + LONG + LONG:
 		case SIGNED + LONG + LONG + INT:
 			ty = p_ty_long();
+			break;
+		case UNSIGNED + LONG:
+		case UNSIGNED + LONG + INT:
+		case UNSIGNED + LONG + LONG:
+		case UNSIGNED + LONG + LONG + INT:
+			ty = p_ty_ulong();
 			break;
 		default:
 			error_tok(tok, "invalid type");
