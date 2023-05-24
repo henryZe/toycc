@@ -37,7 +37,7 @@ struct Token {
 	int64_t val;		// if kind is TK_NUM, its value
 	const char *loc;	// Token location
 	size_t len;		// Token length
-	struct Type *ty;	// used if TK_STR
+	struct Type *ty;	// used if TK_NUM or TK_STR
 	const char *str;	// string literal contents including terminating '\0'
 	int line_no;		// line number
 };

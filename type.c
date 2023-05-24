@@ -222,10 +222,7 @@ void add_type(struct Node *node)
 
 	switch (node->kind) {
 	case ND_NUM:
-		if (node->val == (int)node->val)
-			node->ty = p_ty_int();
-		else
-			node->ty = p_ty_long();
+		node->ty = p_ty_int();
 		break;
 
 	case ND_ADD:

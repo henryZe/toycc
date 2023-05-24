@@ -170,6 +170,7 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 
 	if (tok->kind == TK_NUM) {
 		struct Node *node = new_num(tok->val, tok);
+		node->ty = tok->ty;
 		*rest = tok->next;
 		return node;
 	}

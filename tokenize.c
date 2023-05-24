@@ -282,6 +282,7 @@ static struct Token *read_char_literal(const char *start)
 	// skip '\''
 	struct Token *tok = new_token(TK_NUM, start, end + 1);
 	tok->val = c;
+	tok->ty = p_ty_int();
 	return tok;
 }
 
@@ -290,11 +291,13 @@ static struct Token *read_int_literal(const char *start)
 	const char *p = start;
 	int base = 10;
 
+	// Read a binary, octal, decimal or hexadecimal number.
 	// isalnum: is alpha or number
-	if (!strncasecmp(p, "0x", 2) && isalnum(p[2])) {
+	if (!strncasecmp(p, "0x", 2) && isxdigit(p[2])) {
 		p += 2;
 		base = 16;
-	} else if (!strncasecmp(p, "0b", 2) && isdigit(p[2])) {
+	} else if (!strncasecmp(p, "0b", 2) &&
+		  (p[2] == '0' || p[2] == '1')) {
 		p += 2;
 		base = 2;
 	} else if (*p == '0') {
@@ -302,11 +305,69 @@ static struct Token *read_int_literal(const char *start)
 	}
 
 	int64_t val = strtoul(p, (char **)&p, base);
+
+	// read U, L or LL suffixes
+	bool l = false;
+	bool u = false;
+
+	if (startwith(p, "LLU") || startwith(p, "LLu") ||
+	    startwith(p, "llU") || startwith(p, "llu") ||
+	    startwith(p, "ULL") || startwith(p, "Ull") ||
+	    startwith(p, "uLL") || startwith(p, "ull")) {
+		p += 3;
+		l = u = true;
+
+	} else if (!strncasecmp(p, "lu", 2) || !strncasecmp(p, "ul", 2)) {
+		p += 2;
+		l = u = true;
+
+	} else if (startwith(p, "LL") || startwith(p, "ll")) {
+		p += 2;
+		l = true;
+
+	} else if (*p == 'L' || *p == 'l') {
+		p++;
+		l = true;
+
+	} else if (*p == 'U' || *p == 'u') {
+		p++;
+		u = true;
+	}
+
 	if (isalnum(*p))
 		error_at(p, "invalid digit");
 
+	// infer a type
+	struct Type *ty;
+	if (base == 10) {
+		if (l && u)
+			ty = p_ty_ulong();
+		else if (l)
+			ty = p_ty_long();
+		else if (u)
+			ty = (val >> 32) ? p_ty_ulong() : p_ty_uint();
+		else
+			ty = (val >> 31) ? p_ty_long() : p_ty_int();
+	} else {
+		if (l && u)
+			ty = p_ty_ulong();
+		else if (l)
+			ty = (val >> 63) ? p_ty_ulong() : p_ty_long();
+		else if (u)
+			ty = (val >> 32) ? p_ty_ulong() : p_ty_uint();
+		else if (val >> 63)
+			ty = p_ty_ulong();
+		else if (val >> 32)
+			ty = p_ty_long();
+		else if (val >> 31)
+			ty = p_ty_uint();
+		else
+			ty = p_ty_int();
+	}
+
 	struct Token *tok = new_token(TK_NUM, start, p);
 	tok->val = val;
+	tok->ty = ty;
 	return tok;
 }
 
