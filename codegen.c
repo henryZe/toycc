@@ -60,6 +60,12 @@ int align_to(int n, int align)
 	return (n + align - 1) / align * align;
 }
 
+static bool beyond_instruction_offset(int offset)
+{
+	// riscv immediate[11:0]
+	return offset > 2047 || offset < -2048;
+}
+
 static void gen_expr(struct Node *node);
 static void gen_stmt(struct Node *node);
 
@@ -69,12 +75,18 @@ static void gen_addr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_VAR:
-		if (node->var->is_local)
+		if (node->var->is_local) {
 			// local variable
-			println("\tadd a0, fp, %d", node->var->offset);
-		else
+			if (beyond_instruction_offset(node->var->offset)) {
+				println("\tli t0, %d", node->var->offset);
+				println("\tadd a0, fp, t0");
+			} else {
+				println("\tadd a0, fp, %d", node->var->offset);
+			}
+		} else {
 			// global variable
 			println("\tla a0, %s", node->var->name);
+		}
 		break;
 
 	case ND_DEREF:
@@ -285,7 +297,15 @@ static void gen_expr(struct Node *node)
 	case ND_MEMZERO:
 		debug("\t# ND_MEMZERO size %d", node->var->ty->size);
 		for (int i = 0; i < node->var->ty->size; i++) {
-			println("\tsb zero, %d(fp)", node->var->offset + i);
+			int offset = node->var->offset + i;
+
+			if (beyond_instruction_offset(offset)) {
+				println("\tli t0, %d", offset);
+				println("\tadd t0, fp, t0");
+				println("\tsb zero, (t0)");
+			} else {
+				println("\tsb zero, %d(fp)", offset);
+			}
 		}
 		debug("\t# end ND_MEMZERO");
 		return;
@@ -705,7 +725,12 @@ static void emit_text(struct Obj *prog)
 			debug("\t# end '%s' save variadic args into stack", fn->va_area->name);
 		}
 
-		println("\tadd sp, sp, -%d", fn->stack_size);
+		if (beyond_instruction_offset(-fn->stack_size)) {
+			println("\tli t0, -%d", fn->stack_size);
+			println("\tadd sp, sp, t0");
+		} else {
+			println("\tadd sp, sp, -%d", fn->stack_size);
+		}
 		debug("\t# end '%s' save args", fn->name);
 
 		// Emit code
