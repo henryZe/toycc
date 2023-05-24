@@ -115,7 +115,7 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		struct Type *ty = typename(&tok, tok->next->next);
 		// update rest
 		*rest = skip(tok, ")");
-		return new_num(ty->size, start);
+		return new_ulong(ty->size, start);
 	}
 
 	if (equal(tok, "sizeof")) {
@@ -123,7 +123,7 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		struct Node *node = unary(rest, tok->next);
 
 		add_type(node);
-		return new_num(node->ty->size, tok);
+		return new_ulong(node->ty->size, tok);
 	}
 
 	if (equal(tok, "_Alignof") && equal(tok->next, "(") &&
@@ -131,14 +131,14 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 
 		struct Type *ty = typename(&tok, tok->next->next);
 		*rest = skip(tok, ")");
-		return new_num(ty->align, tok);
+		return new_ulong(ty->align, tok);
 	}
 
 	if (equal(tok, "_Alignof")) {
 		struct Node *node = unary(rest, tok->next);
 		add_type(node);
 
-		return new_num(node->ty->align, tok);
+		return new_ulong(node->ty->align, tok);
 	}
 
 	if (tok->kind == TK_IDENT) {
@@ -409,7 +409,7 @@ static struct Node *new_sub(struct Node *lhs, struct Node *rhs, struct Token *to
 	// ptr - ptr, which returns how many elements are between the two.
 	if (lhs->ty->base && rhs->ty->base) {
 		struct Node *node = new_binary(ND_SUB, lhs, rhs, tok);
-		node->ty = p_ty_int();
+		node->ty = p_ty_long();
 		return new_binary(ND_DIV, node, new_num(lhs->ty->base->size, tok), tok);
 	}
 

@@ -226,3 +226,11 @@ const char *new_unique_name(void)
 
 	return format(".L..%d", id++);
 }
+
+struct Node *new_ulong(long val, struct Token *tok)
+{
+	struct Node *node = new_node(ND_NUM, tok);
+	node->val = val;
+	node->ty = p_ty_ulong();
+	return node;
+}

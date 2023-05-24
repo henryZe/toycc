@@ -20,6 +20,8 @@ struct Node *new_var_node(struct Obj *var, struct Token *tok);
 
 const char *new_unique_name(void);
 
+struct Node *new_ulong(long val, struct Token *tok);
+
 // parser
 bool is_typename(struct Token *tok);
 struct Type *typename(struct Token **rest, struct Token *tok);
