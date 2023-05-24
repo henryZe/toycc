@@ -137,6 +137,7 @@ struct Type *pointer_to(struct Type *base)
 {
 	struct Type *ty = new_type(TY_PTR, sizeof(long), sizeof(long));
 	ty->base = base;
+	ty->is_unsigned = true;
 	return ty;
 }
 
