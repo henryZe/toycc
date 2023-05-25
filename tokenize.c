@@ -123,6 +123,14 @@ static bool is_keyword(struct Token *tok)
 		"do",
 		"signed",
 		"unsigned",
+		"const",
+		"volatile",
+		"auto",
+		"register",
+		"restrict",
+		"__restrict",
+		"__restrict__",
+		"_Noreturn",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

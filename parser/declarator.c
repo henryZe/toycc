@@ -207,16 +207,34 @@ static struct Type *enum_specifier(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
+// pointers = ("*" ("const" | "volatile" | "restrict")*)*
+static struct Type *pointers(struct Token **rest, struct Token *tok,
+			     struct Type *ty)
+{
+	while (consume(&tok, tok, "*")) {
+		ty = pointer_to(ty);
+
+		while (equal(tok, "const") ||
+		       equal(tok, "volatile") ||
+		       equal(tok, "restrict") ||
+		       equal(tok, "__restrict") ||
+		       equal(tok, "__restrict__")) {
+			// ignore
+			tok = tok->next;
+		}
+	}
+
+	*rest = tok;
+	return ty;
+}
+
 static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 				struct Type *ty);
-// abstract_declarator = "*"* ("(" abstract-declarator ")")? type-suffix
+// abstract_declarator = pointers ("(" abstract-declarator ")")? type-suffix
 static struct Type *abstract_declarator(struct Token **rest, struct Token *tok, struct Type *ty)
 {
 	// like "sizeof(char *)"
-	while (equal(tok, "*")) {
-		ty = pointer_to(ty);
-		tok = tok->next;
-	}
+	ty = pointers(&tok, tok, ty);
 
 	// like "sizeof(char(*)[4])"
 	if (equal(tok, "(")) {
@@ -270,6 +288,14 @@ bool is_typename(struct Token *tok)
 		"_Alignas",
 		"signed",
 		"unsigned",
+		"const",
+		"volatile",
+		"auto",
+		"register",
+		"restrict",
+		"__restrict",
+		"__restrict__",
+		"_Noreturn",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -282,8 +308,10 @@ bool is_typename(struct Token *tok)
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long" |
 //		"typedef" | "static" | "extern" |
 //		"signed" | "unsigned" |
-//		struct-decl | union-decl | typedef-name |
-//		enum-specifier)+
+//		struct-decl | union-decl | typedef-name | enum-specifier |
+//		"const" | "volatile" | "auto" | "register" |
+//		"restrict" | "__restrict" | "__restrict__" |
+//		"_Noreturn")+
 //
 // The order of typenames in a type-specifier doesn't matter. For
 // example, `int long static` means the same as `static long int`.
@@ -338,6 +366,17 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 			tok = tok->next;
 			continue;
 		}
+
+		// These keywords are recognized but ignored
+		if (consume(&tok, tok, "const") ||
+		    consume(&tok, tok, "volatile") ||
+		    consume(&tok, tok, "auto") ||
+		    consume(&tok, tok, "register") ||
+		    consume(&tok, tok, "restrict") ||
+		    consume(&tok, tok, "__restrict") ||
+		    consume(&tok, tok, "__restrict__") ||
+		    consume(&tok, tok, "_Noreturn"))
+			continue;
 
 		// if _Alignas then set attr->align
 		if (equal(tok, "_Alignas")) {
@@ -542,8 +581,7 @@ static struct Type *type_suffix(struct Token **rest, struct Token *tok,
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) (type-suffix)?
 struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
 {
-	while (consume(&tok, tok, "*"))
-		ty = pointer_to(ty);
+	ty = pointers(&tok, tok, ty);
 
 	if (equal(tok, "(")) {
 		struct Token *start = tok->next;
@@ -560,8 +598,9 @@ struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
 		return declarator(&tok, start, ty);
 	}
 
-	if (tok->kind != TK_IDENT)
+	if (tok->kind != TK_IDENT) {
 		error_tok(tok, "expected a variable name");
+	}
 
 	// deal with after identifier
 	ty = type_suffix(rest, tok->next, ty);
