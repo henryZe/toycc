@@ -14,6 +14,7 @@ struct Type {
 
 	// declaration
 	struct Token *name;
+	struct Token *name_pos;
 
 	// Array
 	int array_len;

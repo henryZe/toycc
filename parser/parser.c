@@ -985,6 +985,9 @@ static void create_param_lvars(struct Type *param)
 {
 	if (param) {
 		create_param_lvars(param->next);
+		if (!param->name)
+			error_tok(param->name_pos, "parameter name omitted");
+
 		// locals -> arg1 -> arg2 -> ... -> argn
 		new_lvar(get_ident(param->name), param);
 	}
@@ -1017,6 +1020,8 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 			      const struct VarAttr *attr)
 {
 	struct Type *ty = declarator(&tok, tok, basety);
+	if (!ty->name)
+		error_tok(ty->name_pos, "function name omitted");
 
 	struct Obj *fn = new_gvar(get_ident(ty->name), ty);
 	fn->is_function = true;
@@ -1057,6 +1062,9 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety,
 		first = false;
 
 		struct Type *ty = declarator(&tok, tok, basety);
+		if (!ty->name)
+			error_tok(ty->name_pos, "variable name omitted");
+
 		struct Obj *var = new_gvar(get_ident(ty->name), ty);
 
 		var->is_static = attr->is_static;

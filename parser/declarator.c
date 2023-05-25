@@ -601,13 +601,19 @@ struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
 		return declarator(&tok, start, ty);
 	}
 
-	if (tok->kind != TK_IDENT) {
-		error_tok(tok, "expected a variable name");
+	struct Token *name = NULL;
+	struct Token *name_pos = tok;
+
+	if (tok->kind == TK_IDENT) {
+		name = tok;
+		tok = tok->next;
 	}
 
 	// deal with after identifier
-	ty = type_suffix(rest, tok->next, ty);
-	ty->name = tok;
+	ty = type_suffix(rest, tok, ty);
+	ty->name = name;
+	ty->name_pos = name_pos;
+
 	return ty;
 }
 
@@ -627,6 +633,9 @@ struct Node *declaration(struct Token **rest, struct Token *tok,
 		struct Type *ty = declarator(&tok, tok, basety);
 		if (ty->kind == TY_VOID)
 			error_tok(start, "variable declared void");
+
+		if (!ty->name)
+			error_tok(ty->name_pos, "variable name omitted");
 
 		if (attr && attr->is_static) {
 			// static local variable
@@ -673,6 +682,9 @@ struct Token *parse_typedef(struct Token *tok, struct Type *basety)
 		first = false;
 
 		struct Type *ty = declarator(&tok, tok, basety);
+		if (!ty->name)
+			error_tok(ty->name_pos, "typedef name omitted");
+
 		push_scope(get_ident(ty->name))->type_def = ty;
 	}
 
