@@ -544,10 +544,13 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 	return ty;
 }
 
-// array-dimension = const-expr? "]" type-suffix
+// array-dimension = ("static" | "restrict")* const-expr? "]" type-suffix
 static struct Type *array_dimension(struct Token **rest, struct Token *tok,
 				    struct Type *ty)
 {
+	while (equal(tok, "static") || equal(tok, "restrict"))
+		tok = tok->next;
+
 	if (equal(tok, "]")) {
 		ty = type_suffix(rest, tok->next, ty);
 		// set flag for incomplete array
