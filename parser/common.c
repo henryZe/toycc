@@ -206,6 +206,14 @@ struct Node *new_num(int64_t val, struct Token *tok)
 	return node;
 }
 
+struct Node *new_float(struct Token *tok)
+{
+	struct Node *node = new_node(ND_NUM, tok);
+	node->fval = tok->fval;
+	node->tok = tok;
+	return node;
+}
+
 struct Node *new_binary(enum NodeKind kind,
 			struct Node *lhs, struct Node *rhs,
 			struct Token *tok)

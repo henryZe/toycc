@@ -342,9 +342,6 @@ static struct Token *read_int_literal(const char *start)
 		u = true;
 	}
 
-	if (isalnum(*p))
-		error_at(p, "invalid digit");
-
 	// infer a type
 	struct Type *ty;
 	if (base == 10) {
@@ -375,6 +372,38 @@ static struct Token *read_int_literal(const char *start)
 
 	struct Token *tok = new_token(TK_NUM, start, p);
 	tok->val = val;
+	tok->ty = ty;
+	return tok;
+}
+
+static struct Token *read_number(const char *start)
+{
+	// Try to parse as an integer constant
+	struct Token *tok = read_int_literal(start);
+
+	if (!strchr(".eEfF", start[tok->len]))
+		return tok;
+
+	// If it's not an integer, it must be a floating point constant
+	char *end;
+	double val = strtod(start, &end);
+
+	struct Type *ty;
+	if (*end == 'f' || *end == 'F') {
+		ty = p_ty_float();
+		end++;
+
+	} else if (*end == 'l' || *end == 'L') {
+		ty = p_ty_double();
+		end++;
+
+	} else {
+		// implicit in default
+		ty = p_ty_double();
+	}
+
+	tok = new_token(TK_NUM, start, end);
+	tok->fval = val;
 	tok->ty = ty;
 	return tok;
 }
@@ -413,8 +442,8 @@ static struct Token *tokenize(const char *filename, const char *p)
 		}
 
 		// Numeric literal
-		if (isdigit(*p)) {
-			cur->next = read_int_literal(p);
+		if (isdigit(*p) || (*p == '.' && isdigit(p[1]))) {
+			cur->next = read_number(p);
 			cur = cur->next;
 			p += cur->len;
 			continue;

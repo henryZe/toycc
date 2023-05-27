@@ -57,6 +57,17 @@ static struct Type *ty_ulong = &(struct Type){
 				.is_unsigned = true,
 };
 
+static struct Type *ty_float = &(struct Type){
+				.kind = TY_FLOAT,
+				.size = sizeof(float),
+				.align = sizeof(float),
+};
+static struct Type *ty_double = &(struct Type){
+				.kind = TY_DOUBLE,
+				.size = sizeof(double),
+				.align = sizeof(double),
+};
+
 struct Type *p_ty_void(void)
 {
 	return ty_void;
@@ -107,6 +118,16 @@ struct Type *p_ty_ulong(void)
 	return ty_ulong;
 }
 
+struct Type *p_ty_float(void)
+{
+	return ty_float;
+}
+
+struct Type *p_ty_double(void)
+{
+	return ty_double;
+}
+
 static struct Type *new_type(enum TypeKind kind, int size, int align)
 {
 	struct Type *ty = malloc(sizeof(struct Type));
@@ -124,6 +145,11 @@ bool is_integer(struct Type *ty)
 		ty->kind == TY_INT ||
 		ty->kind == TY_LONG ||
 		ty->kind == TY_ENUM;
+}
+
+bool is_float(struct Type *ty)
+{
+	return ty->kind == TY_FLOAT || ty->kind == TY_DOUBLE;
 }
 
 struct Type *copy_type(struct Type *ty)

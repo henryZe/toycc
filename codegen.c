@@ -235,6 +235,12 @@ static void cast(struct Type *from, struct Type *to)
 static void gen_expr(struct Node *node)
 {
 	int c;
+	union {
+		float f32;
+		double f64;
+		uint32_t u32;
+		uint64_t u64;
+	} u;
 
 	println("\t.loc 1 %d", node->tok->line_no);
 
@@ -243,8 +249,23 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_NUM:
-		println("\tli a0, %ld", node->val);
-		return;
+		switch (node->ty->kind) {
+		case TY_FLOAT:
+			u.f32 = node->fval;
+			println("\tli a0, %d\t# float %f", u.u32, u.f32);
+			println("\tfmv.s.x fa0, a0\t");
+			return;
+
+		case TY_DOUBLE:
+			u.f64 = node->fval;
+			println("\tli a0, %d\t# double %f", u.u64, u.f64);
+			println("\tfmv.d.x fa0, a0\t");
+			return;
+
+		default:
+			println("\tli a0, %ld", node->val);
+			return;
+		}
 
 	case ND_NEG:
 		gen_expr(node->lhs);

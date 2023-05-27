@@ -12,6 +12,7 @@ int64_t eval2(struct Node *node, const char **label);
 
 struct Node *new_node(enum NodeKind kind, struct Token *tok);
 struct Node *new_num(int64_t val, struct Token *tok);
+struct Node *new_float(struct Token *tok);
 struct Node *new_binary(enum NodeKind kind,
 			struct Node *lhs, struct Node *rhs,
 			struct Token *tok);

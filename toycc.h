@@ -35,6 +35,7 @@ struct Token {
 	enum TokenKind kind;	// Token kind
 	struct Token *next;	// next token
 	int64_t val;		// if kind is TK_NUM, its value
+	double fval;		// If kind is TK_NUM, its value
 	const char *loc;	// Token location
 	size_t len;		// Token length
 	struct Type *ty;	// used if TK_NUM or TK_STR
@@ -53,6 +54,8 @@ enum TypeKind {
 	TY_SHORT,
 	TY_INT,
 	TY_LONG,
+	TY_FLOAT,
+	TY_DOUBLE,
 	TY_ENUM,
 	TY_PTR,
 	TY_FUNC,
@@ -163,8 +166,10 @@ struct Node {
 
 	// variable
 	struct Obj *var;
+
 	// numeric literal
 	int64_t val;
+	double fval;
 };
 
 // Global variable can be initialized either by

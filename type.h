@@ -40,8 +40,11 @@ struct Type *p_ty_uchar(void);
 struct Type *p_ty_ushort(void);
 struct Type *p_ty_uint(void);
 struct Type *p_ty_ulong(void);
+struct Type *p_ty_float(void);
+struct Type *p_ty_double(void);
 
 bool is_integer(struct Type *ty);
+bool is_float(struct Type *ty);
 struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);
