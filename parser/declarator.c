@@ -296,6 +296,8 @@ bool is_typename(struct Token *tok)
 		"__restrict",
 		"__restrict__",
 		"_Noreturn",
+		"float",
+		"double",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -338,9 +340,11 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 		SHORT    = 1 << 6,
 		INT      = 1 << 8,
 		LONG     = 1 << 10,
-		OTHER    = 1 << 12,
-		SIGNED   = 1 << 13,
-		UNSIGNED = 1 << 14,
+		FLOAT    = 1 << 12,
+		DOUBLE   = 1 << 14,
+		OTHER    = 1 << 16,
+		SIGNED   = 1 << 17,
+		UNSIGNED = 1 << 18,
 	};
 
 	// "typedef t" means "typedef int t"
@@ -431,6 +435,10 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 			counter += INT;
 		else if (equal(tok, "long"))
 			counter += LONG;
+		else if (equal(tok, "float"))
+			counter += FLOAT;
+		else if (equal(tok, "double"))
+			counter += DOUBLE;
 		else if (equal(tok, "signed"))
 			counter |= SIGNED;
 		else if (equal(tok, "unsigned"))
@@ -486,6 +494,12 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 		case UNSIGNED + LONG + LONG:
 		case UNSIGNED + LONG + LONG + INT:
 			ty = p_ty_ulong();
+			break;
+		case FLOAT:
+			ty = p_ty_float();
+			break;
+		case DOUBLE:
+			ty = p_ty_double();
 			break;
 		default:
 			error_tok(tok, "invalid type");

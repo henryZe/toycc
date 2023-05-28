@@ -131,6 +131,8 @@ static bool is_keyword(struct Token *tok)
 		"__restrict",
 		"__restrict__",
 		"_Noreturn",
+		"float",
+		"double",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

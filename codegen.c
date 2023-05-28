@@ -122,10 +122,21 @@ static void load(struct Type *ty)
 	// This is where "array is automatically converted to
 	// a pointer to the first element of the array in C"
 	// occurs.
-	if (ty->kind == TY_ARRAY ||
-	    ty->kind == TY_STRUCT ||
-	    ty->kind == TY_UNION) {
+	switch (ty->kind) {
+	case TY_ARRAY:
+	case TY_STRUCT:
+	case TY_UNION:
 		return;
+
+	case TY_FLOAT:
+		println("\tflw fa0, (a0)");
+		return;
+	case TY_DOUBLE:
+		println("\tfld fa0, (a0)");
+		return;
+
+	default:
+		break;
 	}
 
 	char *suffix = ty->is_unsigned ? "u" : "";
@@ -150,13 +161,26 @@ static void store(struct Type *ty)
 {
 	pop("a1");
 
-	if (ty->kind == TY_STRUCT || ty->kind == TY_UNION) {
+	switch (ty->kind) {
+	case TY_STRUCT:
+	case TY_UNION:
 		for (int i = 0; i < ty->size; i++) {
 			// load & store byte by byte
-			println("\tlb a2, %d(a0)", i);
-			println("\tsb a2, %d(a1)", i);
+			println("\tlb t0, %d(a0)", i);
+			println("\tsb t0, %d(a1)", i);
 		}
 		return;
+
+	case TY_FLOAT:
+		println("\tfsw fa0, (a1)");
+		return;
+
+	case TY_DOUBLE:
+		println("\tfsd fa0, (a1)");
+		return;
+
+	default:
+		break;
 	}
 
 	if (ty->size == sizeof(char))
@@ -169,7 +193,7 @@ static void store(struct Type *ty)
 		println("\tsd a0, (a1)");
 }
 
-enum { I8, I16, I32, I64, U8, U16, U32, U64, CAST_MAX_TYPE };
+enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64, CAST_MAX_TYPE };
 
 static int getTypeId(struct Type *ty)
 {
@@ -182,33 +206,66 @@ static int getTypeId(struct Type *ty)
 		return ty->is_unsigned ? U32 : I32;
 	case TY_LONG:
 		return ty->is_unsigned ? U64 : I64;
+	case TY_FLOAT:
+		return F32;
+	case TY_DOUBLE:
+		return F64;
 	default:
 		return U64;
 	}
 }
 
 // signed => shift right Arithmetic
-static const char tos8[] = "\tslli a0, a0, 56\n\tsrai a0, a0, 56";
-static const char tos16[] = "\tslli a0, a0, 48\n\tsrai a0, a0, 48";
-static const char tos32[] = "\tslli a0, a0, 32\n\tsrai a0, a0, 32";
+#define TOI8   "\tslli a0, a0, 56\n\tsrai a0, a0, 56"
+#define TOI16  "\tslli a0, a0, 48\n\tsrai a0, a0, 48"
+#define TOI32  "\tslli a0, a0, 32\n\tsrai a0, a0, 32"
 
 // unsigned => shift right Logical
-static const char tou8[] = "\tslli a0, a0, 56\n\tsrli a0, a0, 56";
-static const char tou16[] = "\tslli a0, a0, 48\n\tsrli a0, a0, 48";
-static const char tou32[] = "\tslli a0, a0, 32\n\tsrli a0, a0, 32";
+#define TOU8   "\tslli a0, a0, 56\n\tsrli a0, a0, 56"
+#define TOU16  "\tslli a0, a0, 48\n\tsrli a0, a0, 48"
+#define TOU32  "\tslli a0, a0, 32\n\tsrli a0, a0, 32"
+
+#define I32F32 "\tfcvt.s.w fa0, a0\n"
+#define I32F64 "\tfcvt.d.w fa0, a0\n"
+#define I64F32 "\tfcvt.s.l fa0, a0\n"
+#define I64F64 "\tfcvt.d.l fa0, a0\n"
+#define U32F32 "\tfcvt.s.wu fa0, a0\n"
+#define U32F64 "\tfcvt.d.wu fa0, a0\n"
+#define U64F32 "\tfcvt.s.lu fa0, a0\n"
+#define U64F64 "\tfcvt.d.lu fa0, a0\n"
+#define F32I32 "\tfcvt.w.s a0, fa0, rtz\n"
+#define F32I8  (F32I32 TOI8)
+#define F32I16 (F32I32 TOI16)
+#define F32I64 "\tfcvt.l.s a0, fa0\n"
+#define F32U32 "\tfcvt.wu.s a0, fa0\n"
+#define F32U8  (F32U32 TOU8)
+#define F32U16 (F32U32 TOU16)
+#define F32U64 "\tfcvt.lu.s a0, fa0\n"
+#define F32F64 "\tfcvt.d.s fa0, fa0\n"
+#define F64I32 "\tfcvt.w.d a0, fa0, rtz\n"
+#define F64I8  (F64I32 TOI8)
+#define F64I16 (F64I32 TOI16)
+#define F64I64 "\tfcvt.l.d a0, fa0\n"
+#define F64U32 "\tfcvt.wu.d a0, fa0\n"
+#define F64U8  (F64U32 TOU8)
+#define F64U16 (F64U32 TOU16)
+#define F64U64 "\tfcvt.lu.d a0, fa0\n"
+#define F64F32 "\tfcvt.s.d fa0, fa0\n"
 
 // cast_matrix[from][to]
 static const char *cast_matrix[CAST_MAX_TYPE][CAST_MAX_TYPE] = {
 	// to
-	// i8,   i16,   i32,   i64,  u8,   u16,   u32,   u64,      // from
-	{  NULL, NULL,  NULL,  NULL, NULL, NULL,  NULL,  NULL, },  // i8
-	{  tos8, NULL,  NULL,  NULL, tou8, NULL,  NULL,  NULL, },  // i16
-	{  tos8, tos16, NULL,  NULL, tou8, tou16, NULL,  NULL, },  // i32
-	{  tos8, tos16, tos32, NULL, tou8, tou16, tou32, NULL, },  // i64
-	{  NULL, NULL,  NULL,  NULL, NULL, NULL,  NULL,  NULL, },  // u8
-	{  tos8, NULL,  NULL,  NULL, tou8, NULL,  NULL,  NULL, },  // u16
-	{  tos8, tos16, NULL,  NULL, tou8, tou16, NULL,  NULL, },  // u32
-	{  tos8, tos16, tos32, NULL, tou8, tou16, tou32, NULL, },  // u64
+	// i8,    i16,    i32,    i64,    u8,    u16,    u32,    u64,    f32,    f64,       // from
+	{  NULL,  NULL,   NULL,   NULL,   NULL,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // i8
+	{  TOI8,  NULL,   NULL,   NULL,   TOU8,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // i16
+	{  TOI8,  TOI16,  NULL,   NULL,   TOU8,  TOU16,  NULL,   NULL,   I32F32, I32F64 },  // i32
+	{  TOI8,  TOI16,  TOI32,  NULL,   TOU8,  TOU16,  TOU32,  NULL,   I64F32, I64F64 },  // i64
+	{  NULL,  NULL,   NULL,   NULL,   NULL,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // u8
+	{  TOI8,  NULL,   NULL,   NULL,   TOU8,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // u16
+	{  TOI8,  TOI16,  NULL,   NULL,   TOU8,  TOU16,  NULL,   NULL,   U32F32, U32F64 },  // u32
+	{  TOI8,  TOI16,  TOI32,  NULL,   TOU8,  TOU16,  TOU32,  NULL,   U64F32, U64F64 },  // u64
+	{  F32I8, F32I16, F32I32, F32I64, F32U8, F32U16, F32U32, F32U64, NULL,   F32F64 },  // f32
+	{  F64I8, F64I16, F64I32, F64I64, F64U8, F64U16, F64U32, F64U64, F64F32, NULL   },  // f64
 };
 
 static void cast(struct Type *from, struct Type *to)
@@ -252,13 +309,13 @@ static void gen_expr(struct Node *node)
 		switch (node->ty->kind) {
 		case TY_FLOAT:
 			u.f32 = node->fval;
-			println("\tli a0, %d\t# float %f", u.u32, u.f32);
+			println("\tli a0, %u\t# float %f", u.u32, u.f32);
 			println("\tfmv.s.x fa0, a0\t");
 			return;
 
 		case TY_DOUBLE:
 			u.f64 = node->fval;
-			println("\tli a0, %d\t# double %f", u.u64, u.f64);
+			println("\tli a0, %lu\t# double %f", u.u64, u.f64);
 			println("\tfmv.d.x fa0, a0\t");
 			return;
 
