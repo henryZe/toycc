@@ -40,15 +40,29 @@ static const char * const argreg[] = {
 // push reg into 0(sp)
 static void push(const char *reg)
 {
+	const char *prefix;
+
+	if (strcmp(reg, "fp") && (reg[0] == 'f'))
+		prefix = "f";
+	else
+		prefix = "";
+
 	println("\taddi sp, sp, -%ld", sizeof(long));
-	println("\tsd %s, 0(sp)", reg);
+	println("\t%ssd %s, 0(sp)", prefix, reg);
 	depth++;
 }
 
 // pop 0(sp) to reg
 static void pop(const char *reg)
 {
-	println("\tld %s, 0(sp)", reg);
+	const char *prefix;
+
+	if (strcmp(reg, "fp") && (reg[0] == 'f'))
+		prefix = "f";
+	else
+		prefix = "";
+
+	println("\t%sld %s, 0(sp)", prefix, reg);
 	println("\taddi sp, sp, %ld", sizeof(long));
 	depth--;
 }
@@ -482,6 +496,39 @@ static void gen_expr(struct Node *node)
 
 	default:
 		break;
+	}
+
+	if (is_float(node->lhs->ty)) {
+		gen_expr(node->rhs);
+		push("fa0");
+		gen_expr(node->lhs);
+		pop("fa1");
+
+		const char *sz = (node->lhs->ty->kind == TY_FLOAT) ? "s" : "d";
+
+		switch (node->kind) {
+		case ND_EQ:
+			println("\tfeq.%s a0, fa0, fa1", sz);
+			break;
+
+		case ND_NE:
+			println("\tfeq.%s a0, fa0, fa1", sz);
+			println("\tseqz a0, a0");
+			break;
+
+		case ND_LT:
+			println("\tflt.%s a0, fa0, fa1", sz);
+			break;
+
+		case ND_LE:
+			println("\tfle.%s a0, fa0, fa1", sz);
+			break;
+
+		default:
+			error_tok(node->tok, "invalid expression");
+			break;
+		}
+		return;
 	}
 
 	// left_side -> a0
