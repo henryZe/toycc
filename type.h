@@ -45,6 +45,7 @@ struct Type *p_ty_double(void);
 
 bool is_integer(struct Type *ty);
 bool is_float(struct Type *ty);
+bool is_numeric(struct Type *ty);
 struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);

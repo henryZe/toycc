@@ -152,6 +152,11 @@ bool is_float(struct Type *ty)
 	return ty->kind == TY_FLOAT || ty->kind == TY_DOUBLE;
 }
 
+bool is_numeric(struct Type *ty)
+{
+	return is_integer(ty) || is_float(ty);
+}
+
 struct Type *copy_type(struct Type *ty)
 {
 	struct Type *ret = malloc(sizeof(struct Type));

@@ -340,7 +340,23 @@ static void gen_expr(struct Node *node)
 
 	case ND_NEG:
 		gen_expr(node->lhs);
-		println("\tneg a0, a0");
+
+		switch (node->ty->kind) {
+		case TY_FLOAT:
+			println("\tfneg.s fa0, fa0");
+			break;
+
+		case TY_DOUBLE:
+			println("\tfneg.d fa0, fa0");
+			break;
+
+		default:
+			if (node->ty->size == sizeof(long))
+				println("\tneg a0, a0");
+			else
+				println("\tnegw a0, a0");
+			break;
+		}
 		return;
 
 	case ND_VAR:
@@ -507,6 +523,22 @@ static void gen_expr(struct Node *node)
 		const char *sz = (node->lhs->ty->kind == TY_FLOAT) ? "s" : "d";
 
 		switch (node->kind) {
+		case ND_ADD:
+			println("\tfadd.%s fa0, fa0, fa1", sz);
+			break;
+
+		case ND_SUB:
+			println("\tfsub.%s fa0, fa0, fa1", sz);
+			break;
+
+		case ND_MUL:
+			println("\tfmul.%s fa0, fa0, fa1", sz);
+			break;
+
+		case ND_DIV:
+			println("\tfdiv.%s fa0, fa0, fa1", sz);
+			break;
+
 		case ND_EQ:
 			println("\tfeq.%s a0, fa0, fa1", sz);
 			break;
@@ -830,7 +862,7 @@ static void emit_text(struct Obj *prog)
 		println("\tmv fp, sp");
 
 		// Save passed-by-register arguments to the stack
-		int i = 0;
+		uint32_t i = 0;
 		debug("\t# '%s' save args into stack", fn->name);
 		for (struct Obj *var = fn->params; var; var = var->next)
 			store_args(i++, var->offset, var->ty->size);
@@ -842,7 +874,7 @@ static void emit_text(struct Obj *prog)
 			// store "__va_area__"(local variable) into stack
 			int off = fn->va_area->offset;
 
-			while((unsigned)i < ARRAY_SIZE(argreg)) {
+			while(i < ARRAY_SIZE(argreg)) {
 				store_args(i++, off, sizeof(long));
 				off += sizeof(long);
 			}

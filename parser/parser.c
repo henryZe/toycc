@@ -384,7 +384,7 @@ struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok)
 	add_type(rhs);
 
 	// num + num
-	if (is_integer(lhs->ty) && is_integer(rhs->ty))
+	if (is_numeric(lhs->ty) && is_numeric(rhs->ty))
 		return new_binary(ND_ADD, lhs, rhs, tok);
 
 	// ptr + ptr
@@ -409,7 +409,7 @@ static struct Node *new_sub(struct Node *lhs, struct Node *rhs, struct Token *to
 	add_type(rhs);
 
 	// num - num
-	if (is_integer(lhs->ty) && is_integer(lhs->ty))
+	if (is_numeric(lhs->ty) && is_numeric(lhs->ty))
 		return new_binary(ND_SUB, lhs, rhs, tok);
 
 	// ptr - ptr, which returns how many elements are between the two.
