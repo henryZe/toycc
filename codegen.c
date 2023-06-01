@@ -37,6 +37,17 @@ static const char * const argreg[] = {
 	"a7",
 };
 
+static const char * const argflt[] = {
+	"fa0",
+	"fa1",
+	"fa2",
+	"fa3",
+	"fa4",
+	"fa5",
+	"fa6",
+	"fa7",
+};
+
 // push reg into 0(sp)
 static void push(const char *reg)
 {
@@ -322,6 +333,19 @@ static void cmp_zero(struct Type *ty)
 	return;
 }
 
+static void push_args(struct Node *args)
+{
+	if (args) {
+		push_args(args->next);
+
+		gen_expr(args);
+		if (is_float(args->ty))
+			push("fa0");
+		else
+			push("a0");
+	}
+}
+
 // Generate code for a given node.
 static void gen_expr(struct Node *node)
 {
@@ -333,6 +357,7 @@ static void gen_expr(struct Node *node)
 		uint64_t u64;
 	} u;
 
+	// .loc $file-index $line-number
 	println("\t.loc 1 %d", node->tok->line_no);
 
 	switch (node->kind) {
@@ -493,16 +518,18 @@ static void gen_expr(struct Node *node)
 	case ND_FUNCALL:
 		debug("\t# ND_FUNCALL func %s", node->funcname);
 
-		int nargs = 0;
+		push_args(node->args);
 
+		int g_arg = 0, f_arg = 0;
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
-			gen_expr(arg);
-			push("a0");
-			nargs++;
-		}
+			debug("\t# %sarg %.*s", node->func_ty->is_variadic ? "variadic " : "",
+				arg->tok->len, arg->tok->loc);
 
-		for (int i = nargs - 1; i >= 0; i--) {
-			pop(argreg[i]);
+			// transfer args to variadic function with generic registers
+			if (node->func_ty->is_variadic || !is_float(arg->ty))
+				pop(argreg[g_arg++]);
+			else
+				pop(argflt[f_arg++]);
 		}
 
 		println("\tcall %s", node->funcname);
@@ -672,6 +699,7 @@ static void gen_expr(struct Node *node)
 
 static void gen_stmt(struct Node *node)
 {
+	// .loc $file-index $line-number
 	println("\t.loc 1 %d", node->tok->line_no);
 
 	int c;
@@ -838,7 +866,12 @@ static void emit_data(struct Obj *prog)
 				rel = rel->next;
 				pos += 8;
 			} else {
-				println("\t.byte %d", var->init_data[pos++]);
+				char c = var->init_data[pos++];
+
+				if (' ' <= c && c <= '~')
+					println("\t.byte %d\t# '%c'", c, c);
+				else
+					println("\t.byte %d", c);
 			}
 		}
 	}

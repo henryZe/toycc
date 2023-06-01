@@ -58,6 +58,7 @@ int main(int argc, const char **argv)
 	struct Obj *prog = parser(tok);
 
 	FILE *out = open_file(opt_o);
+	// .file $file-index $file-name
 	fprintf(out, ".file 1 \"%s\"\n", input_path);
 
 	codegen(prog, out);

@@ -67,6 +67,7 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 
 	struct Node *node = new_node(ND_FUNCALL, tok);
 	node->funcname = strndup(start->loc, start->len);
+	node->func_ty = ty;
 	node->ty = ty->return_ty;
 	node->args = head.next;
 
