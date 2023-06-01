@@ -54,7 +54,8 @@ void verror_at(int line_no, const char *loc, const char *fmt, va_list ap)
 
 	// print out the line
 	int indent = fprintf(stderr, "%s:%d: ", current_filename, line_no);
-	fprintf(stderr, "%.*s\n", (int)(end - line), line);
+	int len = end - line;
+	fprintf(stderr, "%.*s\n", len, line);
 
 	// show the error message
 	int pos = loc - line + indent;

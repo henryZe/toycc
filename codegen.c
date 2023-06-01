@@ -302,6 +302,26 @@ static void cast(struct Type *from, struct Type *to)
 	}
 }
 
+static void cmp_zero(struct Type *ty)
+{
+	switch (ty->kind) {
+	case TY_FLOAT:
+		println("\tfmv.s.x fa1, zero");
+		println("\tfeq.s a0, fa0, fa1");
+		break;
+
+	case TY_DOUBLE:
+		println("\tfmv.d.x fa1, zero");
+		println("\tfeq.d a0, fa0, fa1");
+		break;
+
+	default:
+		println("\tseqz a0, a0");
+		break;
+	}
+	return;
+}
+
 // Generate code for a given node.
 static void gen_expr(struct Node *node)
 {
@@ -421,7 +441,8 @@ static void gen_expr(struct Node *node)
 	case ND_COND:
 		c = count();
 		gen_expr(node->cond);
-		println("\tbeqz a0, .L.else.%d", c);
+		cmp_zero(node->cond->ty);
+		println("\tbnez a0, .L.else.%d", c);
 		gen_expr(node->then);
 		println("\tj .L.end.%d", c);
 		println(".L.else.%d:", c);
@@ -431,7 +452,7 @@ static void gen_expr(struct Node *node)
 
 	case ND_NOT:
 		gen_expr(node->lhs);
-		println("\tseqz a0, a0");
+		cmp_zero(node->lhs->ty);
 		return;
 
 	case ND_BITNOT:
@@ -442,9 +463,11 @@ static void gen_expr(struct Node *node)
 	case ND_LOGAND:
 		c = count();
 		gen_expr(node->lhs);
-		println("\tbeqz a0, .L.false.%d", c);
+		cmp_zero(node->lhs->ty);
+		println("\tbnez a0, .L.false.%d", c);
 		gen_expr(node->rhs);
-		println("\tbeqz a0, .L.false.%d", c);
+		cmp_zero(node->lhs->ty);
+		println("\tbnez a0, .L.false.%d", c);
 		println("\tli a0, 1");
 		println("\tj .L.end.%d", c);
 		println(".L.false.%d:", c);
@@ -455,9 +478,11 @@ static void gen_expr(struct Node *node)
 	case ND_LOGOR:
 		c = count();
 		gen_expr(node->lhs);
-		println("\tbnez a0, .L.true.%d", c);
+		cmp_zero(node->lhs->ty);
+		println("\tbeqz a0, .L.true.%d", c);
 		gen_expr(node->rhs);
-		println("\tbnez a0, .L.true.%d", c);
+		cmp_zero(node->rhs->ty);
+		println("\tbeqz a0, .L.true.%d", c);
 		println("\tli a0, 0");
 		println("\tj .L.end.%d", c);
 		println(".L.true.%d:", c);
@@ -657,7 +682,8 @@ static void gen_stmt(struct Node *node)
 
 		debug("\t# ND_IF");
 		gen_expr(node->cond);
-		println("\tbeqz a0, else.%d", c);
+		cmp_zero(node->cond->ty);
+		println("\tbnez a0, else.%d", c);
 
 		gen_stmt(node->then);
 		println("\tj end.%d", c);
@@ -680,7 +706,8 @@ static void gen_stmt(struct Node *node)
 		println("begin.%d:", c);
 		if (node->cond) {
 			gen_expr(node->cond);
-			println("\tbeqz a0, %s", node->brk_label);
+			cmp_zero(node->cond->ty);
+			println("\tbnez a0, %s", node->brk_label);
 		}
 		gen_stmt(node->then);
 		println("%s:", node->cont_label);
@@ -700,7 +727,8 @@ static void gen_stmt(struct Node *node)
 		println("%s:", node->cont_label);
 
 		gen_expr(node->cond);
-		println("\tbnez a0, begin.%d", c);
+		cmp_zero(node->cond->ty);
+		println("\tbeqz a0, begin.%d", c);
 
 		println("%s:", node->brk_label);
 		return;
