@@ -902,6 +902,23 @@ static void store_args(int r, int offset, int sz)
 	}
 }
 
+static void store_fltargs(int r, int offset, int sz)
+{
+	switch (sz) {
+	case sizeof(float):
+		println("\tfsw %s, %d(sp)", argflt[r], offset);
+		break;
+
+	case sizeof(double):
+		println("\tfsd %s, %d(sp)", argflt[r], offset);
+		break;
+
+	default:
+		unreachable();
+		break;
+	}
+}
+
 static void emit_text(struct Obj *prog)
 {
 	for (struct Obj *fn = prog; fn; fn = fn->next) {
@@ -923,10 +940,15 @@ static void emit_text(struct Obj *prog)
 		println("\tmv fp, sp");
 
 		// Save passed-by-register arguments to the stack
-		uint32_t i = 0;
 		debug("\t# '%s' save args into stack", fn->name);
-		for (struct Obj *var = fn->params; var; var = var->next)
-			store_args(i++, var->offset, var->ty->size);
+
+		uint32_t g_arg = 0, f_arg = 0;
+		for (struct Obj *var = fn->params; var; var = var->next) {
+			if (is_float(var->ty))
+				store_fltargs(f_arg++, var->offset, var->ty->size);
+			else
+				store_args(g_arg++, var->offset, var->ty->size);
+		}
 
 		// Save arg registers if function is variadic
 		if (fn->va_area) {
@@ -935,8 +957,8 @@ static void emit_text(struct Obj *prog)
 			// store "__va_area__"(local variable) into stack
 			int off = fn->va_area->offset;
 
-			while(i < ARRAY_SIZE(argreg)) {
-				store_args(i++, off, sizeof(long));
+			while (g_arg < ARRAY_SIZE(argreg)) {
+				store_args(g_arg++, off, sizeof(long));
 				off += sizeof(long);
 			}
 
