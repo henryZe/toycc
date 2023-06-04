@@ -180,11 +180,16 @@ int main()
 	ASSERT(-5, schar_fn());
 	ASSERT(-8, sshort_fn());
 
+	// call function with float args
 	ASSERT(6, add_float(2.3, 3.8));
 	ASSERT(6, add_double(2.3, 3.8));
 
+	// define function with float args
 	ASSERT(7, add_float3(2.5, 2.5, 2.5));
 	ASSERT(7, add_double3(2.5, 2.5, 2.5));
+
+	// call function with variadic args
+	ASSERT(0, ({ char buf[100]; sprintf(buf, "%.1f", (float)3.5); strcmp(buf, "3.5"); }));
 
 	printf("OK\n");
 	return 0;
