@@ -499,6 +499,7 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 			ty = p_ty_float();
 			break;
 		case DOUBLE:
+		case LONG + DOUBLE:
 			ty = p_ty_double();
 			break;
 		default:

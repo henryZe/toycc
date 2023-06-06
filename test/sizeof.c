@@ -106,6 +106,8 @@ int main()
 	ASSERT(4, sizeof(1f/2));
 	ASSERT(8, sizeof(1.0/2));
 
+	ASSERT(8, sizeof(long double));
+
 	printf("OK\n");
 	return 0;
 }
