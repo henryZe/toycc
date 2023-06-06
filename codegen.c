@@ -971,6 +971,7 @@ static void emit_text(struct Obj *prog)
 		} else {
 			println("\tadd sp, sp, -%d", fn->stack_size);
 		}
+
 		debug("\t# end '%s' save args", fn->name);
 
 		// Emit code

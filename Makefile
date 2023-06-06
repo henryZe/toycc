@@ -50,6 +50,7 @@ $(OUTPUT)/$(TESTDIR)/%: $(OUTPUT)/$(TARGET) $(TESTDIR)/%.c
 	$(CROSS_COMPILE)$(CC) -E -P -C $(TESTDIR)/$*.c -o $(OUTPUT)/$(TESTDIR)/$*.c
 	$(OUTPUT)/$(TARGET) $(OUTPUT)/$(TESTDIR)/$*.c -o $(OUTPUT)/$(TESTDIR)/$*.s
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $(OUTPUT)/$(TESTDIR)/$*.s -xc $(TESTDIR)/common
+	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 test: $(TESTS)
 	for i in $^; do echo $$i; /opt/RV64/bin/spike /usr/riscv64-linux-gnu/bin/pk $$i || exit 1; echo; done

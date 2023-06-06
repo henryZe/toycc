@@ -189,7 +189,14 @@ int main()
 	ASSERT(7, add_double3(2.5, 2.5, 2.5));
 
 	// call function with variadic args
-	ASSERT(0, ({ char buf[100]; sprintf(buf, "%.1f", (float)3.5); strcmp(buf, "3.5"); }));
+	ASSERT(0, ({ char buf[100]; sprintf(buf, "%.1f", (float)3.5);
+	             strcmp(buf, "3.5"); }));
+	ASSERT(0, ({ char buf[100]; sprintf(buf, "%.1f %.1f", (float)3.5, 5.3);
+		     strcmp(buf, "3.5 5.3"); }));
+	ASSERT(0, ({ char buf[100]; fmt(buf, "%.1f", (float)3.5);
+		     strcmp(buf, "3.5"); }));
+	ASSERT(0, ({ char buf[100]; fmt(buf, "%d %d %s %s %.1f %.1f", 1, 2, "foo", "hello", 0.1, 0.9);
+		     strcmp("1 2 foo hello 0.1 0.9", buf); }));
 
 	printf("OK\n");
 	return 0;
