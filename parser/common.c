@@ -57,6 +57,9 @@ int64_t eval2(struct Node *node, const char **label)
 {
 	add_type(node);
 
+	if (is_float(node->ty))
+		return eval_double(node);
+
 	switch (node->kind) {
 	case ND_ADD:
 		return eval2(node->lhs, label) + eval(node->rhs);
@@ -187,6 +190,55 @@ int64_t eval2(struct Node *node, const char **label)
 int64_t eval(struct Node *node)
 {
 	return eval2(node, NULL);
+}
+
+double eval_double(struct Node *node)
+{
+	add_type(node);
+
+	if (is_integer(node->ty)) {
+		if (node->ty->is_unsigned)
+			return (unsigned long)eval(node);
+
+		return eval(node);
+	}
+
+	switch (node->kind) {
+	case ND_ADD:
+		return eval_double(node->lhs) + eval_double(node->rhs);
+
+	case ND_SUB:
+		return eval_double(node->lhs) - eval_double(node->rhs);
+
+	case ND_MUL:
+		return eval_double(node->lhs) * eval_double(node->rhs);
+
+	case ND_DIV:
+		return eval_double(node->lhs) / eval_double(node->rhs);
+
+	case ND_NEG:
+		return -eval_double(node->lhs);
+
+	case ND_COND:
+		return eval_double(node->cond) ?
+			eval_double(node->then) : eval_double(node->els);
+
+	case ND_COMMA:
+		return eval_double(node->rhs);
+
+	case ND_CAST:
+		if (is_float(node->lhs->ty))
+			return eval_double(node->lhs);
+		return eval(node->lhs);
+
+	case ND_NUM:
+		return node->fval;
+
+	default:
+		break;
+	}
+
+	error_tok(node->tok, "not a compile-time constant");
 }
 
 struct Node *new_node(enum NodeKind kind, struct Token *tok)

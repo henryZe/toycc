@@ -425,6 +425,16 @@ static struct Relocation *write_gvar_data(struct Relocation *cur,
 	if (!init->expr)
 		return cur;
 
+	if (ty->kind == TY_FLOAT) {
+		*(float *)(buf + offset) = eval_double(init->expr);
+		return cur;
+	}
+
+	if (ty->kind == TY_DOUBLE) {
+		*(double *)(buf + offset) = eval_double(init->expr);
+		return cur;
+	}
+
 	const char *label = NULL;
 	uint64_t val = eval2(init->expr, &label);
 
