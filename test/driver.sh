@@ -1,4 +1,5 @@
 #!/bin/bash
+cc=$1
 
 tmp=`mktemp -d /tmp/toycc-test-XXXXXX`
 trap 'rm -rf $tmp' INT TERM HUP EXIT
@@ -15,12 +16,12 @@ check() {
 
 # -o
 rm -f $tmp/out
-output/toycc -o $tmp/out $tmp/empty.c
+$cc -o $tmp/out $tmp/empty.c
 [ -f $tmp/out ]
 check -o
 
 # --help
-output/toycc --help 2>&1 | grep -q toycc
+$cc --help 2>&1 | grep -q toycc
 check --help
 
 echo OK

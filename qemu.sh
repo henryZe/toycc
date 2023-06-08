@@ -6,7 +6,7 @@ qemu-system-riscv64 \
 	-drive file=riscv.img,format=raw,id=hd0 \
 	-device virtio-blk-device,drive=hd0 \
 	-append "root=/dev/vda rw console=ttyS0" \
-	-fsdev local,security_model=passthrough,id=fsdev0,path=output/test \
+	-fsdev local,security_model=passthrough,id=fsdev0,path=$1 \
 	-device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare \
 	-gdb tcp::1234 \
 	-snapshot \

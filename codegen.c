@@ -322,6 +322,8 @@ static int getTypeId(struct Type *ty)
 	}
 }
 
+#define combine(x, y) (x "\n" y)
+
 // signed => shift right Arithmetic
 #define TOI8   "\tslli a0, a0, 56\n\tsrai a0, a0, 56"
 #define TOI16  "\tslli a0, a0, 48\n\tsrai a0, a0, 48"
@@ -332,32 +334,32 @@ static int getTypeId(struct Type *ty)
 #define TOU16  "\tslli a0, a0, 48\n\tsrli a0, a0, 48"
 #define TOU32  "\tslli a0, a0, 32\n\tsrli a0, a0, 32"
 
-#define I32F32 "\tfcvt.s.w fa0, a0\n"
-#define I32F64 "\tfcvt.d.w fa0, a0\n"
-#define I64F32 "\tfcvt.s.l fa0, a0\n"
-#define I64F64 "\tfcvt.d.l fa0, a0\n"
-#define U32F32 "\tfcvt.s.wu fa0, a0\n"
-#define U32F64 "\tfcvt.d.wu fa0, a0\n"
-#define U64F32 "\tfcvt.s.lu fa0, a0\n"
-#define U64F64 "\tfcvt.d.lu fa0, a0\n"
-#define F32I32 "\tfcvt.w.s a0, fa0, rtz\n"
-#define F32I8  (F32I32 TOI8)
-#define F32I16 (F32I32 TOI16)
-#define F32I64 "\tfcvt.l.s a0, fa0\n"
-#define F32U32 "\tfcvt.wu.s a0, fa0\n"
-#define F32U8  (F32U32 TOU8)
-#define F32U16 (F32U32 TOU16)
-#define F32U64 "\tfcvt.lu.s a0, fa0\n"
-#define F32F64 "\tfcvt.d.s fa0, fa0\n"
-#define F64I32 "\tfcvt.w.d a0, fa0, rtz\n"
-#define F64I8  (F64I32 TOI8)
-#define F64I16 (F64I32 TOI16)
-#define F64I64 "\tfcvt.l.d a0, fa0\n"
-#define F64U32 "\tfcvt.wu.d a0, fa0\n"
-#define F64U8  (F64U32 TOU8)
-#define F64U16 (F64U32 TOU16)
-#define F64U64 "\tfcvt.lu.d a0, fa0\n"
-#define F64F32 "\tfcvt.s.d fa0, fa0\n"
+#define I32F32 "\tfcvt.s.w fa0, a0"
+#define I32F64 "\tfcvt.d.w fa0, a0"
+#define I64F32 "\tfcvt.s.l fa0, a0"
+#define I64F64 "\tfcvt.d.l fa0, a0"
+#define U32F32 "\tfcvt.s.wu fa0, a0"
+#define U32F64 "\tfcvt.d.wu fa0, a0"
+#define U64F32 "\tfcvt.s.lu fa0, a0"
+#define U64F64 "\tfcvt.d.lu fa0, a0"
+#define F32I32 "\tfcvt.w.s a0, fa0, rtz"
+#define F32I8  combine(F32I32, TOI8)
+#define F32I16 combine(F32I32, TOI16)
+#define F32I64 "\tfcvt.l.s a0, fa0, rtz"
+#define F32U32 "\tfcvt.wu.s a0, fa0, rtz"
+#define F32U8  combine(F32U32, TOU8)
+#define F32U16 combine(F32U32, TOU16)
+#define F32U64 "\tfcvt.lu.s a0, fa0, rtz"
+#define F32F64 "\tfcvt.d.s fa0, fa0"
+#define F64I32 "\tfcvt.w.d a0, fa0, rtz"
+#define F64I8  combine(F64I32, TOI8)
+#define F64I16 combine(F64I32, TOI16)
+#define F64I64 "\tfcvt.l.d a0, fa0, rtz"
+#define F64U32 "\tfcvt.wu.d a0, fa0, rtz"
+#define F64U8  combine(F64U32, TOU8)
+#define F64U16 combine(F64U32, TOU16)
+#define F64U64 "\tfcvt.lu.d a0, fa0, rtz"
+#define F64F32 "\tfcvt.s.d fa0, fa0"
 
 // cast_matrix[from][to]
 static const char *cast_matrix[CAST_MAX_TYPE][CAST_MAX_TYPE] = {
@@ -967,21 +969,30 @@ static void emit_data(struct Obj *prog)
 
 static void store_args(int r, int offset, int sz)
 {
+	const char *rs = "sp";
+
+	if (beyond_instruction_offset(offset)) {
+		println("\tli t0, %d", offset);
+		println("\tadd t0, sp, t0");
+		rs = "t0";
+		offset = 0;
+	}
+
 	switch (sz) {
 	case sizeof(char):
-		println("\tsb %s, %d(sp)", argreg[r], offset);
+		println("\tsb %s, %d(%s)", argreg[r], offset, rs);
 		break;
 
 	case sizeof(short):
-		println("\tsh %s, %d(sp)", argreg[r], offset);
+		println("\tsh %s, %d(%s)", argreg[r], offset, rs);
 		break;
 
 	case sizeof(int):
-		println("\tsw %s, %d(sp)", argreg[r], offset);
+		println("\tsw %s, %d(%s)", argreg[r], offset, rs);
 		break;
 
 	case sizeof(long):
-		println("\tsd %s, %d(sp)", argreg[r], offset);
+		println("\tsd %s, %d(%s)", argreg[r], offset, rs);
 		break;
 
 	default:

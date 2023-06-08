@@ -10,14 +10,20 @@ Toycc compiler is developed based on Rui's [chibicc](https://github.com/rui314/c
 make
 ~~~
 
-* Run test cases under Spike
+* Run bootstrapping under QEMU
 
 ~~~
-make test
+make bootstrap
 ~~~
 
 * Run test cases under QEMU
 
 ~~~
-make qemu
+make test
+~~~
+
+* Run bootstrapping tests under QEMU
+
+~~~
+make bootstrap_test
 ~~~

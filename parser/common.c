@@ -60,6 +60,8 @@ int64_t eval2(struct Node *node, const char **label)
 	if (is_float(node->ty))
 		return eval_double(node);
 
+	int64_t val;
+
 	switch (node->kind) {
 	case ND_ADD:
 		return eval2(node->lhs, label) + eval(node->rhs);
@@ -136,7 +138,7 @@ int64_t eval2(struct Node *node, const char **label)
 		return eval(node->lhs) || eval(node->rhs);
 
 	case ND_CAST:
-		int64_t val = eval2(node->lhs, label);
+		val = eval2(node->lhs, label);
 
 		if (is_integer(node->ty)) {
 			switch (node->ty->size) {
