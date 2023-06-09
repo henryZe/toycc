@@ -94,24 +94,99 @@ static bool beyond_instruction_offset(int offset)
 static void gen_expr(struct Node *node);
 static void gen_stmt(struct Node *node);
 
+__attribute__((unused))
+static void absolute_addressing(const char *symbol)
+{
+	// HI20
+	println("\tlui a0, %%hi(%s)", symbol);
+	// LO12
+	println("\taddi a0, a0, %%lo(%s)", symbol);
+}
+
+static void relative_addressing(const char *symbol)
+{
+	int c = count();
+	println(".L.pcrel%d:", c);
+
+	// HI20
+	println("\tauipc a0, %%pcrel_hi(%s)", symbol);
+	// LO12
+	println("\taddi a0, a0, %%pcrel_lo(.L.pcrel%d)", c);
+}
+
+static void GOT_relative_addressing(const char *symbol)
+{
+	int c = count();
+	println(".L.pcrel%d:", c);
+
+	// HI20
+	println("\tauipc a0, %%got_pcrel_hi(%s)", symbol);
+	// LO12, reuse %pcrel_lo(label) for its lower half
+	println("\tld a0, %%pcrel_lo(.L.pcrel%d)(a0)", c);
+}
+
 // Compute the absolute address of a given node.
 // It's an error if a given node does not reside in memory.
 static void gen_addr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_VAR:
+		// local variable
 		if (node->var->is_local) {
-			// local variable
 			if (beyond_instruction_offset(node->var->offset)) {
 				println("\tli t0, %d", node->var->offset);
 				println("\tadd a0, fp, t0");
 			} else {
 				println("\tadd a0, fp, %d", node->var->offset);
 			}
-		} else {
-			// global variable
-			println("\tla a0, %s", node->var->name);
+			break;
 		}
+
+		// Here, we generate an absolute address of a function or a global
+		// variable. Even though they exist at a certain address at runtime,
+		// their addresses are not known at link-time for the following
+		// two reasons.
+		//
+		//  - Address randomization: Executables are loaded to memory as a
+		//    whole but it is not known what address they are loaded to.
+		//    Therefore, at link-time, relative address in the same
+		//    executable (i.e. the distance between two functions in the
+		//    same executable) is known, but the absolute address is not
+		//    known.
+		//
+		//  - Dynamic linking: Dynamic shared objects (DSOs) or .so files
+		//    are loaded to memory alongside an executable at runtime and
+		//    linked by the runtime loader in memory. We know nothing
+		//    about addresses of global stuff that may be defined by DSOs
+		//    until the runtime relocation is complete.
+		//
+		// In order to deal with the former case, we use relative
+		// addressing, denoted by `jal symbol` (here is `jalr a0`).
+		//
+		// For the latter, we obtain an address of a stuff that may be in
+		// a shared object file from the Global Offset Table using
+		// `got_pcrel_hi(symbol)` notation.
+
+		// function
+		if (node->ty->kind == TY_FUNC) {
+			if (node->var->is_definition) {
+				// relative address
+				debug("\t# function call by relative address '%s'",
+					node->var->name);
+				relative_addressing(node->var->name);
+
+			} else {
+				// dynamic linking, from .so files
+				debug("\t# function call from DSOs '%s'",
+					node->var->name);
+				GOT_relative_addressing(node->var->name);
+			}
+			break;
+		}
+
+		// global variable
+		debug("\t# global variable '%s'", node->var->name);
+		GOT_relative_addressing(node->var->name);
 		break;
 
 	case ND_DEREF:
@@ -151,6 +226,7 @@ static void load(struct Type *ty)
 	case TY_ARRAY:
 	case TY_STRUCT:
 	case TY_UNION:
+	case TY_FUNC:
 		return;
 
 	case TY_FLOAT:
@@ -516,13 +592,18 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_FUNCALL:
-		debug("\t# ND_FUNCALL func %s", node->funcname);
+		debug("\t# ND_FUNCALL");
 
 		push_args(node->args);
 
+		// fetch function address
+		gen_expr(node->lhs);
+		println("\tmv t0, a0");
+
 		int g_arg = 0, f_arg = 0;
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
-			debug("\t# %sarg %.*s", node->func_ty->is_variadic ? "variadic " : "",
+			debug("\t# %sarg %.*s",
+				node->func_ty->is_variadic ? "variadic " : "",
 				arg->tok->len, arg->tok->loc);
 
 			// transfer args to variadic function with generic registers
@@ -532,7 +613,8 @@ static void gen_expr(struct Node *node)
 				pop(argflt[f_arg++]);
 		}
 
-		println("\tcall %s", node->funcname);
+		// call function
+		println("\tjalr t0");
 
 		// It looks like the most significant 48 or 56 bits in a0 may
 		// contain garbage if a function return type is short or bool/char,
@@ -559,7 +641,7 @@ static void gen_expr(struct Node *node)
 			break;
 		}
 
-		debug("\t# end ND_FUNCALL func %s", node->funcname);
+		debug("\t# end ND_FUNCALL");
 		return;
 
 	default:

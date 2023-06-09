@@ -151,7 +151,6 @@ struct Node {
 	struct Member *member;
 
 	// function call
-	const char *funcname;
 	struct Type *func_ty;
 	struct Node *args;
 

@@ -274,12 +274,12 @@ void add_type(struct Node *node)
 		node->ty = node->lhs->ty;
 		break;
 
-	case ND_NEG:
+	case ND_NEG: {
 		struct Type *ty = get_common_type(p_ty_int(), node->lhs->ty);
 		node->lhs = new_cast(node->lhs, ty);
 		node->ty = ty;
 		break;
-
+	}
 	case ND_ASSIGN:
 		if (node->lhs->ty->kind == TY_ARRAY)
 			error_tok(node->lhs->tok, "not an lvalue");
@@ -333,14 +333,16 @@ void add_type(struct Node *node)
 		node->ty = node->member->ty;
 		break;
 
-	case ND_ADDR:
-		if (node->lhs->ty->kind == TY_ARRAY)
-			// TODO: &array is not (array base *).
-			node->ty = pointer_to(node->lhs->ty->base);
-		else
-			node->ty = pointer_to(node->lhs->ty);
-		break;
+	case ND_ADDR: {
+		struct Type *ty = node->lhs->ty;
 
+		if (ty->kind == TY_ARRAY)
+			// &array is the same as (array base *).
+			node->ty = pointer_to(ty->base);
+		else
+			node->ty = pointer_to(ty);
+		break;
+	}
 	case ND_DEREF:
 		if (!node->lhs->ty->base)
 			error_tok(node->tok, "invalid pointer dereference");

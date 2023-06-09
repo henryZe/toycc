@@ -20,19 +20,16 @@
 // Points to the function object the parser is currently parsing.
 static struct Obj *current_fn;
 
-// funcall = ident "(" (assign ("," assign)*)? ")"
-static struct Node *funcall(struct Token **rest, struct Token *tok)
+// funcall = (assign ("," assign)*)? ")"
+static struct Node *funcall(struct Token **rest, struct Token *tok, struct Node *fn)
 {
-	struct Token *start = tok;
-	tok = tok->next->next;
+	add_type(fn);
 
-	struct VarScope *sc = find_var(start);
-	if (!sc)
-		error_tok(start, "implicit declaration of a function");
-	if (!sc->var || sc->var->ty->kind != TY_FUNC)
-		error_tok(start, "not a function");
+	if (fn->ty->kind != TY_FUNC &&
+		(fn->ty->kind != TY_PTR || fn->ty->base->kind != TY_FUNC))
+		error_tok(fn->tok, "not a function");
 
-	struct Type *ty = sc->var->ty;
+	struct Type *ty = (fn->ty->kind == TY_FUNC) ? fn->ty : fn->ty->base;
 	struct Type *param_ty = ty->params;
 
 	struct Node head = {};
@@ -71,8 +68,7 @@ static struct Node *funcall(struct Token **rest, struct Token *tok)
 
 	*rest = skip(tok, ")");
 
-	struct Node *node = new_node(ND_FUNCALL, tok);
-	node->funcname = strndup(start->loc, start->len);
+	struct Node *node = new_unary(ND_FUNCALL, fn, tok);
 	node->func_ty = ty;
 	node->ty = ty->return_ty;
 	node->args = head.next;
@@ -96,7 +92,7 @@ static struct Node *unary(struct Token **rest, struct Token *tok);
 // 	| "sizeof" unary
 //	| "_Alignof" "(" type-name ")"
 //	| "_Alignof" unary
-// 	| ident (func-args)?
+// 	| ident
 // 	| str
 // 	| num
 static struct Node *primary(struct Token **rest, struct Token *tok)
@@ -149,24 +145,22 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	}
 
 	if (tok->kind == TK_IDENT) {
-		// function call
-		if (equal(tok->next, "("))
-			return funcall(rest, tok);
-
 		// variable or enum constant
 		struct VarScope *sc = find_var(tok);
-		if (!sc || (!sc->var && !sc->enum_ty))
-			error_tok(tok, "undefined variable or enum constant");
-
-		struct Node *n;
-		if (sc->var)
-			// variable
-			n = new_var_node(sc->var, tok);
-		else
-			// enum constant
-			n = new_num(sc->enum_val, tok);
 		*rest = tok->next;
-		return n;
+
+		if (sc) {
+			if (sc->var)
+				// variable
+				return new_var_node(sc->var, tok);
+			if (sc->enum_ty)
+				// enum constant
+				return new_num(sc->enum_val, tok);
+		}
+
+		if (equal(tok->next, "("))
+			error_tok(tok, "implicit declaration of a function");
+		error_tok(tok, "undefined variable");
 	}
 
 	if (tok->kind == TK_STR) {
@@ -251,7 +245,15 @@ static struct Node *new_inc_dec(struct Node *node, struct Token *tok, int addend
 }
 
 // postfix = "(" type-name ")" "{" initializer-list "}"
-//	   | primary ("[" expr "]" | "." ident | "->" ident | "++" | "--")*
+//         | ident "(" func-args ")" postfix-tail*
+//         | primary postfix-tail*
+//
+// postfix-tail = "[" expr "]"
+//              | "(" func-args ")"
+//              | "." ident
+//              | "->" ident
+//              | "++"
+//              | "--"
 static struct Node *postfix(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "(") && is_typename(tok->next)) {
@@ -277,6 +279,11 @@ static struct Node *postfix(struct Token **rest, struct Token *tok)
 	struct Node *node = primary(&tok, tok);
 
 	while (1) {
+		if (equal(tok, "(")) {
+			node = funcall(&tok, tok->next, node);
+			continue;
+		}
+
 		if (equal(tok, "[")) {
 			// x[y] is short for *(x+y)
 			struct Token *start = tok;
