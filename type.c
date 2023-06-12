@@ -203,6 +203,11 @@ static struct Type *get_common_type(struct Type *ty1, struct Type *ty2)
 	if (ty1->base)
 		return pointer_to(ty1->base);
 
+	if (ty1->kind == TY_FUNC)
+		return pointer_to(ty1);
+	if (ty2->kind == TY_FUNC)
+		return pointer_to(ty2);
+
 	if (ty1->kind == TY_DOUBLE || ty2->kind == TY_DOUBLE)
 		return p_ty_double();
 	if (ty1->kind == TY_FLOAT || ty2->kind == TY_FLOAT)

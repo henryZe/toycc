@@ -125,6 +125,12 @@ static void GOT_relative_addressing(const char *symbol)
 	println("\tld a0, %%pcrel_lo(.L.pcrel%d)(a0)", c);
 }
 
+__attribute__((unused))
+static void pseudo_addressing(const char *symbol)
+{
+	println("\tla a0, %s", symbol);
+}
+
 // Compute the absolute address of a given node.
 // It's an error if a given node does not reside in memory.
 static void gen_addr(struct Node *node)
