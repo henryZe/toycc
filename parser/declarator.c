@@ -541,9 +541,19 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 		struct Type *basety = declspec(&tok, tok, NULL);
 		struct Type *ty2 = declarator(&tok, tok, basety);
 
+		struct Token *name = ty2->name;
+
 		if (ty2->kind == TY_ARRAY) {
-			struct Token *name = ty2->name;
+			// "array of T" is converted to "pointer to T" only
+			//  in the parameter context.
+			// For example, *argv[] is converted to **argv by this.
 			ty2 = pointer_to(ty2->base);
+			ty2->name = name;
+
+		} else if (ty2->kind == TY_FUNC) {
+			// Likewise, a function is converted to a pointer to
+			// a function only in the parameter context.
+			ty2 = pointer_to(ty2);
 			ty2->name = name;
 		}
 
