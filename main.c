@@ -1,5 +1,10 @@
 #include <toycc.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 
+static bool opt_cc1;
+static bool opt_hash_hash_hash;
 static const char *opt_o;
 static const char *input_path;
 
@@ -12,6 +17,16 @@ static void usage(int status)
 static void parse_args(int argc, const char **argv)
 {
 	for (int i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "-###")) {
+			opt_hash_hash_hash = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-cc1")) {
+			opt_cc1 = true;
+			continue;
+		}
+
 		if (!strcmp(argv[i], "--help"))
 			usage(0);
 
@@ -49,10 +64,44 @@ static FILE *open_file(const char *path)
 	return out;
 }
 
-int main(int argc, const char **argv)
+static void run_subprocess(char **const argv)
 {
-	parse_args(argc, argv);
+	// if -### is given, dump the subprocess's command line
+	if (opt_hash_hash_hash) {
+		fprintf(stderr, "%s", argv[0]);
+		for (int i = 1; argv[i]; i++)
+			fprintf(stderr, " %s", argv[i]);
+		fprintf(stderr, "\n");
+	}
 
+	if (fork() == 0) {
+		// child process: run a new command
+		execvp(argv[0], argv);
+		fprintf(stderr, "exec failed: %s: %s\n",
+				argv[0], strerror(errno));
+		_exit(1);
+	}
+
+	// wait for the child processes to finish
+	int status;
+	while (wait(&status) > 0);
+	if (status)
+		exit(1);
+}
+
+static void run_cc1(int argc, const char **argv)
+{
+	char **args = malloc((argc + 1) * sizeof(char *));
+
+	memcpy(args, argv, argc * sizeof(char *));
+	args[argc] = "-cc1";
+	args[argc + 1] = NULL;
+
+	run_subprocess(args);
+}
+
+static void cc1(void)
+{
 	// Tokenize and parse
 	struct Token *tok = tokenize_file(input_path);
 	struct Obj *prog = parser(tok);
@@ -63,6 +112,17 @@ int main(int argc, const char **argv)
 
 	codegen(prog, out);
 	// do not close if stdout
+}
 
+int main(int argc, const char **argv)
+{
+	parse_args(argc, argv);
+
+	if (opt_cc1) {
+		cc1();
+		return 0;
+	}
+
+	run_cc1(argc, argv);
 	return 0;
 }
