@@ -230,6 +230,13 @@ void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...
 int llog2(int num);
 
 // string.c
+struct StringArray {
+	const char **data;
+	int capacity;
+	int len;
+};
+
 const char *format(const char *fmt, ...);
+void strarray_push(struct StringArray *arr, const char *s);
 
 #endif

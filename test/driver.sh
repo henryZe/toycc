@@ -24,4 +24,19 @@ check -o
 $cc --help 2>&1 | grep -q toycc
 check --help
 
+# -S
+echo 'int main() {}' | $cc -S -o - - | grep -q 'main:'
+check -S
+
+# Default output file
+rm -f $tmp/out.o $tmp/out.s
+echo 'int main() {}' > $tmp/out.c
+(cd $tmp; $OLDPWD/$cc out.c)
+[ -f $tmp/out.o ]
+check 'default output file: -o'
+
+(cd $tmp; $OLDPWD/$cc -S out.c)
+[ -f $tmp/out.s ]
+check 'default output file: -S'
+
 echo OK

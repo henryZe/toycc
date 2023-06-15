@@ -97,8 +97,9 @@ for path in sys.argv[1:]:
         s = re.sub(r'\bunreachable\(\)', 'error("unreachable")', s)
         s = re.sub(r'\bMIN\(([^)]*),([^)]*)\)', '((\\1)<(\\2)?(\\1):\\2)', s)
 
-        s = re.sub(r'\bARRAY_SIZE\(([^)]*)\)', 'sizeof(\\1)/sizeof(\\1[0])', s)
-        s = re.sub(r'\bdebug\b', 'println', s)
+        s = re.sub(r'ARRAY_SIZE\(([^)]*)\)', 'sizeof(\\1)/sizeof(\\1[0])', s)
+        s = re.sub(r'debug', 'println', s)
+        s = re.sub(r'INIT_CAPACITY', '8', s)
 
         s = re.sub(r'TOI8', r'"\\tslli a0, a0, 56\\n\\tsrai a0, a0, 56"', s)
         s = re.sub(r'TOU8', r'"\\tslli a0, a0, 56\\n\\tsrli a0, a0, 56"', s)

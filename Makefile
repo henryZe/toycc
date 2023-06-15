@@ -28,7 +28,7 @@ SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_SRCS = $(wildcard test/*.c)
 TESTS = $(patsubst test/%.c, output/test/%, $(TEST_SRCS))
 TEST_DRV = test/driver.sh
-TEST_QEMU = qemu.sh
+TEST_QEMU = qemu_script/qemu.sh
 
 output/%.o: %.c
 	@mkdir -p $(@D)
@@ -42,13 +42,13 @@ output/$(TARGET): $(SRC_OBJFILES)
 # -E: preprocess C files
 # -xc: compile following files as C language
 # -o-: set output as stdout
-output/test/%.s: output/$(TARGET) test/%.c
+output/test/%.o: output/$(TARGET) test/%.c
 	@mkdir -p $(@D)
 	$(CROSS_COMPILE)$(CC) -E -P -C test/$*.c -o output/test/$*.c
-	output/$(TARGET) output/test/$*.c -o output/test/$*.s
+	output/$(TARGET) output/test/$*.c -o output/test/$*.o
 
-output/test/%: output/test/%.s
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ output/test/$*.s -xc test/common
+output/test/%: output/test/%.o
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ output/test/$*.o -xc test/common
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 # test with spike
@@ -72,12 +72,14 @@ HEADERFILES = \
 	parser/parser.h \
 	parser/scope.h \
 
-bootstrap/src/%.s: output/$(TARGET) self.py $(SRCFILES)
+bootstrap/src/%.o: output/$(TARGET) self.py $(SRCFILES)
 	@mkdir -p $(@D)
 	python3 self.py $(HEADERFILES) $*.c > bootstrap/src/$*.c
-	output/$(TARGET) bootstrap/src/$*.c -o bootstrap/src/$*.s
+	output/$(TARGET) bootstrap/src/$*.c -o bootstrap/src/$*.o
 
-BOOTSTRAP_OBJS := $(patsubst %.c, bootstrap/src/%.s, $(SRCFILES))
+BOOTSTRAP_OBJS := $(patsubst %.c, bootstrap/src/%.o, $(SRCFILES))
+bootstrap_build: $(BOOTSTRAP_OBJS)
+
 bootstrap/$(TARGET): $(BOOTSTRAP_OBJS)
 	@mkdir -p $(@D)
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static $(BOOTSTRAP_OBJS) -o $@
@@ -107,8 +109,10 @@ bootstrap_test: $(BOOTSTRAP_TESTS)
 	cp qemu_script/run_test/default.sh bootstrap/test
 	@sh $(TEST_QEMU) bootstrap/test
 
+extra: test_all bootstrap_test
+
 clean:
 	rm -rf output bootstrap
 
-.PHONY: clean test bootstrap test_all bootstrap_test
-.PRECIOUS: output/test/%.s bootstrap/test/%.c bootstrap/test/%.s
+.PHONY: clean test bootstrap_build test_all extra
+.PRECIOUS: output/test/%.o bootstrap/test/%.c bootstrap/test/%.s
