@@ -2,21 +2,11 @@
 
 cc=./toycc
 
-# driver.sh
-check() {
-	if [ $? -eq 0 ]; then
-		echo "testing $1 ... passed"
-	else
-		echo "testing $1 ... failed"
-		exit 1
-	fi
-}
+cd /root
+sh /tmp/driver.sh /tmp/toycc || exit 1;
+cd -
 
-# --help
-$cc --help 2>&1 | grep -q toycc
-check --help
-
-# -o
+# generate test/*.s
 for i in `ls test/*.c`;
 do
 	echo $i;

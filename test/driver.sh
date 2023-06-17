@@ -1,7 +1,8 @@
 #!/bin/bash
 cc=$1
 
-tmp=`mktemp -d /tmp/toycc-test-XXXXXX`
+# Create a temporary directory
+tmp=`mktemp -d ./toycc-test-XXXXXX`
 trap 'rm -rf $tmp' INT TERM HUP EXIT
 echo > $tmp/empty.c
 
@@ -38,5 +39,20 @@ check 'default output file: -o'
 (cd $tmp; $OLDPWD/$cc -S out.c)
 [ -f $tmp/out.s ]
 check 'default output file: -S'
+
+# Multiple input files
+rm -f $tmp/foo.o $tmp/bar.o
+echo 'int x;' > $tmp/foo.c
+echo 'int y;' > $tmp/bar.c
+(cd $tmp; $OLDPWD/$cc foo.c bar.c)
+[ -f $tmp/foo.o ] && [ -f $tmp/bar.o ]
+check 'multiple input files: -o'
+
+rm -f $tmp/foo.s $tmp/bar.s
+echo 'int x;' > $tmp/foo.c
+echo 'int y;' > $tmp/bar.c
+(cd $tmp; $OLDPWD/$cc -S foo.c bar.c)
+[ -f $tmp/foo.s ] && [ -f $tmp/bar.s ]
+check 'multiple input files: -S'
 
 echo OK

@@ -98,6 +98,7 @@ BOOTSTRAP_ASM := $(patsubst test/%.c, bootstrap/test/%.s, $(TEST_SRCS))
 bootstrap/test/%.s: $(BOOTSTRAP_PRE)
 	touch $(BOOTSTRAP_ASM)
 	cp qemu_script/compile_bootstrap/default.sh bootstrap/
+	cp $(TEST_DRV) bootstrap/
 	@sh $(TEST_QEMU) bootstrap
 
 bootstrap/test/%: bootstrap/test/%.s
