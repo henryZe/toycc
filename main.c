@@ -3,8 +3,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <libgen.h>
+#include <glob.h>
 
 static bool opt_S;
+static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
 
@@ -63,6 +65,11 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-S")) {
 			opt_S = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-c")) {
+			opt_c = true;
 			continue;
 		}
 
@@ -211,9 +218,114 @@ static void assemble(const char *input, const char *output)
 	run_subprocess(cmd);
 }
 
+static bool endswith(const char *p, const char *q)
+{
+	int len1 = strlen(p);
+	int len2 = strlen(q);
+	return (len1 >= len2) && !strcmp(p + len1 - len2, q);
+}
+
+static char *find_file(const char *pattern)
+{
+	char *path = NULL;
+	glob_t buf = {};
+
+	glob(pattern, 0, NULL, &buf);
+	if (buf.gl_pathc)
+		// select the last one
+		path = strdup(buf.gl_pathv[buf.gl_pathc - 1]);
+
+	globfree(&buf);
+	return path;
+}
+
+static const char *find_libpath(void)
+{
+	const char *paths[] = {
+		"/usr/lib/gcc-cross/riscv64-linux-gnu/*/crt1.o",
+		"/usr/riscv64-linux-gnu/lib/crt1.o",
+	};
+
+	for (uint32_t i = 0; i < ARRAY_SIZE(paths); i++) {
+		char *path = find_file(paths[i]);
+		if (path)
+			return dirname(path);
+	}
+
+	error("library path is not found");
+}
+
+static const char *find_gcc_libpath(void)
+{
+	const char *paths[] = {
+		"/usr/lib/gcc-cross/riscv64-linux-gnu/*/crtbegin.o",
+		"/lib/gcc-cross/aarch64-linux-gnu/*/crtbegin.o",
+	};
+
+	for (uint32_t i = 0; i < ARRAY_SIZE(paths); i++) {
+		char *path = find_file(paths[i]);
+		if (path)
+			return dirname(path);
+	}
+
+	error("gcc library path is not found");
+}
+
+static void run_linker(struct StringArray *inputs, const char *output)
+{
+	struct StringArray arr = {};
+
+	strarray_push(&arr, "riscv64-linux-gnu-ld");
+
+	strarray_push(&arr, "-o");
+	strarray_push(&arr, output);
+
+	strarray_push(&arr, "-m");
+	strarray_push(&arr, "elf64lriscv");
+
+	const char *libpath = find_libpath();
+	const char *gcc_libpath = find_gcc_libpath();
+
+	// static link
+	strarray_push(&arr, "-static");
+	// strarray_push(&arr, "-dynamic-linker");
+	// strarray_push(&arr, format("%s/ld-linux-riscv64-lp64d.so.1", libpath));
+
+	// boot code of C language
+	strarray_push(&arr, format("%s/crt1.o", libpath));
+	strarray_push(&arr, format("%s/crti.o", libpath));
+	strarray_push(&arr, format("%s/crtbeginT.o", gcc_libpath));
+
+	// specify the lib paths
+	strarray_push(&arr, format("-L%s", gcc_libpath));
+	strarray_push(&arr, format("-L%s", libpath));
+
+	for (int i = 0; i < inputs->len; i++)
+		strarray_push(&arr, inputs->data[i]);
+
+	// link libs in the order
+	strarray_push(&arr, "--start-group");
+	strarray_push(&arr, "-lgcc");		// libgcc.{a, so}
+	strarray_push(&arr, "-lgcc_eh");	// libgcc_eh.a
+	strarray_push(&arr, "-lc");		// libc.{a, so}
+	strarray_push(&arr, "--end-group");
+
+	// only link when the lib is needed for dynamic-link
+	// strarray_push(&arr, "--as-needed");
+	// strarray_push(&arr, "-lgcc_s");	// libgcc_s.so
+	// strarray_push(&arr, "--no-as-needed");
+
+	strarray_push(&arr, format("%s/crtend.o", gcc_libpath));
+	strarray_push(&arr, format("%s/crtn.o", libpath));
+
+	strarray_push(&arr, NULL);
+	run_subprocess(arr.data);
+}
+
 int main(int argc, const char **argv)
 {
 	const char *input, *output;
+	struct StringArray ld_args = {};
 
 	atexit(cleanup);
 	parse_args(argc, argv);
@@ -223,8 +335,8 @@ int main(int argc, const char **argv)
 		return 0;
 	}
 
-	if (input_paths.len > 1 && opt_o)
-		error("cannot specify '-o' with multiple files");
+	if (input_paths.len > 1 && opt_o && (opt_c || opt_S))
+		error("cannot specify '-o' with '-c' or '-S' with multiple files");
 
 	for (int i = 0; i < input_paths.len; i++) {
 		input = input_paths.data[i];
@@ -236,18 +348,51 @@ int main(int argc, const char **argv)
 		else
 			output = replace_extn(input, ".o");
 
+		// handle .o
+		if (endswith(input, ".o")) {
+			// link files .o -> binary
+			strarray_push(&ld_args, input);
+			continue;
+		}
+
+		// handle .s
+		if (endswith(input, ".s")) {
+			if (!opt_S)
+				// .s -> .o
+				assemble(input, output);
+			continue;
+		}
+
+		if (!endswith(input, ".c") && strcmp(input, "-"))
+			error("unknown file extension: %s", input);
+
+		// handle .c
 		// if -S is given, assembly text is the final output.
 		if (opt_S) {
 			run_cc1(argc, argv, input, output);
 			continue;
 		}
 
-		// Otherwise, run the assembler to assemble our output.
-		const char *tmpfile = create_tmpfile();
+		// compile and assemble
+		if (opt_c) {
+			const char *tmpfile = create_tmpfile();
 
-		run_cc1(argc, argv, input, tmpfile);
-		assemble(tmpfile, output);
+			run_cc1(argc, argv, input, tmpfile);
+			assemble(tmpfile, output);
+			continue;
+		}
+
+		// Compile, assemble and link
+		const char *tmp1 = create_tmpfile();
+		const char *tmp2 = create_tmpfile();
+
+		run_cc1(argc, argv, input, tmp1);
+		assemble(tmp1, tmp2);
+		strarray_push(&ld_args, tmp2);
 	}
+
+	if (ld_args.len)
+		run_linker(&ld_args, opt_o ? opt_o : "a.out");
 
 	return 0;
 }

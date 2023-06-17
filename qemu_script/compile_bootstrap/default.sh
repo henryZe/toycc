@@ -11,7 +11,7 @@ for i in `ls test/*.c`;
 do
 	echo $i;
 	asm=`echo $i | sed 's/\.c/\.s/g'`
-	$cc $i -S -o $asm || exit 1;
+	$cc -c -S $i -o $asm || exit 1;
 	[ -f $asm ]
 	check -o
 	echo;

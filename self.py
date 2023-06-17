@@ -24,6 +24,13 @@ struct stat {
 	char _[512];
 };
 
+typedef struct {
+    size_t gl_pathc;
+    char **gl_pathv;
+    size_t gl_offs;
+    char _[512];
+} glob_t;
+
 void *malloc(long size);
 void *calloc(long nmemb, long size);
 void *realloc(void *buf, long size);
@@ -72,6 +79,10 @@ void _exit(int code);
 int wait(int *wstatus);
 int atexit(void (*)(void));
 int isalpha(int c);
+int glob(char *pattern, int flags, void *errfn, glob_t *pglob);
+void globfree(glob_t *pglob);
+int stat(char *pathname, struct stat *statbuf);
+char *dirname(char *path);
 """)
 
 for path in sys.argv[1:]:

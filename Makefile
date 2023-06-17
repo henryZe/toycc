@@ -45,9 +45,10 @@ output/$(TARGET): $(SRC_OBJFILES)
 output/test/%.o: output/$(TARGET) test/%.c
 	@mkdir -p $(@D)
 	$(CROSS_COMPILE)$(CC) -E -P -C test/$*.c -o output/test/$*.c
-	output/$(TARGET) output/test/$*.c -o output/test/$*.o
+	output/$(TARGET) -c output/test/$*.c -o output/test/$*.o
 
 output/test/%: output/test/%.o
+	# output/$(TARGET) output/test/$*.o test/common -o $@
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ output/test/$*.o -xc test/common
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
@@ -75,7 +76,7 @@ HEADERFILES = \
 bootstrap/src/%.o: output/$(TARGET) self.py $(SRCFILES)
 	@mkdir -p $(@D)
 	python3 self.py $(HEADERFILES) $*.c > bootstrap/src/$*.c
-	output/$(TARGET) bootstrap/src/$*.c -o bootstrap/src/$*.o
+	output/$(TARGET) -c bootstrap/src/$*.c -o bootstrap/src/$*.o
 
 BOOTSTRAP_OBJS := $(patsubst %.c, bootstrap/src/%.o, $(SRCFILES))
 bootstrap_build: $(BOOTSTRAP_OBJS)
