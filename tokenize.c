@@ -28,6 +28,9 @@ bool consume(struct Token **rest, struct Token *tok, const char *str)
 	return false;
 }
 
+// True if the current position is at the beginning of a line
+static bool at_bol;
+
 static struct Token *new_token(enum TokenKind kind,
 				const char *start, const char *end)
 {
@@ -36,6 +39,8 @@ static struct Token *new_token(enum TokenKind kind,
 	tok->kind = kind;
 	tok->loc = start;
 	tok->len = end - start;
+	tok->at_bol = at_bol;
+	at_bol = false;
 	return tok;
 }
 
@@ -416,6 +421,8 @@ static struct Token *tokenize(const char *filename, const char *p)
 	struct Token head;
 	struct Token *cur = &head;
 
+	at_bol = true;
+
 	set_cur_filename(filename);
 	set_cur_input(p);
 
@@ -434,6 +441,13 @@ static struct Token *tokenize(const char *filename, const char *p)
 			if (!q)
 				error_at(p, "unclosed block comment");
 			p = q + 2;
+			continue;
+		}
+
+		// skip newline
+		if (*p == '\n') {
+			p++;
+			at_bol = true;
 			continue;
 		}
 

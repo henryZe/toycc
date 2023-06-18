@@ -82,8 +82,15 @@ output/test/%.o: test/%.c output/$(TARGET)
 	output/$(TARGET) -c output/$< -o $@
 
 output/test/%: output/test/%.o test/common.c
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< -xc test/common.c
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< test/common.c
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
+
+output/test/macro: test/macro.c output/$(TARGET)
+	@mkdir -p $(@D)
+	output/$(TARGET) -c $< -o output/test/macro.o
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static output/test/macro.o test/common.c -o $@
+
+TESTS += output/test/macro
 
 # test with spike
 # test: $(TESTS)
@@ -117,20 +124,21 @@ test_all: bootstrap test
 bootstrap/test/%.c: bootstrap/$(TARGET) test/%.c
 	@mkdir -p $(@D)
 	$(CROSS_COMPILE)$(CC) -E -P -C test/$*.c -o bootstrap/test/$*.c
+	cp test/macro.c bootstrap/test/
 
-BOOTSTRAP_PRE := $(patsubst test/%.c, bootstrap/test/%.c, $(TEST_SRCS))
-BOOTSTRAP_ASM := $(patsubst test/%.c, bootstrap/test/%.s, $(TEST_SRCS))
+BOOTSTRAP_PRE := $(patsubst output/test/%, bootstrap/test/%.c, $(TESTS))
+BOOTSTRAP_ASM := $(patsubst output/test/%, bootstrap/test/%.s, $(TESTS))
 bootstrap/test/%.s: $(BOOTSTRAP_PRE)
 	touch $(BOOTSTRAP_ASM)
 	cp qemu_script/compile_bootstrap/default.sh bootstrap/
 	cp $(TEST_DRV) bootstrap/
 	@sh $(TEST_QEMU) bootstrap
 
-bootstrap/test/%: bootstrap/test/%.s
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ bootstrap/test/$*.s -xc test/common
+bootstrap/test/%: bootstrap/test/%.s test/common.c
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< test/common.c
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
-BOOTSTRAP_TESTS = $(patsubst test/%.c, bootstrap/test/%, $(TEST_SRCS))
+BOOTSTRAP_TESTS = $(patsubst output/test/%, bootstrap/test/%, $(TESTS))
 bootstrap_test: $(BOOTSTRAP_TESTS)
 	cp qemu_script/run_test/default.sh bootstrap/test
 	@sh $(TEST_QEMU) bootstrap/test

@@ -41,6 +41,7 @@ struct Token {
 	struct Type *ty;	// used if TK_NUM or TK_STR
 	const char *str;	// string literal contents including terminating '\0'
 	int line_no;		// line number
+	bool at_bol;		// True if this token is at beginning of line
 };
 
 bool consume(struct Token **rest, struct Token *tok, const char *str);
