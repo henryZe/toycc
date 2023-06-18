@@ -1,18 +1,25 @@
 #include <toycc.h>
 #include <type.h>
 
+// input file
+static struct File *current_file;
+
+// A list of all input files
+static struct File **input_files;
+
 static void __attribute__((noreturn))
 error_at(const char *loc, const char *fmt, ...)
 {
 	// get a line number
 	int line_no = 1;
 
-	for (const char *p = get_cur_input(); p < loc; p++)
+	for (const char *p = current_file->contents; p < loc; p++)
 		if (*p == '\n')
 			line_no++;
 	va_list ap;
 	va_start(ap, fmt);
-	verror_at(line_no, loc, fmt, ap);
+	verror_at(current_file->name, current_file->contents,
+		  line_no, loc, fmt, ap);
 	va_end(ap);
 	exit(1);
 }
@@ -39,6 +46,7 @@ static struct Token *new_token(enum TokenKind kind,
 	tok->kind = kind;
 	tok->loc = start;
 	tok->len = end - start;
+	tok->file = current_file;
 	tok->at_bol = at_bol;
 	at_bol = false;
 	return tok;
@@ -257,7 +265,7 @@ static struct Token *read_string_literal(const char *start)
 // initialize line info for all tokens
 static void add_line_number(struct Token *tok)
 {
-	const char *p = get_cur_input();
+	const char *p = current_file->contents;
 	int n = 1;
 
 	do {
@@ -416,15 +424,14 @@ static struct Token *read_number(const char *start)
 }
 
 // Tokenize a given string and returns new tokens.
-static struct Token *tokenize(const char *filename, const char *p)
+static struct Token *tokenize(struct File *file)
 {
+	const char *p = file->contents;
 	struct Token head;
 	struct Token *cur = &head;
 
+	current_file = file;
 	at_bol = true;
-
-	set_cur_filename(filename);
-	set_cur_input(p);
 
 	while (*p) {
 		// Skip line comments
@@ -520,7 +527,7 @@ static const char *read_file(const char *path)
 	} else {
 		fp = fopen(path, "r");
 		if (!fp)
-			error("cannot open %s: %s", path, strerror(errno));
+			return NULL;
 	}
 
 	// Read the entire file.
@@ -550,7 +557,34 @@ static const char *read_file(const char *path)
 	return buf;
 }
 
+struct File **get_input_files(void)
+{
+	return input_files;
+}
+
+static struct File *new_file(const char *name, int file_no, const char *contents)
+{
+	struct File *file = malloc(sizeof(struct File));
+	file->name = name;
+	file->file_no = file_no;
+	file->contents = contents;
+	return file;
+}
+
 struct Token *tokenize_file(const char *path)
 {
-	return tokenize(path, read_file(path));
+	const char *p = read_file(path);
+	if (!p)
+		return NULL;
+
+	static int file_no;
+	struct File *file = new_file(path, file_no + 1, p);
+
+	// Save the filename for assembler .file directive.
+	input_files = realloc(input_files, sizeof(char *) * (file_no + 2));
+	input_files[file_no] = file;
+	input_files[file_no + 1] = NULL;
+	file_no++;
+
+	return tokenize(file);
 }

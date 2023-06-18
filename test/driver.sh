@@ -1,6 +1,8 @@
 #!/bin/bash
 cc=$1
-exec='/opt/RV64/bin/spike /usr/riscv64-linux-gnu/bin/pk'
+spike='/opt/RV64/bin/spike'
+pk='/usr/riscv64-linux-gnu/bin/pk'
+exec="$spike $pk"
 
 # Create a temporary directory
 tmp=`mktemp -d ./toycc-test-XXXXXX`
@@ -59,16 +61,22 @@ check 'multiple input files: -S'
 # Run linker
 rm -f $tmp/foo
 echo 'int main() { return 0; }' | $cc -o $tmp/foo -
-$exec $tmp/foo
-check linker
+[ -f $spike ]
+if [ $? -eq 0 ]; then
+	$exec $tmp/foo
+	check linker
+fi
 
 rm -f $tmp/foo
 echo 'int bar(); int main() { return bar(); }' > $tmp/foo.c
 echo 'int bar() { return 42; }' > $tmp/bar.c
 $cc -o $tmp/foo $tmp/foo.c $tmp/bar.c
-$exec $tmp/foo
-[ "$?" = 42 ]
-check linker
+[ -f $spike ]
+if [ $? -eq 0 ]; then
+	$exec $tmp/foo
+	[ "$?" = 42 ]
+	check linker
+fi
 
 # a.out
 rm -f $tmp/a.out

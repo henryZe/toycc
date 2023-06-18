@@ -21,6 +21,9 @@
 #define unreachable() \
 	error("internal error at %s:%d", __FILE__, __LINE__)
 
+// main.c
+extern const char *base_file;
+
 // tokenize.c
 enum TokenKind {
 	TK_IDENT,	// Identifiers
@@ -40,12 +43,20 @@ struct Token {
 	size_t len;		// Token length
 	struct Type *ty;	// used if TK_NUM or TK_STR
 	const char *str;	// string literal contents including terminating '\0'
+	struct File *file;	// source location
 	int line_no;		// line number
 	bool at_bol;		// True if this token is at beginning of line
 };
 
+struct File {
+	const char *name;
+	int file_no;
+	const char *contents;
+};
+
 bool consume(struct Token **rest, struct Token *tok, const char *str);
 void convert_keywords(struct Token *tok);
+struct File **get_input_files(void);
 struct Token *tokenize_file(const char *filename);
 
 // type.c
@@ -226,11 +237,9 @@ int align_to(int n, int align);
 
 // utils.c
 bool equal(struct Token *tok, const char *op);
-void set_cur_input(const char *p);
-const char *get_cur_input(void);
-void set_cur_filename(const char *filename);
 void __attribute__((noreturn)) error(const char *fmt, ...);
-void verror_at(int line_no, const char *loc, const char *fmt, va_list ap);
+void verror_at(const char *filename, const char *input, int line_no,
+	       const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
 int llog2(int num);
 

@@ -78,11 +78,12 @@ int execvp(char *file, char **argv);
 void _exit(int code);
 int wait(int *wstatus);
 int atexit(void (*)(void));
+char *dirname(char *path);
+
 int isalpha(int c);
 int glob(char *pattern, int flags, void *errfn, glob_t *pglob);
 void globfree(glob_t *pglob);
 int stat(char *pathname, struct stat *statbuf);
-char *dirname(char *path);
 """)
 
 for path in sys.argv[1:]:

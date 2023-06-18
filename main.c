@@ -11,8 +11,8 @@ static bool opt_cc1;
 static bool opt_hash_hash_hash;
 
 static const char *opt_o;
-static const char *base_file;
 static const char *output_file;
+const char *base_file;
 
 static struct StringArray input_paths;
 static struct StringArray tmpfiles;
@@ -160,13 +160,15 @@ static void cc1(void)
 {
 	// Tokenize and parse
 	struct Token *tok = tokenize_file(base_file);
+	if (!tok)
+		error("%s: %s", base_file, strerror(errno));
+
 	tok = preprocessor(tok);
 
 	struct Obj *prog = parser(tok);
 
+	// Traverse the AST to emit assembly.
 	FILE *out = open_file(output_file);
-	// .file $file-index $file-name
-	fprintf(out, ".file 1 \"%s\"\n", base_file);
 
 	codegen(prog, out);
 	// do not close if stdout

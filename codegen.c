@@ -442,7 +442,8 @@ static void gen_expr(struct Node *node)
 	} u;
 
 	// .loc $file-index $line-number
-	println("\t.loc 1 %d", node->tok->line_no);
+	println("\t.loc %d %d", node->tok->file->file_no,
+				node->tok->line_no);
 
 	switch (node->kind) {
 	case ND_NULL_EXPR:
@@ -789,10 +790,11 @@ static void gen_expr(struct Node *node)
 
 static void gen_stmt(struct Node *node)
 {
-	// .loc $file-index $line-number
-	println("\t.loc 1 %d", node->tok->line_no);
-
 	int c;
+
+	// .loc $file-index $line-number
+	println("\t.loc %d %d", node->tok->file->file_no,
+				node->tok->line_no);
 
 	switch (node->kind) {
 	case ND_IF:
@@ -1097,6 +1099,11 @@ static void emit_text(struct Obj *prog)
 void codegen(struct Obj *prog, FILE *out)
 {
 	output_file = out;
+
+	struct File **files = get_input_files();
+	for (int i = 0; files[i]; i++)
+		println(".file %d \"%s\"",
+			files[i]->file_no, files[i]->name);
 
 	assign_lvar_offsets(prog);
 	emit_data(prog);

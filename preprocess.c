@@ -1,8 +1,36 @@
 #include <toycc.h>
+#include <libgen.h>
 
 static bool is_hash(struct Token *tok)
 {
 	return tok->at_bol && equal(tok, "#");
+}
+
+static struct Token *copy_token(struct Token *tok)
+{
+	struct Token *t = malloc(sizeof(struct Token));
+
+	*t = *tok;
+	t->next = NULL;
+	return t;
+}
+
+// append tok2 to the end of tok1
+static struct Token *append(struct Token *tok1, struct Token *tok2)
+{
+	if (!tok1 || tok1->kind == TK_EOF)
+		return tok2;
+
+	struct Token head = {};
+	struct Token *cur = &head;
+
+	for (; tok1 && tok1->kind != TK_EOF; tok1 = tok1->next) {
+		cur->next = copy_token(tok1);
+		cur = cur->next;
+	}
+
+	cur->next = tok2;
+	return head.next;
 }
 
 // Visit all tokens in `tok` while evaluating
@@ -23,6 +51,22 @@ static struct Token *preprocess(struct Token *tok)
 		}
 
 		tok = tok->next;
+
+		if (equal(tok, "include")) {
+			tok = tok->next;
+
+			if (tok->kind != TK_STR)
+				error_tok(tok, "expected a filename");
+
+			const char *path = format("%s/%s", dirname(strdup(tok->file->name)), tok->str);
+			struct Token *tok2 = tokenize_file(path);
+
+			if (!tok2)
+				error_tok(tok, "%s", strerror(errno));
+
+			tok = append(tok2, tok->next);
+			continue;
+		}
 
 		// `#`-only line is legal. It's called a null directive.
 		if (tok->at_bol)
