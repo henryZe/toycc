@@ -266,7 +266,7 @@ static void add_line_number(struct Token *tok)
 	} while (*p++);
 }
 
-static void convert_keywords(struct Token *tok)
+void convert_keywords(struct Token *tok)
 {
 	for (struct Token *t = tok; t->kind != TK_EOF; t = t->next)
 		if (is_keyword(t))
@@ -492,7 +492,6 @@ static struct Token *tokenize(const char *filename, const char *p)
 	cur->next = new_token(TK_EOF, p, p);
 
 	add_line_number(head.next);
-	convert_keywords(head.next);
 	return head.next;
 }
 

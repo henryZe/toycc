@@ -160,6 +160,8 @@ static void cc1(void)
 {
 	// Tokenize and parse
 	struct Token *tok = tokenize_file(base_file);
+	tok = preprocessor(tok);
+
 	struct Obj *prog = parser(tok);
 
 	FILE *out = open_file(output_file);

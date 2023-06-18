@@ -15,6 +15,7 @@ SRCFILES = \
 	string.c \
 	tokenize.c \
 	type.c \
+	preprocess.c \
 	parser/common.c \
 	parser/initializer.c \
 	parser/declarator.c \
@@ -23,14 +24,46 @@ SRCFILES = \
 	codegen.c \
 	main.c \
 
-SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
+HEADERFILES = \
+	toycc.h \
+	type.h \
+	parser/declarator.h \
+	parser/initializer.h \
+	parser/parser.h \
+	parser/scope.h \
 
-TEST_SRCS = $(wildcard test/*.c)
+TEST_SRCS = \
+	test/alignof.c \
+	test/arith.c \
+	test/cast.c \
+	test/comp_lit.c \
+	test/compat.c \
+	test/const.c \
+	test/constexpr.c \
+	test/control.c \
+	test/decl.c \
+	test/enum.c \
+	test/extern.c \
+	test/float.c \
+	test/function.c \
+	test/initializer.c \
+	test/literal.c \
+	test/pointer.c \
+	test/sizeof.c \
+	test/string.c \
+	test/struct.c \
+	test/typedef.c \
+	test/union.c \
+	test/usualconv.c \
+	test/variable.c \
+
+SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TESTS = $(patsubst test/%.c, output/test/%, $(TEST_SRCS))
 TEST_DRV = test/driver.sh
 TEST_QEMU = qemu_script/qemu.sh
 
-output/%.o: %.c
+output/%.o: %.c $(HEADERFILES)
+	echo $(TESTS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCDIR) -c $< -o $@
 
@@ -39,17 +72,17 @@ output/$(TARGET): $(SRC_OBJFILES)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
 	$(OBJDUMP) -S $@ > $@.asm
 
+# test
 # -E: preprocess C files
 # -xc: compile following files as C language
 # -o-: set output as stdout
-output/test/%.o: output/$(TARGET) test/%.c
+output/test/%.o: test/%.c output/$(TARGET)
 	@mkdir -p $(@D)
-	$(CROSS_COMPILE)$(CC) -E -P -C test/$*.c -o output/test/$*.c
-	output/$(TARGET) -c output/test/$*.c -o output/test/$*.o
+	$(CROSS_COMPILE)$(CC) -E -P -C $< -o output/$<
+	output/$(TARGET) -c output/$< -o $@
 
-output/test/%: output/test/%.o
-	# output/$(TARGET) output/test/$*.o test/common -o $@
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ output/test/$*.o -xc test/common
+output/test/%: output/test/%.o test/common.c
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< -xc test/common.c
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 # test with spike
@@ -64,16 +97,7 @@ test: $(TESTS)
 	@sh $(TEST_QEMU) output/test
 
 # bootstrap
-
-HEADERFILES = \
-	toycc.h \
-	type.h \
-	parser/declarator.h \
-	parser/initializer.h \
-	parser/parser.h \
-	parser/scope.h \
-
-bootstrap/src/%.o: output/$(TARGET) self.py $(SRCFILES)
+bootstrap/src/%.o: output/$(TARGET) self.py $(SRCFILES) $(HEADERFILES)
 	@mkdir -p $(@D)
 	python3 self.py $(HEADERFILES) $*.c > bootstrap/src/$*.c
 	output/$(TARGET) -c bootstrap/src/$*.c -o bootstrap/src/$*.o

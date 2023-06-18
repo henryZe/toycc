@@ -44,6 +44,7 @@ struct Token {
 };
 
 bool consume(struct Token **rest, struct Token *tok, const char *str);
+void convert_keywords(struct Token *tok);
 struct Token *tokenize_file(const char *filename);
 
 // type.c
@@ -68,12 +69,15 @@ enum TypeKind {
 struct Member {
 	struct Member *next;
 	struct Type *ty;
-	// struct Token *tok;	// for error message
+	struct Token *tok;	// for error message
 	struct Token *name;
 	int idx;
 	int align;
 	int offset;
 };
+
+// preprocess.c
+struct Token *preprocessor(struct Token *tok);
 
 // parser.c
 // AST(abstract syntax tree) node type
