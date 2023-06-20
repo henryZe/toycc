@@ -71,7 +71,12 @@ static struct Token *preprocess(struct Token *tok)
 			if (tok->kind != TK_STR)
 				error_tok(tok, "expected a filename");
 
-			const char *path = format("%s/%s", dirname(strdup(tok->file->name)), tok->str);
+			const char *path;
+			if (tok->str[0] == '/')
+				// root directory
+				path = tok->str;
+			else
+				path = format("%s/%s", dirname(strdup(tok->file->name)), tok->str);
 			struct Token *tok2 = tokenize_file(path);
 
 			if (!tok2)

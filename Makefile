@@ -99,22 +99,22 @@ TESTS += output/test/macro
 
 # test with qemu
 test: $(TESTS)
-	@sh $(TEST_DRV) output/$(TARGET)
 	cp qemu_script/run_test/default.sh output/test
 	@sh $(TEST_QEMU) output/test
+	@sh $(TEST_DRV) output/$(TARGET)
 
 # bootstrap
-bootstrap/src/%.o: output/$(TARGET) self.py $(SRCFILES) $(HEADERFILES)
+bootstrap/src/%.s: output/$(TARGET) self.py $(HEADERFILES) %.c
 	@mkdir -p $(@D)
 	python3 self.py $(HEADERFILES) $*.c > bootstrap/src/$*.c
-	output/$(TARGET) -c bootstrap/src/$*.c -o bootstrap/src/$*.o
+	output/$(TARGET) -c -S bootstrap/src/$*.c -o bootstrap/src/$*.s
 
-BOOTSTRAP_OBJS := $(patsubst %.c, bootstrap/src/%.o, $(SRCFILES))
-bootstrap_build: $(BOOTSTRAP_OBJS)
+BOOTSTRAP_SRCASM := $(patsubst %.c, bootstrap/src/%.s, $(SRCFILES))
+bootstrap_build: $(BOOTSTRAP_SRCASM)
 
-bootstrap/$(TARGET): $(BOOTSTRAP_OBJS)
+bootstrap/$(TARGET): $(BOOTSTRAP_SRCASM)
 	@mkdir -p $(@D)
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static $(BOOTSTRAP_OBJS) -o $@
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static $(BOOTSTRAP_SRCASM) -o $@
 
 bootstrap: bootstrap/$(TARGET)
 

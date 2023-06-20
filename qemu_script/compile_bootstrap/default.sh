@@ -2,10 +2,6 @@
 
 cc=./toycc
 
-cd /root
-# sh /tmp/driver.sh /tmp/toycc || exit 1;
-cd -
-
 # generate test/*.s
 for i in `ls test/*.c`;
 do
@@ -14,5 +10,8 @@ do
 	[ -f $asm ] || exit 1;
 	echo $i '=>' $asm;
 done
+
+# cd /root
+# sh /tmp/driver.sh /tmp/toycc || exit 1;
 
 echo OK

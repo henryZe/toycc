@@ -85,4 +85,14 @@ echo 'int main() {}' > $tmp/foo.c
 [ -f $tmp/a.out ]
 check a.out
 
+# -E
+echo foo > $tmp/out
+echo "#include \"$tmp/out\"" | $cc -E - | grep -q foo
+check -E
+
+echo foo > $tmp/out1
+echo "#include \"$tmp/out1\"" | $cc -E -o $tmp/out2 -
+cat $tmp/out2 | grep -q foo
+check '-E and -o'
+
 echo OK

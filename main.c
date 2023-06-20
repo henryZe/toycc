@@ -5,6 +5,7 @@
 #include <libgen.h>
 #include <glob.h>
 
+static bool opt_E;
 static bool opt_S;
 static bool opt_c;
 static bool opt_cc1;
@@ -70,6 +71,11 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-c")) {
 			opt_c = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-E")) {
+			opt_E = true;
 			continue;
 		}
 
@@ -156,6 +162,26 @@ static void run_cc1(int argc, const char **argv,
 	run_subprocess(args);
 }
 
+// Print tokens to stdout. Used for -E.
+static void print_tokens(struct Token *tok)
+{
+	FILE *out = open_file(opt_o ? opt_o : "-");
+
+	bool first_line = true;
+	int len;
+
+	for (; tok->kind != TK_EOF; tok = tok->next) {
+		if (!first_line && tok->at_bol)
+			fprintf(out, "\n");
+
+		first_line = false;
+
+		len = tok->len;
+		fprintf(out, " %.*s", len, tok->loc);
+	}
+	fprintf(out, "\n");
+}
+
 static void cc1(void)
 {
 	// Tokenize and parse
@@ -164,6 +190,12 @@ static void cc1(void)
 		error("%s: %s", base_file, strerror(errno));
 
 	tok = preprocessor(tok);
+
+	// if -E is given, print out preprocessed C code as a result.
+	if (opt_E) {
+		print_tokens(tok);
+		return;
+	}
 
 	struct Obj *prog = parser(tok);
 
@@ -339,8 +371,8 @@ int main(int argc, const char **argv)
 		return 0;
 	}
 
-	if (input_paths.len > 1 && opt_o && (opt_c || opt_S))
-		error("cannot specify '-o' with '-c' or '-S' with multiple files");
+	if (input_paths.len > 1 && opt_o && (opt_c || opt_S || opt_E))
+		error("cannot specify '-o' with '-c', '-S' or '-E' with multiple files");
 
 	for (int i = 0; i < input_paths.len; i++) {
 		input = input_paths.data[i];
@@ -370,7 +402,14 @@ int main(int argc, const char **argv)
 		if (!endswith(input, ".c") && strcmp(input, "-"))
 			error("unknown file extension: %s", input);
 
-		// handle .c
+
+		// just preprocess
+		if (opt_E) {
+			run_cc1(argc, argv, input, NULL);
+			continue;
+		}
+
+		// just compile
 		// if -S is given, assembly text is the final output.
 		if (opt_S) {
 			run_cc1(argc, argv, input, output);
