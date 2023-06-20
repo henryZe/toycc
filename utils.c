@@ -1,5 +1,14 @@
 #include <toycc.h>
 
+void warn_tok(struct Token *tok, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	verror_at(tok->file->name, tok->file->contents,
+		  tok->line_no, tok->loc, fmt, ap);
+	va_end(ap);
+}
+
 bool equal(struct Token *tok, const char *op)
 {
 	return !memcmp(tok->loc, op, tok->len) && !op[tok->len];

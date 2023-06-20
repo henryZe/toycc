@@ -16,6 +16,7 @@ struct Node *new_cast(struct Node *expr, struct Type *ty)
 	n->lhs = expr;
 	// explicit conversion of type
 	n->ty = copy_type(ty);
+	n->next = NULL;
 	return n;
 }
 

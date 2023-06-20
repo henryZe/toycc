@@ -6,6 +6,19 @@ static bool is_hash(struct Token *tok)
 	return tok->at_bol && equal(tok, "#");
 }
 
+// Some preprocessor directives such as #include allow extraneous
+// tokens before newline. This function skips such tokens.
+static struct Token *skip_token(struct Token *tok)
+{
+	if (tok->at_bol)
+		return tok;
+
+	warn_tok(tok, "extra token");
+	while (tok->at_bol)
+		tok = tok->next;
+	return tok;
+}
+
 static struct Token *copy_token(struct Token *tok)
 {
 	struct Token *t = malloc(sizeof(struct Token));
@@ -64,7 +77,9 @@ static struct Token *preprocess(struct Token *tok)
 			if (!tok2)
 				error_tok(tok, "%s", strerror(errno));
 
-			tok = append(tok2, tok->next);
+			tok = skip_token(tok->next);
+			// append header file
+			tok = append(tok2, tok);
 			continue;
 		}
 

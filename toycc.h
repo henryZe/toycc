@@ -241,6 +241,7 @@ void __attribute__((noreturn)) error(const char *fmt, ...);
 void verror_at(const char *filename, const char *input, int line_no,
 	       const char *loc, const char *fmt, va_list ap);
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
+void warn_tok(struct Token *tok, const char *fmt, ...);
 int llog2(int num);
 
 // string.c

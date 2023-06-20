@@ -125,6 +125,7 @@ bootstrap/test/%.c: bootstrap/$(TARGET) test/%.c
 	@mkdir -p $(@D)
 	$(CROSS_COMPILE)$(CC) -E -P -C test/$*.c -o bootstrap/test/$*.c
 	cp test/macro.c bootstrap/test/
+	cp test/include*.h bootstrap/test/
 
 BOOTSTRAP_PRE := $(patsubst output/test/%, bootstrap/test/%.c, $(TESTS))
 BOOTSTRAP_ASM := $(patsubst output/test/%, bootstrap/test/%.s, $(TESTS))
