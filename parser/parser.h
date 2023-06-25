@@ -32,7 +32,6 @@ struct VarScope *find_var(struct Token *tok);
 
 struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok);
 
-int64_t const_expr(struct Token **rest, struct Token *tok);
 struct Node *assign(struct Token **rest, struct Token *tok);
 const char *get_ident(struct Token *tok);
 

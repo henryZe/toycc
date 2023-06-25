@@ -229,6 +229,7 @@ struct Obj {
 };
 
 struct Node *new_cast(struct Node *expr, struct Type *ty);
+int64_t const_expr(struct Token **rest, struct Token *tok);
 struct Obj *parser(struct Token *tok);
 
 // codegen.c

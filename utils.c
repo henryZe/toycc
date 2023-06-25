@@ -41,7 +41,7 @@ void verror_at(const char *filename, const char *input, int line_no,
 
 	const char *end = loc;
 	// find ending of the line
-	while (*end != '\n')
+	while (*end && *end != '\n')
 		end++;
 
 	// print out the line
