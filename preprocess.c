@@ -110,12 +110,19 @@ static struct CondIncl *push_cond_incl(struct Token *tok)
 }
 
 // Skip until next `#endif`.
+// Nested #if and #endif are skipped.
 static struct Token *skip_cond_incl(struct Token *tok)
 {
 	while (tok->kind != TK_EOF) {
+		if (is_hash(tok) && equal(tok->next, "if")) {
+			tok = skip_cond_incl(tok->next->next);
+			tok = tok->next;
+			continue;
+		}
+
 		// end with #endif
 		if (is_hash(tok) && equal(tok->next, "endif"))
-			return tok;
+			break;
 
 		tok = tok->next;
 	}
@@ -178,6 +185,7 @@ static struct Token *preprocess(struct Token *tok)
 			if (!cond_incl)
 				error_tok(start, "stray #endif");
 
+			// pop
 			cond_incl = cond_incl->next;
 			tok = skip_line(tok->next);
 			continue;
