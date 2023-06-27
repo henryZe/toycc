@@ -9,14 +9,13 @@ struct Node *new_cast(struct Node *expr, struct Type *ty)
 {
 	add_type(expr);
 
-	struct Node *n = malloc(sizeof(struct Node));
+	struct Node *n = calloc(1, sizeof(struct Node));
 
 	n->kind = ND_CAST;
 	n->tok = expr->tok;
 	n->lhs = expr;
 	// explicit conversion of type
 	n->ty = copy_type(ty);
-	n->next = NULL;
 	return n;
 }
 
@@ -37,13 +36,15 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 				tok = skip(tok, ",");
 			first = false;
 
-			struct Member *mem = malloc(sizeof(struct Member));
+			struct Member *mem = calloc(1, sizeof(struct Member));
+
 			mem->ty = declarator(&tok, tok, basety);
 			mem->name = mem->ty->name;
 			mem->idx = idx++;
 			// if _Alignas set, refer to attr.align,
 			// otherwise refer to ty->align.
 			mem->align = attr.align ? attr.align : mem->ty->align;
+
 			cur->next = mem;
 			cur = cur->next;
 		}

@@ -245,8 +245,8 @@ double eval_double(struct Node *node)
 
 struct Node *new_node(enum NodeKind kind, struct Token *tok)
 {
-	struct Node *node = malloc(sizeof(struct Node));
-	memset(node, 0, sizeof(struct Node));
+	struct Node *node = calloc(1, sizeof(struct Node));
+
 	node->kind = kind;
 	node->tok = tok;
 	return node;

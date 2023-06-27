@@ -4,7 +4,7 @@
 
 static struct Initializer *new_initializer(struct Type *ty, bool is_flexible)
 {
-	struct Initializer *init = malloc(sizeof(struct Initializer));
+	struct Initializer *init = calloc(1, sizeof(struct Initializer));
 
 	init->ty = ty;
 	if (ty->kind == TY_ARRAY) {
@@ -30,7 +30,7 @@ static struct Initializer *new_initializer(struct Type *ty, bool is_flexible)
 
 		for (struct Member *mem = start; mem; mem = mem->next) {
 			if (is_flexible && ty->is_flexible && !mem->next) {
-				struct Initializer *child = malloc(sizeof(struct Initializer));
+				struct Initializer *child = calloc(1, sizeof(struct Initializer));
 
 				child->ty = mem->ty;
 				child->is_flexible = true;
@@ -257,8 +257,8 @@ static struct Type *copy_struct_type(struct Type *ty)
 
 	for (struct Member *mem = ty->members; mem; mem = mem->next) {
 		struct Member *m = malloc(sizeof(struct Member));
-
 		*m = *mem;
+
 		cur->next = m;
 		cur = cur->next;
 	}
@@ -443,11 +443,11 @@ static struct Relocation *write_gvar_data(struct Relocation *cur,
 		return cur;
 	}
 
-	struct Relocation *rel = malloc(sizeof(struct Relocation));
-	rel->next = NULL;
+	struct Relocation *rel = calloc(1, sizeof(struct Relocation));
 	rel->offset = offset;
 	rel->label = label;
 	rel->addend = val;
+
 	cur->next = rel;
 	return rel;
 }

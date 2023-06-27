@@ -29,8 +29,8 @@ static struct Scope *scope = &(struct Scope){};
 
 void enter_scope(void)
 {
-	struct Scope *sc = malloc(sizeof(struct Scope));
-	sc->vars = NULL;
+	struct Scope *sc = calloc(1, sizeof(struct Scope));
+
 	sc->next = scope;
 	scope = sc;
 }
@@ -72,18 +72,22 @@ struct Type *overwrite_tag(struct Token *tag, struct Type *ty)
 
 void push_tag_scope(struct Token *tok, struct Type *ty)
 {
-	struct TagScope *sc = malloc(sizeof(struct TagScope));
+	struct TagScope *sc = calloc(1, sizeof(struct TagScope));
+
 	sc->name = strndup(tok->loc, tok->len);
 	sc->ty = ty;
 	sc->next = scope->tags;
+
 	scope->tags = sc;
 }
 
 struct VarScope *push_scope(const char *name)
 {
-	struct VarScope *sc = malloc(sizeof(struct VarScope));
+	struct VarScope *sc = calloc(1, sizeof(struct VarScope));
+
 	sc->name = name;
 	sc->next = scope->vars;
+
 	scope->vars = sc;
 	return sc;
 }
@@ -91,12 +95,12 @@ struct VarScope *push_scope(const char *name)
 // create variable and link to `locals` list
 static struct Obj *new_var(const char *name, struct Type *ty)
 {
-	struct Obj *var = malloc(sizeof(struct Obj));
+	struct Obj *var = calloc(1, sizeof(struct Obj));
+
 	var->name = name;
 	var->ty = ty;
-	var->offset = 0;
 	var->align = ty->align;
-	var->next = NULL;
+
 	push_scope(name)->var = var;
 	return var;
 }

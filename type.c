@@ -130,7 +130,7 @@ struct Type *p_ty_double(void)
 
 static struct Type *new_type(enum TypeKind kind, int size, int align)
 {
-	struct Type *ty = malloc(sizeof(struct Type));
+	struct Type *ty = calloc(1, sizeof(struct Type));
 	ty->kind = kind;
 	ty->size = size;
 	ty->align = align;
@@ -174,7 +174,8 @@ struct Type *pointer_to(struct Type *base)
 
 struct Type *func_type(struct Type *return_ty)
 {
-	struct Type *ty = malloc(sizeof(struct Type));
+	struct Type *ty = calloc(1, sizeof(struct Type));
+
 	ty->kind = TY_FUNC;
 	ty->return_ty = return_ty;
 	return ty;

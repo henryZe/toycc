@@ -1,3 +1,26 @@
+// This file implements the C preprocessor.
+//
+// The preprocessor takes a list of tokens as an input and returns a
+// new list of tokens as an output.
+//
+// The preprocessing language is designed in such a way that that's
+// guaranteed to stop even if there is a recursive macro.
+// Informally speaking, a macro is applied only once for each token.
+// That is, if a macro token T appears in a result of direct or
+// indirect macro expansion of T, T won't be expanded any further.
+// For example, if T is defined as U, and U is defined as T, then
+// token T is expanded to U and then to T and the macro expansion
+// stops at that point.
+//
+// To achieve the above behavior, we attach for each token a set of
+// macro names from which the token is expanded. The set is called
+// "hideset". Hideset is initially empty, and every time we expand a
+// macro, the macro name is added to the resulting tokens' hidesets.
+//
+// The above macro expansion algorithm is explained in this document,
+// which is used as a basis for the standard's wording:
+// https://github.com/rui314/chibicc/wiki/cpp.algo.pdf
+
 #include <toycc.h>
 #include <libgen.h>
 
@@ -5,7 +28,7 @@ struct Macro {
 	struct Macro *next;
 	const char *name;
 	struct Token *body;
-	bool deleted;
+	bool deleted;		// used for #undef
 };
 
 struct CondIncl {
@@ -113,7 +136,7 @@ static long eval_const_expr(struct Token **rest, struct Token *tok)
 
 static struct CondIncl *push_cond_incl(struct Token *tok, bool included)
 {
-	struct CondIncl *ci = malloc(sizeof(struct CondIncl));
+	struct CondIncl *ci = calloc(1, sizeof(struct CondIncl));
 
 	ci->next = cond_incl;
 	ci->ctx = IN_THEN;
@@ -175,25 +198,86 @@ static struct Macro *find_macro(struct Token *tok)
 	return NULL;
 }
 
+static struct Hideset *new_hideset(const char *name)
+{
+	struct Hideset *hs = calloc(1, sizeof(struct Hideset));
+
+	hs->next = NULL;
+	hs->name = name;
+	return hs;
+}
+
+// union hs2 to the end of hs1
+static struct Hideset *hideset_union(struct Hideset *hs1,
+				     struct Hideset *hs2)
+{
+	struct Hideset head = {};
+	struct Hideset *cur = &head;
+
+	for (; hs1; hs1 = hs1->next) {
+		cur->next = new_hideset(hs1->name);
+		cur = cur->next;
+	}
+	cur->next = hs2;
+
+	return head.next;
+}
+
+static bool hideset_contains(struct Hideset *hs, const char *s, size_t len)
+{
+	for (; hs; hs = hs->next)
+		if (strlen(hs->name) == len && !strncmp(hs->name, s, len))
+			return true;
+
+	return false;
+}
+
+static struct Token *add_hideset(struct Token *tok, struct Hideset *hs)
+{
+	struct Token head = {};
+	struct Token *cur = &head;
+
+	for (; tok; tok = tok->next) {
+		struct Token *t = copy_token(tok);
+		t->hideset = hideset_union(t->hideset, hs);
+
+		cur->next = t;
+		cur = cur->next;
+	}
+
+	return head.next;
+}
+
 // If tok is a macro, expand it and return true.
 // Otherwise, do nothing and return false.
 static bool expand_macro(struct Token **rest, struct Token *tok)
 {
+	// If tok has already been in the tok's hideset,
+	// that means it has already been expanded before.
+	if (hideset_contains(tok->hideset, tok->loc, tok->len))
+		return false;
+
+	// search the token in the macro list
 	struct Macro *m = find_macro(tok);
 	if (!m)
 		return false;
 
-	*rest = append(m->body, tok->next);
+	// add macro to the tok's hideset
+	struct Hideset *hs = hideset_union(tok->hideset, new_hideset(m->name));
+	struct Token *body = add_hideset(m->body, hs);
+
+	*rest = append(body, tok->next);
 	return true;
 }
 
 static struct Macro *add_macro(const char *name, struct Token *body)
 {
-	struct Macro *m = malloc(sizeof(struct Macro));
+	struct Macro *m = calloc(1, sizeof(struct Macro));
 
 	m->next = macros;
 	m->name = name;
 	m->body = body;
+	m->deleted = false;
 
 	macros = m;
 	return m;

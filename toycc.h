@@ -34,6 +34,11 @@ enum TokenKind {
 	TK_EOF,		// End-of-file markers
 };
 
+struct Hideset {
+	struct Hideset *next;
+	const char *name;
+};
+
 struct Token {
 	enum TokenKind kind;	// Token kind
 	struct Token *next;	// next token
@@ -46,6 +51,7 @@ struct Token {
 	struct File *file;	// source location
 	int line_no;		// line number
 	bool at_bol;		// True if this token is at beginning of line
+	struct Hideset *hideset;// for macro expansion
 };
 
 struct File {

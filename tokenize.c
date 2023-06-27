@@ -41,7 +41,7 @@ static bool at_bol;
 static struct Token *new_token(enum TokenKind kind,
 				const char *start, const char *end)
 {
-	struct Token *tok = malloc(sizeof(struct Token));
+	struct Token *tok = calloc(1, sizeof(struct Token));
 
 	tok->kind = kind;
 	tok->loc = start;
@@ -564,7 +564,8 @@ struct File **get_input_files(void)
 
 static struct File *new_file(const char *name, int file_no, const char *contents)
 {
-	struct File *file = malloc(sizeof(struct File));
+	struct File *file = calloc(1, sizeof(struct File));
+
 	file->name = name;
 	file->file_no = file_no;
 	file->contents = contents;
