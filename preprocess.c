@@ -1,6 +1,12 @@
 #include <toycc.h>
 #include <libgen.h>
 
+struct Macro {
+	struct Macro *next;
+	const char *name;
+	struct Token *body;
+};
+
 struct CondIncl {
 	struct CondIncl *next;
 	enum { IN_THEN, IN_ELIF, IN_ELSE } ctx;
@@ -8,6 +14,7 @@ struct CondIncl {
 	bool included;
 };
 
+static struct Macro *macros;
 static struct CondIncl *cond_incl;
 
 static bool is_hash(struct Token *tok)
@@ -40,13 +47,13 @@ static struct Token *copy_token(struct Token *tok)
 // append tok2 to the end of tok1
 static struct Token *append(struct Token *tok1, struct Token *tok2)
 {
-	if (!tok1 || tok1->kind == TK_EOF)
+	if (tok1->kind == TK_EOF)
 		return tok2;
 
 	struct Token head = {};
 	struct Token *cur = &head;
 
-	for (; tok1 && tok1->kind != TK_EOF; tok1 = tok1->next) {
+	for (; tok1->kind != TK_EOF; tok1 = tok1->next) {
 		cur->next = copy_token(tok1);
 		cur = cur->next;
 	}
@@ -151,6 +158,43 @@ static struct Token *skip_cond_incl(struct Token *tok)
 	return tok;
 }
 
+static struct Macro *find_macro(struct Token *tok)
+{
+	if (tok->kind != TK_IDENT)
+		return NULL;
+
+	for (struct Macro *m = macros; m; m = m->next)
+		if (strlen(m->name) == tok->len &&
+		   !strncmp(m->name, tok->loc, tok->len))
+			return m;
+
+	return NULL;
+}
+
+// If tok is a macro, expand it and return true.
+// Otherwise, do nothing and return false.
+static bool expand_macro(struct Token **rest, struct Token *tok)
+{
+	struct Macro *m = find_macro(tok);
+	if (!m)
+		return false;
+
+	*rest = append(m->body, tok->next);
+	return true;
+}
+
+static struct Macro *add_macro(const char *name, struct Token *body)
+{
+	struct Macro *m = malloc(sizeof(struct Macro));
+
+	m->next = macros;
+	m->name = name;
+	m->body = body;
+
+	macros = m;
+	return m;
+}
+
 // Visit all tokens in `tok` while evaluating
 // preprocessing macros and directives.
 static struct Token *preprocess(struct Token *tok)
@@ -159,6 +203,10 @@ static struct Token *preprocess(struct Token *tok)
 	struct Token *cur = &head;
 
 	while (tok->kind != TK_EOF) {
+		// If it is a macro, expand it.
+		if (expand_macro(&tok, tok))
+			continue;
+
 		// Pass through if it is not a "#".
 		if (!is_hash(tok)) {
 			cur->next = tok;
@@ -191,6 +239,16 @@ static struct Token *preprocess(struct Token *tok)
 			tok = skip_line(tok->next);
 			// append header file
 			tok = append(tok2, tok);
+			continue;
+		}
+
+		if (equal(tok, "define")) {
+			tok = tok->next;
+			if (tok->kind != TK_IDENT)
+				error_tok(tok, "macro name must be an identifier");
+
+			const char *name = strndup(tok->loc, tok->len);
+			add_macro(name, copy_line(&tok, tok->next));
 			continue;
 		}
 
