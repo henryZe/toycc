@@ -3,7 +3,9 @@
 
 struct CondIncl {
 	struct CondIncl *next;
+	enum { IN_THEN, IN_ELSE } ctx;
 	struct Token *tok;
+	bool included;
 };
 
 static struct CondIncl *cond_incl;
@@ -98,30 +100,48 @@ static long eval_const_expr(struct Token **rest, struct Token *tok)
 	return val;
 }
 
-static struct CondIncl *push_cond_incl(struct Token *tok)
+static struct CondIncl *push_cond_incl(struct Token *tok, bool included)
 {
 	struct CondIncl *ci = malloc(sizeof(struct CondIncl));
 
 	ci->next = cond_incl;
+	ci->ctx = IN_THEN;
 	ci->tok = tok;
+	ci->included = included;
 
 	cond_incl = ci;
 	return ci;
 }
 
-// Skip until next `#endif`.
+static struct Token *skip_cond_incl2(struct Token *tok)
+{
+	while (tok->kind != TK_EOF) {
+		if (is_hash(tok) && equal(tok->next, "if")) {
+			tok = skip_cond_incl2(tok->next->next);
+			continue;
+		}
+
+		if (is_hash(tok) && equal(tok->next, "endif"))
+			return tok->next->next;
+
+		tok = tok->next;
+	}
+	return tok;
+}
+
+// Skip until next `#else` or `#endif`.
 // Nested #if and #endif are skipped.
 static struct Token *skip_cond_incl(struct Token *tok)
 {
 	while (tok->kind != TK_EOF) {
 		if (is_hash(tok) && equal(tok->next, "if")) {
-			tok = skip_cond_incl(tok->next->next);
-			tok = tok->next;
+			tok = skip_cond_incl2(tok->next->next);
 			continue;
 		}
 
-		// end with #endif
-		if (is_hash(tok) && equal(tok->next, "endif"))
+		// end with #else or #endif
+		if (is_hash(tok) &&
+		   (equal(tok->next, "else") || equal(tok->next, "endif")))
 			break;
 
 		tok = tok->next;
@@ -175,9 +195,22 @@ static struct Token *preprocess(struct Token *tok)
 		if (equal(tok, "if")) {
 			long val = eval_const_expr(&tok, tok);
 
-			push_cond_incl(start);
+			push_cond_incl(start, val);
 			if (!val)
 				tok = skip_cond_incl(tok);
+			continue;
+		}
+
+		if (equal(tok, "else")) {
+			if (!cond_incl || cond_incl->ctx == IN_ELSE)
+				error_tok(start, "stray #else");
+
+			cond_incl->ctx = IN_ELSE;
+			tok = skip_line(tok->next);
+
+			if (cond_incl->included)
+				tok = skip_cond_incl(tok);
+
 			continue;
 		}
 
