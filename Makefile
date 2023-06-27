@@ -83,12 +83,13 @@ output/test/%.o: test/%.c output/$(TARGET)
 
 output/test/%: output/test/%.o test/common.c
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< test/common.c
-	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
+	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 output/test/macro: test/macro.c output/$(TARGET)
 	@mkdir -p $(@D)
-	output/$(TARGET) -c $< -o output/test/macro.o
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static output/test/macro.o test/common.c -o $@
+	output/$(TARGET) -c $< -o $@.o
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.o test/common.c -o $@
+	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 TESTS += output/test/macro
 

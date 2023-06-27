@@ -5,6 +5,7 @@ struct Macro {
 	struct Macro *next;
 	const char *name;
 	struct Token *body;
+	bool deleted;
 };
 
 struct CondIncl {
@@ -166,7 +167,7 @@ static struct Macro *find_macro(struct Token *tok)
 	for (struct Macro *m = macros; m; m = m->next)
 		if (strlen(m->name) == tok->len &&
 		   !strncmp(m->name, tok->loc, tok->len))
-			return m;
+			return m->deleted ? NULL : m;
 
 	return NULL;
 }
@@ -249,6 +250,19 @@ static struct Token *preprocess(struct Token *tok)
 
 			const char *name = strndup(tok->loc, tok->len);
 			add_macro(name, copy_line(&tok, tok->next));
+			continue;
+		}
+
+		if (equal(tok, "undef")) {
+			tok = tok->next;
+			if (tok->kind != TK_IDENT)
+				error_tok(tok, "macro name must be an identifier");
+
+			const char *name = strndup(tok->loc, tok->len);
+			tok = skip_line(tok->next);
+
+			struct Macro *m = add_macro(name, NULL);
+			m->deleted = true;
 			continue;
 		}
 
