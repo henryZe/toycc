@@ -90,11 +90,14 @@ static struct Token *copy_line(struct Token **rest, struct Token *tok)
 	return head.next;
 }
 
+static struct Token *preprocess(struct Token *tok);
 // Read and evaluate a constant expression.
 static long eval_const_expr(struct Token **rest, struct Token *tok)
 {
 	struct Token *start = tok;
 	struct Token *expr = copy_line(rest, tok->next);
+
+	expr = preprocess(expr);
 
 	if (expr->kind == TK_EOF)
 		error_tok(start, "no expression");
