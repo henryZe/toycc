@@ -138,7 +138,7 @@ bootstrap/test/%.s: $(BOOTSTRAP_PRE)
 
 bootstrap/test/%: bootstrap/test/%.s test/common.c
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< test/common.c
-	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
+	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 BOOTSTRAP_TESTS = $(patsubst output/test/%, bootstrap/test/%, $(TESTS))
 bootstrap_test: $(BOOTSTRAP_TESTS)

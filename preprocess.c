@@ -168,7 +168,10 @@ static struct Token *skip_cond_incl2(struct Token *tok)
 static struct Token *skip_cond_incl(struct Token *tok)
 {
 	while (tok->kind != TK_EOF) {
-		if (is_hash(tok) && equal(tok->next, "if")) {
+		if (is_hash(tok) &&
+		   (equal(tok->next, "if") ||
+		    equal(tok->next, "ifdef") ||
+		    equal(tok->next, "ifndef"))) {
 			tok = skip_cond_incl2(tok->next->next);
 			continue;
 		}
@@ -358,6 +361,28 @@ static struct Token *preprocess(struct Token *tok)
 
 			push_cond_incl(start, val);
 			if (!val)
+				tok = skip_cond_incl(tok);
+			continue;
+		}
+
+		if (equal(tok, "ifdef")) {
+			bool defined = find_macro(tok->next);
+
+			push_cond_incl(tok, defined);
+			tok = skip_line(tok->next->next);
+
+			if (!defined)
+				tok = skip_cond_incl(tok);
+			continue;
+		}
+
+		if (equal(tok, "ifndef")) {
+			bool defined = find_macro(tok->next);
+
+			push_cond_incl(tok, !defined);
+			tok = skip_line(tok->next->next);
+
+			if (defined)
 				tok = skip_cond_incl(tok);
 			continue;
 		}
