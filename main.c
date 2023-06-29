@@ -166,18 +166,17 @@ static void run_cc1(int argc, const char **argv,
 static void print_tokens(struct Token *tok)
 {
 	FILE *out = open_file(opt_o ? opt_o : "-");
-
 	bool first_line = true;
-	int len;
 
 	for (; tok->kind != TK_EOF; tok = tok->next) {
 		if (!first_line && tok->at_bol)
 			fprintf(out, "\n");
 
-		first_line = false;
+		if (tok->has_space && !tok->at_bol)
+			fprintf(out, " ");
+		fprintf(out, "%.*s", (int)tok->len, tok->loc);
 
-		len = tok->len;
-		fprintf(out, " %.*s", len, tok->loc);
+		first_line = false;
 	}
 	fprintf(out, "\n");
 }

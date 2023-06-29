@@ -4,7 +4,6 @@
 #include <toycc.h>
 
 // common
-struct Token *skip(struct Token *tok, const char *s);
 bool consume_end(struct Token **rest, struct Token *tok);
 
 int64_t eval(struct Node *node);

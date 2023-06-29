@@ -7,6 +7,9 @@ static struct File *current_file;
 // A list of all input files
 static struct File **input_files;
 
+// True if the current position follows a space character
+static bool has_space;
+
 static void __attribute__((noreturn))
 error_at(const char *loc, const char *fmt, ...)
 {
@@ -48,7 +51,11 @@ static struct Token *new_token(enum TokenKind kind,
 	tok->len = end - start;
 	tok->file = current_file;
 	tok->at_bol = at_bol;
+	tok->has_space = has_space;
+
 	at_bol = false;
+	has_space = false;
+
 	return tok;
 }
 
@@ -432,6 +439,7 @@ static struct Token *tokenize(struct File *file)
 
 	current_file = file;
 	at_bol = true;
+	has_space = false;
 
 	while (*p) {
 		// Skip line comments
@@ -439,6 +447,8 @@ static struct Token *tokenize(struct File *file)
 			p += 2;
 			while (*p != '\n')
 				p++;
+
+			has_space = true;
 			continue;
 		}
 
@@ -448,6 +458,7 @@ static struct Token *tokenize(struct File *file)
 			if (!q)
 				error_at(p, "unclosed block comment");
 			p = q + 2;
+			has_space = true;
 			continue;
 		}
 
@@ -455,12 +466,14 @@ static struct Token *tokenize(struct File *file)
 		if (*p == '\n') {
 			p++;
 			at_bol = true;
+			has_space = false;
 			continue;
 		}
 
 		// Skip whitespace characters
 		if (isspace(*p)) {
 			p++;
+			has_space = true;
 			continue;
 		}
 

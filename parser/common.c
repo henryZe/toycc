@@ -1,13 +1,6 @@
 #include <parser.h>
 #include <type.h>
 
-struct Token *skip(struct Token *tok, const char *s)
-{
-	if (!equal(tok, s))
-		error_tok(tok, "expected '%s'", s);
-	return tok->next;
-}
-
 bool consume_end(struct Token **rest, struct Token *tok)
 {
 	if (equal(tok, "}")) {

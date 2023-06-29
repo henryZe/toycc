@@ -27,6 +27,7 @@
 struct Macro {
 	struct Macro *next;
 	const char *name;
+	bool is_objlike;	// object-like or function-like
 	struct Token *body;
 	bool deleted;		// used for #undef
 };
@@ -265,25 +266,59 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 	if (!m)
 		return false;
 
-	// add macro to the tok's hideset
-	struct Hideset *hs = hideset_union(tok->hideset, new_hideset(m->name));
-	struct Token *body = add_hideset(m->body, hs);
+	// Object-like macro application
+	if (m->is_objlike) {
+		// add macro to the tok's hideset
+		struct Hideset *hs = hideset_union(tok->hideset, new_hideset(m->name));
+		struct Token *body = add_hideset(m->body, hs);
 
-	*rest = append(body, tok->next);
+		*rest = append(body, tok->next);
+		return true;
+	}
+
+	// If a func-like macro token is not followed by an argument list,
+	// treat is as a normal identifier.
+	if (!equal(tok->next, "("))
+		return false;
+
+	// Function-like macro application
+	tok = skip(tok->next->next, ")");
+	*rest = append(m->body, tok);
 	return true;
 }
 
-static struct Macro *add_macro(const char *name, struct Token *body)
+static struct Macro *add_macro(const char *name, bool is_objlike,
+			       struct Token *body)
 {
 	struct Macro *m = calloc(1, sizeof(struct Macro));
 
 	m->next = macros;
 	m->name = name;
+	m->is_objlike = is_objlike;
 	m->body = body;
 	m->deleted = false;
 
 	macros = m;
 	return m;
+}
+
+static void read_macro_definition(struct Token **rest, struct Token *tok)
+{
+	if (tok->kind != TK_IDENT)
+		error_tok(tok, "macro name must be an identifier");
+
+	const char *name = strndup(tok->loc, tok->len);
+	tok = tok->next;
+
+	if (!tok->has_space && equal(tok, "(")) {
+		// function-like macro
+		tok = skip(tok->next, ")");
+		add_macro(name, false, copy_line(rest, tok));
+
+	} else {
+		// object-like macro
+		add_macro(name, true, copy_line(rest, tok));
+	}
 }
 
 // Visit all tokens in `tok` while evaluating
@@ -334,12 +369,7 @@ static struct Token *preprocess(struct Token *tok)
 		}
 
 		if (equal(tok, "define")) {
-			tok = tok->next;
-			if (tok->kind != TK_IDENT)
-				error_tok(tok, "macro name must be an identifier");
-
-			const char *name = strndup(tok->loc, tok->len);
-			add_macro(name, copy_line(&tok, tok->next));
+			read_macro_definition(&tok, tok->next);
 			continue;
 		}
 
@@ -351,7 +381,7 @@ static struct Token *preprocess(struct Token *tok)
 			const char *name = strndup(tok->loc, tok->len);
 			tok = skip_line(tok->next);
 
-			struct Macro *m = add_macro(name, NULL);
+			struct Macro *m = add_macro(name, true, NULL);
 			m->deleted = true;
 			continue;
 		}

@@ -72,15 +72,20 @@ error_tok(struct Token *tok, const char *fmt, ...)
 
 int llog2(int num)
 {
-	int n = num;
 	int ret = 0;
 
-	while (n > 1) {
-		if (n % 2)
+	for (int n = num; n > 1; n >>= 1) {
+		if (n & 1)
 			error("wrong input value %d", num);
-		n /= 2;
 		ret++;
 	}
 
 	return ret;
+}
+
+struct Token *skip(struct Token *tok, const char *s)
+{
+	if (!equal(tok, s))
+		error_tok(tok, "expected '%s'", s);
+	return tok->next;
 }

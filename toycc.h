@@ -51,6 +51,7 @@ struct Token {
 	struct File *file;	// source location
 	int line_no;		// line number
 	bool at_bol;		// True if this token is at beginning of line
+	bool has_space;		// True if this token follows a space character
 	struct Hideset *hideset;// for macro expansion
 };
 
@@ -244,6 +245,7 @@ int align_to(int n, int align);
 
 // utils.c
 bool equal(struct Token *tok, const char *op);
+struct Token *skip(struct Token *tok, const char *s);
 void __attribute__((noreturn)) error(const char *fmt, ...);
 void verror_at(const char *filename, const char *input, int line_no,
 	       const char *loc, const char *fmt, va_list ap);
