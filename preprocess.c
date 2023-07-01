@@ -24,12 +24,26 @@
 #include <toycc.h>
 #include <libgen.h>
 
+// formal parameter
+struct MacroParam {
+	struct MacroParam *next;
+	const char *name;
+};
+
+// actual parameter
+struct MacroArg {
+	struct MacroArg *next;
+	const char *name;
+	struct Token *tok;
+};
+
 struct Macro {
 	struct Macro *next;
 	const char *name;
-	bool is_objlike;	// object-like or function-like
+	bool is_objlike;		// object-like or function-like
+	struct MacroParam *params;
 	struct Token *body;
-	bool deleted;		// used for #undef
+	bool deleted;			// used for #undef
 };
 
 struct CondIncl {
@@ -252,6 +266,107 @@ static struct Token *add_hideset(struct Token *tok, struct Hideset *hs)
 	return head.next;
 }
 
+static struct MacroArg *read_macro_arg_one(struct Token **rest, struct Token *tok)
+{
+	struct Token head = {};
+	struct Token *cur = &head;
+
+	while (!equal(tok, ",") && !equal(tok, ")")) {
+		if (tok->kind == TK_EOF)
+			error_tok(tok, "premature end of input");
+
+		cur->next = copy_token(tok);
+		cur = cur->next;
+
+		tok = tok->next;
+	}
+
+	cur->next = new_eof(tok);
+
+	struct MacroArg *arg = calloc(1, sizeof(struct MacroArg));
+	arg->tok = head.next;
+
+	*rest = tok;
+	return arg;
+}
+
+static struct MacroArg *read_macro_args(struct Token **rest, struct Token *tok,
+					struct MacroParam *params)
+{
+	// the macro self
+	struct Token *start = tok;
+	// skip '('
+	tok = tok->next->next;
+
+	struct MacroArg head = {};
+	struct MacroArg *cur = &head;
+
+	struct MacroParam *pp;
+
+	for (pp = params; pp; pp = pp->next) {
+		if (cur != &head)
+			tok = skip(tok, ",");
+
+		cur->next = read_macro_arg_one(&tok, tok);
+		cur = cur->next;
+		// arg->name points to param->name
+		cur->name = pp->name;
+	}
+
+	if (pp)
+		error_tok(start, "too many arguments");
+
+	*rest = skip(tok, ")");
+	return head.next;
+}
+
+static struct MacroArg *find_arg(struct MacroArg *args, struct Token *tok)
+{
+	for (struct MacroArg *ap = args; ap; ap = ap->next)
+		if (tok->len == strlen(ap->name) && !strncmp(tok->loc, ap->name, tok->len))
+			return ap;
+
+	return NULL;
+}
+
+// Replace func-like macro parameters with given arguments.
+static struct Token *subst(struct Token *tok, struct MacroArg *args)
+{
+	struct Token head = {};
+	struct Token *cur = &head;
+
+	while (tok->kind != TK_EOF) {
+		// match args' param->name in the macro's body
+		struct MacroArg *arg = find_arg(args, tok);
+
+		// Handle a macro token.
+		// Macro arguments are completely macro-expanded
+		// before they are substituted into a macro body.
+		if (arg) {
+			// expand the macro
+			struct Token *t = preprocess(arg->tok);
+
+			for (; t->kind != TK_EOF; t = t->next) {
+				cur->next = copy_token(t);
+				cur = cur->next;
+			}
+
+			tok = tok->next;
+			continue;
+		}
+
+		// Handle a non-macro token
+		cur->next = copy_token(tok);
+		cur = cur->next;
+
+		tok = tok->next;
+		continue;
+	}
+
+	cur->next = tok;
+	return head.next;
+}
+
 // If tok is a macro, expand it and return true.
 // Otherwise, do nothing and return false.
 static bool expand_macro(struct Token **rest, struct Token *tok)
@@ -277,13 +392,13 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 	}
 
 	// If a func-like macro token is not followed by an argument list,
-	// treat is as a normal identifier.
+	// treat it as a normal identifier.
 	if (!equal(tok->next, "("))
 		return false;
 
 	// Function-like macro application
-	tok = skip(tok->next->next, ")");
-	*rest = append(m->body, tok);
+	struct MacroArg *args = read_macro_args(&tok, tok, m->params);
+	*rest = append(subst(m->body, args), tok);
 	return true;
 }
 
@@ -302,6 +417,32 @@ static struct Macro *add_macro(const char *name, bool is_objlike,
 	return m;
 }
 
+static struct MacroParam *read_macro_params(struct Token **rest, struct Token *tok)
+{
+	struct MacroParam head = {};
+	struct MacroParam *cur = &head;
+
+	while (!equal(tok, ")")) {
+		if (cur != &head)
+			tok = skip(tok, ",");
+
+		if (tok->kind != TK_IDENT)
+			error_tok(tok, "expected an identifier");
+
+		struct MacroParam *m = calloc(1, sizeof(struct MacroParam));
+		m->name = strndup(tok->loc, tok->len);
+
+		cur->next = m;
+		cur = cur->next;
+
+		tok = tok->next;
+	}
+
+	// skip ')'
+	*rest = tok->next;
+	return head.next;
+}
+
 static void read_macro_definition(struct Token **rest, struct Token *tok)
 {
 	if (tok->kind != TK_IDENT)
@@ -312,8 +453,9 @@ static void read_macro_definition(struct Token **rest, struct Token *tok)
 
 	if (!tok->has_space && equal(tok, "(")) {
 		// function-like macro
-		tok = skip(tok->next, ")");
-		add_macro(name, false, copy_line(rest, tok));
+		struct MacroParam *params = read_macro_params(&tok, tok->next);
+		struct Macro *m = add_macro(name, false, copy_line(rest, tok));
+		m->params = params;
 
 	} else {
 		// object-like macro

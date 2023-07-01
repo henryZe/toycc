@@ -63,7 +63,6 @@ TEST_DRV = test/driver.sh
 TEST_QEMU = qemu_script/qemu.sh
 
 output/%.o: %.c $(HEADERFILES)
-	echo $(TESTS)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCDIR) -c $< -o $@
 
