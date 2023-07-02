@@ -270,10 +270,16 @@ static struct MacroArg *read_macro_arg_one(struct Token **rest, struct Token *to
 {
 	struct Token head = {};
 	struct Token *cur = &head;
+	int level = 0;
 
-	while (!equal(tok, ",") && !equal(tok, ")")) {
+	while (level > 0 || (!equal(tok, ",") && !equal(tok, ")"))) {
 		if (tok->kind == TK_EOF)
 			error_tok(tok, "premature end of input");
+
+		if (equal(tok, "("))
+			level++;
+		else if (equal(tok, ")"))
+			level--;
 
 		cur->next = copy_token(tok);
 		cur = cur->next;
