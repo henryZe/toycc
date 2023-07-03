@@ -266,6 +266,20 @@ static struct Token *add_hideset(struct Token *tok, struct Hideset *hs)
 	return head.next;
 }
 
+// hs = (hs1 && hs2)
+static struct Hideset *hideset_intersection(struct Hideset *hs1,
+					    struct Hideset *hs2)
+{
+	struct Hideset head = {};
+	struct Hideset *cur = &head;
+
+	for (; hs1; hs1 = hs1->next)
+		if (hideset_contains(hs2, hs1->name, strlen(hs1->name)))
+			cur = cur->next = new_hideset(hs1->name);
+
+	return head.next;
+}
+
 static struct MacroArg *read_macro_arg_one(struct Token **rest, struct Token *tok)
 {
 	struct Token head = {};
@@ -322,7 +336,9 @@ static struct MacroArg *read_macro_args(struct Token **rest, struct Token *tok,
 	if (pp)
 		error_tok(start, "too many arguments");
 
-	*rest = skip(tok, ")");
+	// check ')'
+	skip(tok, ")");
+	*rest = tok;
 	return head.next;
 }
 
@@ -403,8 +419,23 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 		return false;
 
 	// Function-like macro application
+	struct Token *macro_token = tok;
 	struct MacroArg *args = read_macro_args(&tok, tok, m->params);
-	*rest = append(subst(m->body, args), tok);
+	struct Token *rparen = tok;
+
+	// Tokens that consist a func-like macro invocation may have
+	// different hidesets, and if that's the case, it's not clear
+	// what the hideset for the new tokens should be.
+	// We take the intersection of the macro token and the closing
+	// parenthesis and use it as a new hideset as explained in the
+	// document's algorithm.
+	struct Hideset *hs = hideset_intersection(macro_token->hideset,
+						  rparen->hideset);
+	hs = hideset_union(hs, new_hideset(m->name));
+
+	struct Token *body = subst(m->body, args);
+	body = add_hideset(body, hs);
+	*rest = append(body, tok->next);
 	return true;
 }
 
