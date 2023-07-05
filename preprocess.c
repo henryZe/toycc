@@ -420,6 +420,22 @@ static struct Token *stringize(struct Token *hash, struct Token *arg)
 	return new_str_token(s, hash);
 }
 
+// Concatenate two tokens to create a new token.
+static struct Token *paste(struct Token *lhs, struct Token *rhs)
+{
+	// Paste the two tokens.
+	const char *buf = format("%.*s%.*s",
+				lhs->len, lhs->loc,
+				rhs->len, rhs->loc);
+
+	// Tokenize the resulting string.
+	struct Token *tok = tokenize(new_file(lhs->file->name, lhs->file->file_no, buf));
+	if (tok->next->kind != TK_EOF)
+		error_tok(lhs, "pasting forms '%s', an invalid token", buf);
+
+	return tok;
+}
+
 // Replace func-like macro parameters with given arguments.
 static struct Token *subst(struct Token *tok, struct MacroArg *args)
 {
@@ -439,8 +455,63 @@ static struct Token *subst(struct Token *tok, struct MacroArg *args)
 			continue;
 		}
 
+		if (equal(tok, "##")) {
+			if (cur == &head)
+				error_tok(tok, "'##' cannot appear at start of macro expansion");
+
+			if (tok->next->kind == TK_EOF)
+				error_tok(tok, "'##' cannot appear at end of macro expansion");
+
+			struct MacroArg *arg = find_arg(args, tok->next);
+			// Handle a macro token.
+			if (arg) {
+				if (arg->tok->kind != TK_EOF) {
+					// only paste the arg's first token
+					*cur = *paste(cur, arg->tok);
+
+					for (struct Token *t = arg->tok->next; t->kind != TK_EOF; t = t->next)
+						cur = cur->next = copy_token(t);
+				}
+
+				// skip 'arg2'
+				tok = tok->next->next;
+				continue;
+			}
+
+			// Handle a non-macro token
+			*cur = *paste(cur, tok->next);
+			tok = tok->next->next;
+			continue;
+		}
+
 		// match args' param->name in the macro's body
 		struct MacroArg *arg = find_arg(args, tok);
+
+		if (arg && equal(tok->next, "##")) {
+			struct Token *rhs = tok->next->next;
+
+			// arg is null, directly link rhs' tokens
+			if (arg->tok->kind == TK_EOF) {
+				struct MacroArg *arg2 = find_arg(args, rhs);
+				if (arg2) {
+					for (struct Token *t = arg2->tok; t->kind != TK_EOF; t = t->next)
+						cur = cur->next = copy_token(t);
+				} else {
+					cur = cur->next = copy_token(rhs);
+				}
+
+				tok = rhs->next;
+				continue;
+			}
+
+			for (struct Token *t = arg->tok; t->kind != TK_EOF; t = t->next)
+				cur = cur->next = copy_token(t);
+
+			tok = tok->next;
+			// Just link the arg's tokens,
+			// leave the rest job to forward code
+			continue;
+		}
 
 		// Handle a macro token.
 		// Macro arguments are completely macro-expanded

@@ -322,7 +322,7 @@ static int getTypeId(struct Type *ty)
 	}
 }
 
-#define combine(x, y) (x "\n" y)
+#define combine(x, y) (x"\n"y)
 
 // signed => shift right Arithmetic
 #define TOI8   "\tslli a0, a0, 56\n\tsrai a0, a0, 56"
