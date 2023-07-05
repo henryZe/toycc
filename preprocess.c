@@ -351,6 +351,75 @@ static struct MacroArg *find_arg(struct MacroArg *args, struct Token *tok)
 	return NULL;
 }
 
+// Concatenates all tokens in `tok` and returns a new string.
+static const char *join_tokens(struct Token *tok)
+{
+	// Compute the length of the resulting token.
+	int len = 1;
+	for (struct Token *t = tok; t && t->kind != TK_EOF; t = t->next) {
+		if (t != tok && t->has_space)
+			len++;
+		len += t->len;
+	}
+
+	char *buf = malloc(len);
+
+	// Copy token texts.
+	int pos = 0;
+	for (struct Token *t = tok; t && t->kind != TK_EOF; t = t->next) {
+		if (t != tok && t->has_space)
+			buf[pos++] = ' ';
+
+		strncpy(buf + pos, t->loc, t->len);
+		pos += t->len;
+	}
+	buf[pos] = '\0';
+
+	return buf;
+}
+
+// Double-quote a given string and returns it.
+static const char *quote_string(const char *str)
+{
+	int bufsize = 3;	// sizeof(" + " + \0) = 3
+	for (int i = 0; str[i]; i++) {
+		if (str[i] == '\\' || str[i] == '"')
+			bufsize++;
+		bufsize++;
+	}
+
+	char *buf = malloc(bufsize);
+	char *p = buf;
+
+	*p++ = '"';
+	for (int i = 0; str[i]; i++) {
+		if (str[i] == '\\' || str[i] == '"')
+			*p++ = '\\';
+		*p++ = str[i];
+	}
+	*p++ = '"';
+	*p++ = '\0';
+
+	return buf;
+}
+
+static struct Token *new_str_token(const char *str, struct Token *tmpl)
+{
+	const char *buf = quote_string(str);
+	return tokenize(new_file(tmpl->file->name, tmpl->file->file_no, buf));
+}
+
+// Concatenates all tokens in `arg` and returns a new string token.
+// This function is used for the stringizing operator (#).
+static struct Token *stringize(struct Token *hash, struct Token *arg)
+{
+	// Create a new string token. We need to set some value to its
+	// source location for error reporting function, so we use a macro
+	// name token as a template.
+	const char *s = join_tokens(arg);
+	return new_str_token(s, hash);
+}
+
 // Replace func-like macro parameters with given arguments.
 static struct Token *subst(struct Token *tok, struct MacroArg *args)
 {
@@ -358,6 +427,18 @@ static struct Token *subst(struct Token *tok, struct MacroArg *args)
 	struct Token *cur = &head;
 
 	while (tok->kind != TK_EOF) {
+		// "#" followed by a parameter is replaced with stringized actuals.
+		if (equal(tok, "#")) {
+			struct MacroArg *arg = find_arg(args, tok->next);
+			if (!arg)
+				error_tok(tok->next, "'#' is not followed by a macro parameter");
+
+			cur = cur->next = stringize(tok, arg->tok);
+			// skip '#arg'
+			tok = tok->next->next;
+			continue;
+		}
+
 		// match args' param->name in the macro's body
 		struct MacroArg *arg = find_arg(args, tok);
 

@@ -65,6 +65,8 @@ bool consume(struct Token **rest, struct Token *tok, const char *str);
 void convert_keywords(struct Token *tok);
 struct File **get_input_files(void);
 struct Token *tokenize_file(const char *filename);
+struct Token *tokenize(struct File *file);
+struct File *new_file(const char *name, int file_no, const char *contents);
 
 // type.c
 enum TypeKind {

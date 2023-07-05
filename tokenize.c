@@ -431,7 +431,7 @@ static struct Token *read_number(const char *start)
 }
 
 // Tokenize a given string and returns new tokens.
-static struct Token *tokenize(struct File *file)
+struct Token *tokenize(struct File *file)
 {
 	const char *p = file->contents;
 	struct Token head;
@@ -575,7 +575,7 @@ struct File **get_input_files(void)
 	return input_files;
 }
 
-static struct File *new_file(const char *name, int file_no, const char *contents)
+struct File *new_file(const char *name, int file_no, const char *contents)
 {
 	struct File *file = calloc(1, sizeof(struct File));
 

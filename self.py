@@ -79,6 +79,7 @@ void _exit(int code);
 int wait(int *wstatus);
 int atexit(void (*)(void));
 char *dirname(char *path);
+char *strncpy(char *dest, char *src, long n);
 
 int isalpha(int c);
 int glob(char *pattern, int flags, void *errfn, glob_t *pglob);

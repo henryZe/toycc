@@ -78,6 +78,7 @@ output/$(TARGET): $(SRC_OBJFILES)
 output/test/%.o: test/%.c output/$(TARGET)
 	@mkdir -p $(@D)
 	$(CROSS_COMPILE)$(CC) -E -P -C $< -o output/$<
+	output/$(TARGET) -c -S output/$< -o output/test/$*.s
 	output/$(TARGET) -c output/$< -o $@
 
 output/test/%: output/test/%.o test/common.c
@@ -86,6 +87,7 @@ output/test/%: output/test/%.o test/common.c
 
 output/test/macro: test/macro.c output/$(TARGET)
 	@mkdir -p $(@D)
+	output/$(TARGET) -c -S $< -o $@.s
 	output/$(TARGET) -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.o test/common.c -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
