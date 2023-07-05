@@ -33,32 +33,32 @@ HEADERFILES = \
 	parser/scope.h \
 
 TEST_SRCS = \
-	test/alignof.c \
-	test/arith.c \
-	test/cast.c \
-	test/comp_lit.c \
-	test/compat.c \
-	test/const.c \
-	test/constexpr.c \
-	test/control.c \
-	test/decl.c \
-	test/enum.c \
-	test/extern.c \
-	test/float.c \
-	test/function.c \
-	test/initializer.c \
-	test/literal.c \
-	test/pointer.c \
-	test/sizeof.c \
-	test/string.c \
-	test/struct.c \
-	test/typedef.c \
-	test/union.c \
-	test/usualconv.c \
-	test/variable.c \
+	alignof.c \
+	arith.c \
+	cast.c \
+	comp_lit.c \
+	compat.c \
+	const.c \
+	constexpr.c \
+	control.c \
+	decl.c \
+	enum.c \
+	extern.c \
+	float.c \
+	function.c \
+	initializer.c \
+	literal.c \
+	pointer.c \
+	sizeof.c \
+	string.c \
+	struct.c \
+	typedef.c \
+	union.c \
+	usualconv.c \
+	variable.c \
+	macro.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
-TESTS = $(patsubst test/%.c, output/test/%, $(TEST_SRCS))
 TEST_DRV = test/driver.sh
 TEST_QEMU = qemu_script/qemu.sh
 
@@ -72,27 +72,21 @@ output/$(TARGET): $(SRC_OBJFILES)
 	$(OBJDUMP) -S $@ > $@.asm
 
 # test
+output/test/%.s: test/%.c output/$(TARGET)
+	@mkdir -p $(@D)
+	output/$(TARGET) -c -S $< -o $@
+
+TEST_ASM := $(patsubst %.c, output/test/%.s, $(TEST_SRCS))
+test_build: $(TEST_ASM)
+
+TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 # -E: preprocess C files
 # -xc: compile following files as C language
 # -o-: set output as stdout
-output/test/%.o: test/%.c output/$(TARGET)
-	@mkdir -p $(@D)
-	$(CROSS_COMPILE)$(CC) -E -P -C $< -o output/$<
-	output/$(TARGET) -c -S output/$< -o output/test/$*.s
-	output/$(TARGET) -c output/$< -o $@
-
-output/test/%: output/test/%.o test/common.c
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< test/common.c
-	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
-
-output/test/macro: test/macro.c output/$(TARGET)
-	@mkdir -p $(@D)
-	output/$(TARGET) -c -S $< -o $@.s
+output/test/%: output/test/%.s output/$(TARGET) test/common.c
 	output/$(TARGET) -c $< -o $@.o
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.o test/common.c -o $@
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $@.o test/common.c
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
-
-TESTS += output/test/macro
 
 # test with spike
 # test: $(TESTS)
@@ -106,28 +100,32 @@ test: $(TESTS)
 	@sh $(TEST_DRV) output/$(TARGET)
 
 # bootstrap
-bootstrap/src/%.s: output/$(TARGET) self.py $(HEADERFILES) %.c
+bootstrap/src/%.s: %.c output/$(TARGET) self.py $(HEADERFILES)
 	@mkdir -p $(@D)
-	python3 self.py $(HEADERFILES) $*.c > bootstrap/src/$*.c
-	output/$(TARGET) -c -S bootstrap/src/$*.c -o bootstrap/src/$*.s
+	python3 self.py $(HEADERFILES) $< > bootstrap/src/$<
+	output/$(TARGET) -c -S bootstrap/src/$< -o $@
 
 BOOTSTRAP_SRCASM := $(patsubst %.c, bootstrap/src/%.s, $(SRCFILES))
 bootstrap_build: $(BOOTSTRAP_SRCASM)
 
-bootstrap/$(TARGET): $(BOOTSTRAP_SRCASM)
+bootstrap/src/%.o: %.c output/$(TARGET) self.py $(HEADERFILES)
 	@mkdir -p $(@D)
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static $(BOOTSTRAP_SRCASM) -o $@
+	python3 self.py $(HEADERFILES) $< > bootstrap/src/$<
+	output/$(TARGET) -c bootstrap/src/$< -o $@
+
+BOOTSTRAP_SRCOBJ := $(patsubst %.c, bootstrap/src/%.o, $(SRCFILES))
+bootstrap/$(TARGET): $(BOOTSTRAP_SRCOBJ)
+	output/$(TARGET) $(BOOTSTRAP_SRCOBJ) -o $@
 
 bootstrap: bootstrap/$(TARGET)
 
 test_all: bootstrap test
 
 # bootstrap test-cases
-bootstrap/test/%.c: bootstrap/$(TARGET) test/%.c
+bootstrap/test/%.c: test/%.c
 	@mkdir -p $(@D)
-	$(CROSS_COMPILE)$(CC) -E -P -C test/$*.c -o bootstrap/test/$*.c
-	cp test/macro.c bootstrap/test/
-	cp test/include*.h bootstrap/test/
+	cp test/*.h bootstrap/test/
+	cp $< $@
 
 BOOTSTRAP_PRE := $(patsubst output/test/%, bootstrap/test/%.c, $(TESTS))
 BOOTSTRAP_ASM := $(patsubst output/test/%, bootstrap/test/%.s, $(TESTS))
@@ -138,7 +136,7 @@ bootstrap/test/%.s: $(BOOTSTRAP_PRE)
 	@sh $(TEST_QEMU) bootstrap
 
 bootstrap/test/%: bootstrap/test/%.s test/common.c
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $< test/common.c
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static $< test/common.c -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 BOOTSTRAP_TESTS = $(patsubst output/test/%, bootstrap/test/%, $(TESTS))
@@ -151,5 +149,5 @@ extra: test_all bootstrap_test
 clean:
 	rm -rf output bootstrap
 
-.PHONY: clean test bootstrap_build test_all extra
+.PHONY: clean test bootstrap test_all extra test_build bootstrap_build
 .PRECIOUS: output/test/%.o bootstrap/test/%.c bootstrap/test/%.s
