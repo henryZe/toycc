@@ -15,5 +15,7 @@ jobs:
     - uses: actions/checkout@v3
     - name: make
       run: make
+    - name: make test_build
+      run: make test_build
     - name: make bootstrap_build
       run: make bootstrap_build
