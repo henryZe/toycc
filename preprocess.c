@@ -128,12 +128,55 @@ static struct Token *copy_line(struct Token **rest, struct Token *tok)
 	return head.next;
 }
 
+static struct Token *new_num_token(int val, struct Token *tmpl)
+{
+	const char *buf = format("%d", val);
+	return tokenize(new_file(tmpl->file->name, tmpl->file->file_no, buf));
+}
+
+static struct Macro *find_macro(struct Token *tok);
+static struct Token *read_const_expr(struct Token **rest,
+				     struct Token *tok)
+{
+	tok = copy_line(rest, tok);
+
+	struct Token head = {};
+	struct Token *cur = &head;
+
+	while (tok->kind != TK_EOF) {
+		// "defined(foo)" or "defined foo" becomes "1"
+		// if macro "foo" is defined. Otherwise "0".
+		if (equal(tok, "defined")) {
+			struct Token *start = tok;
+			bool has_paren = consume(&tok, tok->next, "(");
+
+			if (tok->kind != TK_IDENT)
+				error_tok(start, "macro name must be an identifier");
+
+			struct Macro *m = find_macro(tok);
+			tok = tok->next;
+
+			if (has_paren)
+				tok = skip(tok, ")");
+
+			cur = cur->next = new_num_token(m ? 1 : 0, start);
+			continue;
+		}
+
+		cur = cur->next = tok;
+		tok = tok->next;
+	}
+
+	cur->next = tok;
+	return head.next;
+}
+
 static struct Token *preprocess(struct Token *tok);
 // Read and evaluate a constant expression.
 static long eval_const_expr(struct Token **rest, struct Token *tok)
 {
 	struct Token *start = tok;
-	struct Token *expr = copy_line(rest, tok->next);
+	struct Token *expr = read_const_expr(rest, tok->next);
 
 	expr = preprocess(expr);
 
