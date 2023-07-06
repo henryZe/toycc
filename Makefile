@@ -99,55 +99,55 @@ test: $(TESTS)
 	@sh $(TEST_QEMU) output/test
 	@sh $(TEST_DRV) output/$(TARGET)
 
-# bootstrap
-bootstrap/src/%.s: %.c output/$(TARGET) self.py $(HEADERFILES)
+# selfhost
+selfhost/src/%.s: %.c output/$(TARGET) self.py $(HEADERFILES)
 	@mkdir -p $(@D)
-	python3 self.py $(HEADERFILES) $< > bootstrap/src/$<
-	output/$(TARGET) -c -S bootstrap/src/$< -o $@
+	python3 self.py $(HEADERFILES) $< > selfhost/src/$<
+	output/$(TARGET) -c -S selfhost/src/$< -o $@
 
-BOOTSTRAP_SRCASM := $(patsubst %.c, bootstrap/src/%.s, $(SRCFILES))
-bootstrap_build: $(BOOTSTRAP_SRCASM)
+SELFHOST_SRCASM := $(patsubst %.c, selfhost/src/%.s, $(SRCFILES))
+selfhost_build: $(SELFHOST_SRCASM)
 
-bootstrap/src/%.o: %.c output/$(TARGET) self.py $(HEADERFILES)
+selfhost/src/%.o: %.c output/$(TARGET) self.py $(HEADERFILES)
 	@mkdir -p $(@D)
-	python3 self.py $(HEADERFILES) $< > bootstrap/src/$<
-	output/$(TARGET) -c bootstrap/src/$< -o $@
+	python3 self.py $(HEADERFILES) $< > selfhost/src/$<
+	output/$(TARGET) -c selfhost/src/$< -o $@
 
-BOOTSTRAP_SRCOBJ := $(patsubst %.c, bootstrap/src/%.o, $(SRCFILES))
-bootstrap/$(TARGET): $(BOOTSTRAP_SRCOBJ)
-	output/$(TARGET) $(BOOTSTRAP_SRCOBJ) -o $@
+SELFHOST_SRCOBJ := $(patsubst %.c, selfhost/src/%.o, $(SRCFILES))
+selfhost/$(TARGET): $(SELFHOST_SRCOBJ)
+	output/$(TARGET) $(SELFHOST_SRCOBJ) -o $@
 
-bootstrap: bootstrap/$(TARGET)
+selfhost: selfhost/$(TARGET)
 
-test_all: bootstrap test
+test_all: selfhost test
 
-# bootstrap test-cases
-bootstrap/test/%.c: test/%.c
+# selfhost test-cases
+selfhost/test/%.c: test/%.c
 	@mkdir -p $(@D)
-	cp test/*.h bootstrap/test/
+	cp test/*.h selfhost/test/
 	cp $< $@
 
-BOOTSTRAP_PRE := $(patsubst output/test/%, bootstrap/test/%.c, $(TESTS))
-BOOTSTRAP_ASM := $(patsubst output/test/%, bootstrap/test/%.s, $(TESTS))
-bootstrap/test/%.s: $(BOOTSTRAP_PRE)
-	touch $(BOOTSTRAP_ASM)
-	cp qemu_script/compile_bootstrap/default.sh bootstrap/
-	cp $(TEST_DRV) bootstrap/
-	@sh $(TEST_QEMU) bootstrap
+SELFHOST_PRE := $(patsubst output/test/%, selfhost/test/%.c, $(TESTS))
+SELFHOST_ASM := $(patsubst output/test/%, selfhost/test/%.s, $(TESTS))
+selfhost/test/%.s: $(SELFHOST_PRE)
+	touch $(SELFHOST_ASM)
+	cp qemu_script/run_compile/default.sh selfhost/
+	cp $(TEST_DRV) selfhost/
+	@sh $(TEST_QEMU) selfhost
 
-bootstrap/test/%: bootstrap/test/%.s test/common.c
+selfhost/test/%: selfhost/test/%.s test/common.c
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static $< test/common.c -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
-BOOTSTRAP_TESTS = $(patsubst output/test/%, bootstrap/test/%, $(TESTS))
-bootstrap_test: $(BOOTSTRAP_TESTS)
-	cp qemu_script/run_test/default.sh bootstrap/test
-	@sh $(TEST_QEMU) bootstrap/test
+SELFHOST_TESTS = $(patsubst output/test/%, selfhost/test/%, $(TESTS))
+selfhost_test: $(SELFHOST_TESTS)
+	cp qemu_script/run_test/default.sh selfhost/test
+	@sh $(TEST_QEMU) selfhost/test
 
-extra: test_all bootstrap_test
+extra: test_all selfhost_test
 
 clean:
-	rm -rf output bootstrap
+	rm -rf output selfhost
 
-.PHONY: clean test bootstrap test_all extra test_build bootstrap_build
-.PRECIOUS: output/test/%.o bootstrap/test/%.c bootstrap/test/%.s
+.PHONY: clean test selfhost test_all extra test_build selfhost_build
+.PRECIOUS: output/test/%.o selfhost/test/%.c selfhost/test/%.s

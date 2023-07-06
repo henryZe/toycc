@@ -17,5 +17,5 @@ jobs:
       run: make
     - name: make test_build
       run: make test_build
-    - name: make bootstrap_build
-      run: make bootstrap_build
+    - name: make selfhost_build
+      run: make selfhost_build

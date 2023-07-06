@@ -11,7 +11,4 @@ do
 	echo $i '=>' $asm;
 done
 
-# cd /root
-# sh /tmp/driver.sh /tmp/toycc || exit 1;
-
 echo OK
