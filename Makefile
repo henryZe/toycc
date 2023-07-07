@@ -88,15 +88,9 @@ output/test/%: output/test/%.s output/$(TARGET) test/common.c
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $@.o test/common.c
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
-# test with spike
-# test: $(TESTS)
-# 	for i in $^; do echo $$i; /opt/RV64/bin/spike /usr/riscv64-linux-gnu/bin/pk $$i || exit 1; echo; done
-# 	@sh $(TEST_DRV) output/$(TARGET)
-
-# test with qemu
+# test with qemu-riscv64
 test: $(TESTS)
-	cp qemu_script/run_test/default.sh output/test
-	@sh $(TEST_QEMU) output/test
+	for i in $^; do echo $$i; qemu-riscv64 $$i || exit 1; echo; done
 	@sh $(TEST_DRV) output/$(TARGET)
 
 # selfhost
@@ -132,7 +126,6 @@ SELFHOST_ASM := $(patsubst output/test/%, selfhost/test/%.s, $(TESTS))
 selfhost/test/%.s: $(SELFHOST_PRE)
 	touch $(SELFHOST_ASM)
 	cp qemu_script/run_compile/default.sh selfhost/
-	cp $(TEST_DRV) selfhost/
 	@sh $(TEST_QEMU) selfhost
 
 selfhost/test/%: selfhost/test/%.s test/common.c
@@ -140,9 +133,9 @@ selfhost/test/%: selfhost/test/%.s test/common.c
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 SELFHOST_TESTS = $(patsubst output/test/%, selfhost/test/%, $(TESTS))
+# test with qemu-riscv64
 selfhost_test: $(SELFHOST_TESTS)
-	cp qemu_script/run_test/default.sh selfhost/test
-	@sh $(TEST_QEMU) selfhost/test
+	for i in $^; do echo $$i; qemu-riscv64 $$i || exit 1; echo; done
 
 extra: test_all selfhost_test
 
