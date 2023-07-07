@@ -183,6 +183,19 @@ static long eval_const_expr(struct Token **rest, struct Token *tok)
 	if (expr->kind == TK_EOF)
 		error_tok(start, "no expression");
 
+	// The standard requires we replace remaining non-macro
+	// identifiers with "0" before evaluating a constant expression.
+	// For example, `#if foo` is equivalent to `#if 0`
+	// if foo is not defined.
+	// Reference: [https://www.sigbus.info/n1570#6.10.1p4]
+	for (struct Token *t = expr; t->kind != TK_EOF; t = t->next) {
+		if (t->kind == TK_IDENT) {
+			struct Token *next = t->next;
+			*t = *new_num_token(0, t);
+			t->next = next;
+		}
+	}
+
 	struct Token *rest2;
 	long val = const_expr(&rest2, expr);
 
@@ -616,20 +629,23 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 	// Function-like macro application
 	struct Token *macro_token = tok;
 	struct MacroArg *args = read_macro_args(&tok, tok, m->params);
+	// right-parentheses
 	struct Token *rparen = tok;
 
 	// Tokens that consist a func-like macro invocation may have
-	// different hidesets, and if that's the case, it's not clear
+	// different hide-sets, and if that's the case, it's not clear
 	// what the hideset for the new tokens should be.
 	// We take the intersection of the macro token and the closing
 	// parenthesis and use it as a new hideset as explained in the
 	// document's algorithm.
 	struct Hideset *hs = hideset_intersection(macro_token->hideset,
 						  rparen->hideset);
+	// add self into hide-set
 	hs = hideset_union(hs, new_hideset(m->name));
 
 	struct Token *body = subst(m->body, args);
 	body = add_hideset(body, hs);
+
 	*rest = append(body, tok->next);
 	return true;
 }
