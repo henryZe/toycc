@@ -575,6 +575,8 @@ static struct Token *subst(struct Token *tok, struct MacroArg *args)
 		if (arg) {
 			// expand the macro
 			struct Token *t = preprocess(arg->tok);
+			t->at_bol = tok->at_bol;
+			t->has_space = tok->has_space;
 
 			for (; t->kind != TK_EOF; t = t->next) {
 				cur->next = copy_token(t);
@@ -618,6 +620,9 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 		struct Token *body = add_hideset(m->body, hs);
 
 		*rest = append(body, tok->next);
+		(*rest)->at_bol = tok->at_bol;
+		(*rest)->has_space = tok->has_space;
+
 		return true;
 	}
 
@@ -647,6 +652,9 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 	body = add_hideset(body, hs);
 
 	*rest = append(body, tok->next);
+	(*rest)->at_bol = macro_token->at_bol;
+	(*rest)->has_space = macro_token->has_space;
+
 	return true;
 }
 
