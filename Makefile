@@ -74,7 +74,7 @@ output/$(TARGET): $(SRC_OBJFILES)
 # test
 output/test/%.s: test/%.c output/$(TARGET)
 	@mkdir -p $(@D)
-	output/$(TARGET) -c -S $< -o $@
+	output/$(TARGET) -Itest -c -S $< -o $@
 
 TEST_ASM := $(patsubst %.c, output/test/%.s, $(TEST_SRCS))
 test_build: $(TEST_ASM)
@@ -84,7 +84,7 @@ TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 # -xc: compile following files as C language
 # -o-: set output as stdout
 output/test/%: output/test/%.s output/$(TARGET) test/common.c
-	output/$(TARGET) -c $< -o $@.o
+	output/$(TARGET) -Itest -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $@.o test/common.c
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
@@ -118,18 +118,18 @@ test_all: selfhost test
 # selfhost test-cases
 selfhost/test/%.c: test/%.c
 	@mkdir -p $(@D)
-	cp test/*.h selfhost/test/
 	cp $< $@
 
 SELFHOST_PRE := $(patsubst output/test/%, selfhost/test/%.c, $(TESTS))
 SELFHOST_ASM := $(patsubst output/test/%, selfhost/test/%.s, $(TESTS))
-selfhost/test/%.s: $(SELFHOST_PRE)
+selfhost_test_asm: $(SELFHOST_PRE)
+	cp test/*.h selfhost/test/
 	touch $(SELFHOST_ASM)
 	cp qemu_script/run_compile/default.sh selfhost/
 	@sh $(TEST_QEMU) selfhost
 
-selfhost/test/%: selfhost/test/%.s test/common.c
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static $< test/common.c -o $@
+selfhost/test/%: selfhost_test_asm test/common.c
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.s test/common.c -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 SELFHOST_TESTS = $(patsubst output/test/%, selfhost/test/%, $(TESTS))
@@ -142,5 +142,4 @@ extra: test_all selfhost_test
 clean:
 	rm -rf output selfhost
 
-.PHONY: clean test selfhost test_all extra test_build selfhost_build
-.PRECIOUS: output/test/%.o selfhost/test/%.c selfhost/test/%.s
+.PHONY: clean test selfhost test_all selfhost_test_asm selfhost_test extra test_build selfhost_build

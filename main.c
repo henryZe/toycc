@@ -17,6 +17,7 @@ const char *base_file;
 
 static struct StringArray input_paths;
 static struct StringArray tmpfiles;
+struct StringArray include_paths;
 
 static void usage(int status)
 {
@@ -26,7 +27,13 @@ static void usage(int status)
 
 static bool take_arg(const char *arg)
 {
-	return !strcmp(arg, "-o");
+	const char *x[] = { "-o", "-I" };
+
+	for (size_t i = 0; i < ARRAY_SIZE(x); i++)
+		if (!strcmp(arg, x[i]))
+			return true;
+
+	return false;
 }
 
 static void parse_args(int argc, const char **argv)
@@ -76,6 +83,11 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-E")) {
 			opt_E = true;
+			continue;
+		}
+
+		if (!strncmp(argv[i], "-I", 2)) {
+			strarray_push(&include_paths, argv[i] + 2);
 			continue;
 		}
 

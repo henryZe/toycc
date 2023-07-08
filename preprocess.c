@@ -783,6 +783,20 @@ static struct Token *include_file(struct Token *tok, const char *path,
 	return append(tok_header, tok);
 }
 
+static const char *search_include_paths(const char *filename)
+{
+	if (filename[0] == '/')
+		return filename;
+
+	// Search a file from the include paths.
+	for (int i = 0; i < include_paths.len; i++) {
+		const char *path = format("%s/%s", include_paths.data[i], filename);
+		if (file_exists(path))
+			return path;
+	}
+	return NULL;
+}
+
 // Visit all tokens in `tok` while evaluating
 // preprocessing macros and directives.
 static struct Token *preprocess(struct Token *tok)
@@ -812,7 +826,7 @@ static struct Token *preprocess(struct Token *tok)
 			const char *filename =
 				read_include_filename(&tok, tok->next, &is_dquote);
 
-			if (filename[0] != '/') {
+			if (filename[0] != '/' && is_dquote) {
 				// search under current directory
 				const char *path = format("%s/%s", dirname(strdup(start->file->name)), filename);
 				if (file_exists(path)) {
@@ -821,8 +835,8 @@ static struct Token *preprocess(struct Token *tok)
 				}
 			}
 
-			// TODO: Search a file from the include paths.
-			tok = include_file(tok, filename, start->next->next);
+			const char *path = search_include_paths(filename);
+			tok = include_file(tok, path ? path : filename, start->next->next);
 			continue;
 		}
 

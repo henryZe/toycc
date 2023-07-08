@@ -23,6 +23,7 @@
 
 // main.c
 extern const char *base_file;
+extern struct StringArray include_paths;
 
 // tokenize.c
 enum TokenKind {
