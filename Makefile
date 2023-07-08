@@ -8,14 +8,15 @@ CFLAGS += -DDEBUG
 
 TARGET = toycc
 
-INCDIR = -I. -Iparser
+INCDIR = -I. -Iparser -Ipreprocessor
 
 SRCFILES = \
 	utils.c \
 	string.c \
 	tokenize.c \
 	type.c \
-	preprocess.c \
+	preprocessor/predefined_macro.c \
+	preprocessor/preprocess.c \
 	parser/common.c \
 	parser/initializer.c \
 	parser/declarator.c \
@@ -31,6 +32,7 @@ HEADERFILES = \
 	parser/initializer.h \
 	parser/parser.h \
 	parser/scope.h \
+	preprocessor/preprocessor.h \
 
 TEST_SRCS = \
 	alignof.c \

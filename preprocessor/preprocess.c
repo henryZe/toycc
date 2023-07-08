@@ -22,6 +22,7 @@
 // https://github.com/rui314/chibicc/wiki/cpp.algo.pdf
 
 #include <toycc.h>
+#include <preprocessor.h>
 #include <libgen.h>
 #include <sys/stat.h>
 
@@ -659,8 +660,7 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 	return true;
 }
 
-static struct Macro *add_macro(const char *name, bool is_objlike,
-			       struct Token *body)
+struct Macro *add_macro(const char *name, bool is_objlike, struct Token *body)
 {
 	struct Macro *m = calloc(1, sizeof(struct Macro));
 
@@ -942,6 +942,7 @@ static struct Token *preprocess(struct Token *tok)
 // Entry point function of the preprocessor
 struct Token *preprocessor(struct Token *tok)
 {
+	init_macros();
 	tok = preprocess(tok);
 	if (cond_incl)
 		error_tok(cond_incl->tok, "unterminated conditional directive");
