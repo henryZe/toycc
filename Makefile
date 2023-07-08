@@ -83,7 +83,8 @@ TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 # -E: preprocess C files
 # -xc: compile following files as C language
 # -o-: set output as stdout
-output/test/%: output/test/%.s output/$(TARGET) test/common.c
+output/test/%: test/%.c output/$(TARGET) test/common.c
+	@mkdir -p $(@D)
 	output/$(TARGET) -Itest -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $@.o test/common.c
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm

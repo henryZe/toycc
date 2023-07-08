@@ -369,6 +369,19 @@ static void run_linker(struct StringArray *inputs, const char *output)
 	run_subprocess(arr.data);
 }
 
+static void add_default_include_paths(const char *argv0)
+{
+	// We expect that toycc-specific include files
+	// are installed to ./include relative to argv[0].
+	strarray_push(&include_paths, format("%s/include",
+		      dirname(strdup(argv0))));
+
+	// Add standard include paths.
+	strarray_push(&include_paths, "/usr/local/include");
+	strarray_push(&include_paths, "/usr/riscv64-linux-gnu/include");
+	strarray_push(&include_paths, "/usr/include");
+}
+
 int main(int argc, const char **argv)
 {
 	const char *input, *output;
@@ -378,6 +391,7 @@ int main(int argc, const char **argv)
 	parse_args(argc, argv);
 
 	if (opt_cc1) {
+		add_default_include_paths(argv[0]);
 		cc1();
 		return 0;
 	}
