@@ -925,6 +925,9 @@ static struct Token *preprocess(struct Token *tok)
 			continue;
 		}
 
+		if (equal(tok, "error"))
+			error_tok(tok, "error");
+
 		// `#`-only line is legal. It's called a null directive.
 		if (tok->at_bol)
 			continue;

@@ -322,6 +322,8 @@ int main()
 
 #undef foo
 
+// #error test
+
 	printf("OK\n");
 	return 0;
 }
