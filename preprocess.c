@@ -23,6 +23,7 @@
 
 #include <toycc.h>
 #include <libgen.h>
+#include <sys/stat.h>
 
 // formal parameter
 struct MacroParam {
@@ -83,7 +84,7 @@ static struct Token *copy_token(struct Token *tok)
 	return t;
 }
 
-// append tok2 to the end of tok1
+// return new token = tok1 + tok2
 static struct Token *append(struct Token *tok1, struct Token *tok2)
 {
 	if (tok1->kind == TK_EOF)
@@ -408,11 +409,11 @@ static struct MacroArg *find_arg(struct MacroArg *args, struct Token *tok)
 }
 
 // Concatenates all tokens in `tok` and returns a new string.
-static const char *join_tokens(struct Token *tok)
+static const char *join_tokens(struct Token *tok, struct Token *end)
 {
 	// Compute the length of the resulting token.
 	int len = 1;
-	for (struct Token *t = tok; t && t->kind != TK_EOF; t = t->next) {
+	for (struct Token *t = tok; t != end && t->kind != TK_EOF; t = t->next) {
 		if (t != tok && t->has_space)
 			len++;
 		len += t->len;
@@ -422,7 +423,7 @@ static const char *join_tokens(struct Token *tok)
 
 	// Copy token texts.
 	int pos = 0;
-	for (struct Token *t = tok; t && t->kind != TK_EOF; t = t->next) {
+	for (struct Token *t = tok; t != end && t->kind != TK_EOF; t = t->next) {
 		if (t != tok && t->has_space)
 			buf[pos++] = ' ';
 
@@ -472,7 +473,7 @@ static struct Token *stringize(struct Token *hash, struct Token *arg)
 	// Create a new string token. We need to set some value to its
 	// source location for error reporting function, so we use a macro
 	// name token as a template.
-	const char *s = join_tokens(arg);
+	const char *s = join_tokens(arg, NULL);
 	return new_str_token(s, hash);
 }
 
@@ -719,6 +720,69 @@ static void read_macro_definition(struct Token **rest, struct Token *tok)
 	}
 }
 
+// Read an #include argument.
+static const char *read_include_filename(struct Token **rest, struct Token *tok,
+					 bool *is_dquote)
+{
+	// Pattern 1: #include "foo.h"
+	if (tok->kind == TK_STR) {
+		// A double-quoted filename for #include is a special kind of
+		// token, and we don't want to interpret any escape sequences in it.
+		// For example, "\f" in "C:\foo" is not a formfeed character but
+		// just two non-control characters, backslash and f.
+		// So we don't want to use token->str.
+		*is_dquote = true;
+
+		*rest = skip_line(tok->next);
+		return strndup(tok->loc + 1, tok->len - 2);
+	}
+
+	// Pattern 2: #include <foo.h>
+	if (equal(tok, "<")) {
+		// Reconstruct a filename from a sequence of tokens between
+		// "<" and ">".
+		struct Token *start = tok;
+
+		// Find closing ">".
+		for (; !equal(tok, ">"); tok = tok->next)
+			if (tok->at_bol || tok->kind == TK_EOF)
+				error_tok(tok, "expected '>'");
+
+		*is_dquote = false;
+
+		*rest = skip_line(tok->next);
+		return join_tokens(start->next, tok);
+	}
+
+	// Pattern 3: #include FOO
+	// In this case FOO must be macro-expanded to either
+	// a single string token or a sequence of "<" ... ">".
+	if (tok->kind == TK_IDENT) {
+		struct Token *tok2 = preprocess(copy_line(rest, tok));
+		return read_include_filename(&tok2, tok2, is_dquote);
+	}
+
+	error_tok(tok, "expected a filename");
+}
+
+// Returns true if a given file exists.
+static bool file_exists(const char *path)
+{
+	struct stat st;
+	return !stat(path, &st);
+}
+
+static struct Token *include_file(struct Token *tok, const char *path,
+				  struct Token *filename_tok)
+{
+	struct Token *tok_header = tokenize_file(path);
+	if (!tok_header)
+		error_tok(filename_tok, "%s: cannot open file: %s",
+			  path, strerror(errno));
+
+	return append(tok_header, tok);
+}
+
 // Visit all tokens in `tok` while evaluating
 // preprocessing macros and directives.
 static struct Token *preprocess(struct Token *tok)
@@ -744,25 +808,21 @@ static struct Token *preprocess(struct Token *tok)
 		tok = tok->next;
 
 		if (equal(tok, "include")) {
-			tok = tok->next;
+			bool is_dquote;
+			const char *filename =
+				read_include_filename(&tok, tok->next, &is_dquote);
 
-			if (tok->kind != TK_STR)
-				error_tok(tok, "expected a filename");
+			if (filename[0] != '/') {
+				// search under current directory
+				const char *path = format("%s/%s", dirname(strdup(start->file->name)), filename);
+				if (file_exists(path)) {
+					tok = include_file(tok, path, start->next->next);
+					continue;
+				}
+			}
 
-			const char *path;
-			if (tok->str[0] == '/')
-				// root directory
-				path = tok->str;
-			else
-				path = format("%s/%s", dirname(strdup(tok->file->name)), tok->str);
-			struct Token *tok2 = tokenize_file(path);
-
-			if (!tok2)
-				error_tok(tok, "%s", strerror(errno));
-
-			tok = skip_line(tok->next);
-			// append header file
-			tok = append(tok2, tok);
+			// TODO: Search a file from the include paths.
+			tok = include_file(tok, filename, start->next->next);
 			continue;
 		}
 
