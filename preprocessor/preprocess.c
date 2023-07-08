@@ -39,15 +39,6 @@ struct MacroArg {
 	struct Token *tok;
 };
 
-struct Macro {
-	struct Macro *next;
-	const char *name;
-	bool is_objlike;		// object-like or function-like
-	struct MacroParam *params;
-	struct Token *body;
-	bool deleted;			// used for #undef
-};
-
 struct CondIncl {
 	struct CondIncl *next;
 	enum { IN_THEN, IN_ELIF, IN_ELSE } ctx;
@@ -130,7 +121,7 @@ static struct Token *copy_line(struct Token **rest, struct Token *tok)
 	return head.next;
 }
 
-static struct Token *new_num_token(int val, struct Token *tmpl)
+struct Token *new_num_token(int val, struct Token *tmpl)
 {
 	const char *buf = format("%d", val);
 	return tokenize(new_file(tmpl->file->name, tmpl->file->file_no, buf));
@@ -461,7 +452,7 @@ static const char *quote_string(const char *str)
 	return buf;
 }
 
-static struct Token *new_str_token(const char *str, struct Token *tmpl)
+struct Token *new_str_token(const char *str, struct Token *tmpl)
 {
 	const char *buf = quote_string(str);
 	return tokenize(new_file(tmpl->file->name, tmpl->file->file_no, buf));
@@ -615,11 +606,21 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 	if (!m)
 		return false;
 
+	// Built-in dynamic macro application such as __FILE__ & __LINE__
+	if (m->handler) {
+		*rest = m->handler(tok);
+		(*rest)->next = tok->next;
+		return true;
+	}
+
 	// Object-like macro application
 	if (m->is_objlike) {
 		// add macro to the tok's hideset
 		struct Hideset *hs = hideset_union(tok->hideset, new_hideset(m->name));
 		struct Token *body = add_hideset(m->body, hs);
+
+		for (struct Token *t = body; t->kind != TK_EOF; t = t->next)
+			t->origin = tok;
 
 		*rest = append(body, tok->next);
 		(*rest)->at_bol = tok->at_bol;
@@ -652,6 +653,9 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 
 	struct Token *body = subst(m->body, args);
 	body = add_hideset(body, hs);
+
+	for (struct Token *t = body; t->kind != TK_EOF; t = t->next)
+		t->origin = macro_token;
 
 	*rest = append(body, tok->next);
 	(*rest)->at_bol = macro_token->at_bol;

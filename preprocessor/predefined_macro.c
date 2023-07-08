@@ -7,7 +7,28 @@ static void define_macro(const char *name, const char *buf)
 	add_macro(name, true, tok);
 }
 
-// riscv64-linux-gnu-gcc -dM -E - < /dev/null
+static struct Macro *add_builtin(const char *name, macro_handler_fn *fn)
+{
+	struct Macro *m = add_macro(name, true, NULL);
+	m->handler = fn;
+	return m;
+}
+
+static struct Token *file_macro(struct Token *tmpl)
+{
+	while (tmpl->origin)
+		tmpl = tmpl->origin;
+	return new_str_token(tmpl->file->name, tmpl);
+}
+
+static struct Token *line_macro(struct Token *tmpl)
+{
+	while (tmpl->origin)
+		tmpl = tmpl->origin;
+	return new_num_token(tmpl->line_no, tmpl);
+}
+
+// As "riscv64-linux-gnu-gcc -dM -E - < /dev/null" shown
 void init_macros(void)
 {
 	// Define predefined macros
@@ -358,4 +379,7 @@ void init_macros(void)
 	define_macro("__UINT_FAST8_TYPE__", "unsigned char");
 	define_macro("__ATOMIC_ACQ_REL", "4");
 	define_macro("__ATOMIC_RELEASE", "3");
+
+	add_builtin("__FILE__", file_macro);
+	add_builtin("__LINE__", line_macro);
 }
