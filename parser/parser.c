@@ -1070,6 +1070,10 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	push_scope("__func__")->var =
 		new_string_literal(fn->name, array_of(p_ty_char(), strlen(fn->name) + 1));
 
+	// [GNU] __FUNCTION__ is yet another name of __func__.
+	push_scope("__FUNCTION__")->var =
+		new_string_literal(fn->name, array_of(p_ty_char(), strlen(fn->name) + 1));
+
 	fn->body = compound_stmt(&tok, tok);
 	fn->locals = ret_locals();
 	leave_scope();
