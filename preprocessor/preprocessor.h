@@ -8,6 +8,7 @@ struct Macro {
 	const char *name;
 	bool is_objlike;		// object-like or function-like
 	struct MacroParam *params;
+	bool is_variadic;
 	struct Token *body;
 	bool deleted;			// used for #undef
         macro_handler_fn *handler;
