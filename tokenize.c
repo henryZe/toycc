@@ -294,9 +294,9 @@ void convert_keywords(struct Token *tok)
 			t->kind = TK_KEYWORD;
 }
 
-static struct Token *read_char_literal(const char *start)
+static struct Token *read_char_literal(const char *start, const char *quote)
 {
-	const char *p = start + 1;
+	const char *p = quote + 1;
 	if (*p == '\0')
 		error_at(start, "unclosed char literal");
 
@@ -496,8 +496,15 @@ struct Token *tokenize(struct File *file)
 
 		// character literal
 		if (*p == '\'') {
-			cur->next = read_char_literal(p);
+			cur->next = read_char_literal(p, p);
 			cur = cur->next;
+			p += cur->len;
+			continue;
+		}
+
+		// Wide character literal
+		if (startwith(p, "L'")) {
+			cur = cur->next = read_char_literal(p, p + 1);
 			p += cur->len;
 			continue;
 		}
