@@ -35,9 +35,13 @@ void verror_at(const char *filename, const char *input, int line_no,
 {
 	// find a line containing `loc`
 	const char *line = loc;
+	int indent = 0;
 	// find beginning of the line
-	while (input < line && line[-1] != '\n')
+	while (input < line && line[-1] != '\n') {
+		if (line[-1] == '\t')
+			indent++;
 		line--;
+	}
 
 	const char *end = loc;
 	// find ending of the line
@@ -45,15 +49,15 @@ void verror_at(const char *filename, const char *input, int line_no,
 		end++;
 
 	// print out the line
-	int indent = fprintf(stderr, "%s:%d: ", filename, line_no);
+	fprintf(stderr, "%s:%d:\n", filename, line_no);
+
 	int len = end - line;
 	fprintf(stderr, "%.*s\n", len, line);
 
 	// show the error message
-	int pos = loc - line + indent;
+	int pos = loc - line + indent * (8 - 1);
 
-	// print pos spaces
-	fprintf(stderr, "%*s", pos, "");
+	fprintf(stderr, "%*s", pos, "");	// print pos spaces
 	fprintf(stderr, "^ ");
 	vfprintf(stderr, fmt, ap);
 	fprintf(stderr, "\n");
