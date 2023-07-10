@@ -59,6 +59,7 @@ TEST_SRCS = \
 	usualconv.c \
 	variable.c \
 	macro.c \
+	stdhdr.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
@@ -76,7 +77,7 @@ output/$(TARGET): $(SRC_OBJFILES)
 # test
 output/test/%.s: test/%.c output/$(TARGET)
 	@mkdir -p $(@D)
-	output/$(TARGET) -Itest -c -S $< -o $@
+	output/$(TARGET) -Iinclude -Itest -c -S $< -o $@
 
 TEST_ASM := $(patsubst %.c, output/test/%.s, $(TEST_SRCS))
 test_build: $(TEST_ASM)
@@ -87,7 +88,7 @@ TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 # -o-: set output as stdout
 output/test/%: test/%.c output/$(TARGET) test/common.c
 	@mkdir -p $(@D)
-	output/$(TARGET) -Itest -c $< -o $@.o
+	output/$(TARGET) -Iinclude -Itest -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $@.o test/common.c
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
@@ -127,6 +128,7 @@ SELFHOST_PRE := $(patsubst output/test/%, selfhost/test/%.c, $(TESTS))
 SELFHOST_ASM := $(patsubst output/test/%, selfhost/test/%.s, $(TESTS))
 selfhost_test_asm: $(SELFHOST_PRE)
 	cp test/*.h selfhost/test/
+	cp -r include/ selfhost/
 	touch $(SELFHOST_ASM)
 	cp qemu_script/run_compile/default.sh selfhost/
 	@sh $(TEST_QEMU) selfhost
