@@ -60,6 +60,7 @@ TEST_SRCS = \
 	variable.c \
 	macro.c \
 	stdhdr.c \
+	varargs.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
