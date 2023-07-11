@@ -9,6 +9,17 @@ CFLAGS += -DDEBUG
 TARGET = toycc
 
 INCDIR = -I. -Iparser -Ipreprocessor
+INCLUDE = -Iinclude $(INCDIR)
+TEST_INCLUDE = -Iinclude -Itest
+
+HEADERFILES = \
+	toycc.h \
+	type.h \
+	parser/declarator.h \
+	parser/initializer.h \
+	parser/parser.h \
+	parser/scope.h \
+	preprocessor/preprocessor.h \
 
 SRCFILES = \
 	utils.c \
@@ -24,15 +35,6 @@ SRCFILES = \
 	parser/parser.c \
 	codegen.c \
 	main.c \
-
-HEADERFILES = \
-	toycc.h \
-	type.h \
-	parser/declarator.h \
-	parser/initializer.h \
-	parser/parser.h \
-	parser/scope.h \
-	preprocessor/preprocessor.h \
 
 TEST_SRCS = \
 	alignof.c \
@@ -78,7 +80,7 @@ output/$(TARGET): $(SRC_OBJFILES)
 # test
 output/test/%.s: test/%.c output/$(TARGET)
 	@mkdir -p $(@D)
-	output/$(TARGET) -Iinclude -Itest -c -S $< -o $@
+	output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@
 
 TEST_ASM := $(patsubst %.c, output/test/%.s, $(TEST_SRCS))
 test_build: $(TEST_ASM)
@@ -89,7 +91,7 @@ TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 # -o-: set output as stdout
 output/test/%: test/%.c output/$(TARGET) test/common.c
 	@mkdir -p $(@D)
-	output/$(TARGET) -Iinclude -Itest -c $< -o $@.o
+	output/$(TARGET) $(TEST_INCLUDE) -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $@.o test/common.c
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
@@ -102,7 +104,8 @@ test: $(TESTS)
 selfhost/src/%.s: %.c output/$(TARGET) self.py $(HEADERFILES)
 	@mkdir -p $(@D)
 	python3 self.py $(HEADERFILES) $< > selfhost/src/$<
-	output/$(TARGET) -c -S selfhost/src/$< -o $@
+	output/$(TARGET) $(INCLUDE) -c -S selfhost/src/$< -o $@
+	# output/$(TARGET) $(INCLUDE) -c -S $< -o $@
 
 SELFHOST_SRCASM := $(patsubst %.c, selfhost/src/%.s, $(SRCFILES))
 selfhost_build: $(SELFHOST_SRCASM)
@@ -110,7 +113,8 @@ selfhost_build: $(SELFHOST_SRCASM)
 selfhost/src/%.o: %.c output/$(TARGET) self.py $(HEADERFILES)
 	@mkdir -p $(@D)
 	python3 self.py $(HEADERFILES) $< > selfhost/src/$<
-	output/$(TARGET) -c selfhost/src/$< -o $@
+	output/$(TARGET) $(INCLUDE) -c selfhost/src/$< -o $@
+	# output/$(TARGET) $(INCLUDE) -c $< -o $@
 
 SELFHOST_SRCOBJ := $(patsubst %.c, selfhost/src/%.o, $(SRCFILES))
 selfhost/$(TARGET): $(SELFHOST_SRCOBJ)

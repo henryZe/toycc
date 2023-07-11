@@ -4,7 +4,7 @@
 #ifdef DEBUG
 #define debug(fmt, args...) println(fmt, ##args)
 #else
-#define debug(fmt, args...)
+#define debug(...)
 #endif
 
 static FILE *output_file;

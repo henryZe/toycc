@@ -215,7 +215,10 @@ static struct CondIncl *push_cond_incl(struct Token *tok, bool included)
 static struct Token *skip_cond_incl2(struct Token *tok)
 {
 	while (tok->kind != TK_EOF) {
-		if (is_hash(tok) && equal(tok->next, "if")) {
+		if (is_hash(tok) &&
+		   (equal(tok->next, "if") ||
+		    equal(tok->next, "ifdef") ||
+		    equal(tok->next, "ifndef"))) {
 			tok = skip_cond_incl2(tok->next->next);
 			continue;
 		}

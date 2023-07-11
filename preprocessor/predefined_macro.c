@@ -40,7 +40,6 @@ void init_macros(void)
 	define_macro("__ATOMIC_ACQUIRE", "2");
 	define_macro("__FLT128_MAX_10_EXP__", "4932");
 	define_macro("__FLT_MIN__", "1.17549435082228750796873653722224568e-38F");
-	define_macro("__GCC_IEC_559_COMPLEX", "2");
 	define_macro("__UINT_LEAST8_TYPE__", "unsigned char");
 	// define_macro("__INTMAX_C(c)", "c ## L");
 	define_macro("__CHAR_BIT__", "8");
@@ -51,15 +50,10 @@ void init_macros(void)
 	define_macro("__ORDER_LITTLE_ENDIAN__", "1234");
 	define_macro("__SIZE_MAX__", "0xffffffffffffffffUL");
 	define_macro("__WCHAR_MAX__", "0x7fffffff");
-	define_macro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4", "1");
 	define_macro("__DBL_DENORM_MIN__", "((double)4.94065645841246544176568792868221372e-324L)");
-	define_macro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_8", "1");
-	define_macro("__GCC_ATOMIC_CHAR_LOCK_FREE", "1");
-	define_macro("__GCC_IEC_559", "2");
 	define_macro("__FLT32X_DECIMAL_DIG__", "17");
 	define_macro("__FLT_EVAL_METHOD__", "0");
 	define_macro("__FLT64_DECIMAL_DIG__", "17");
-	define_macro("__GCC_ATOMIC_CHAR32_T_LOCK_FREE", "2");
 	define_macro("__UINT_FAST64_MAX__", "0xffffffffffffffffUL");
 	define_macro("__SIG_ATOMIC_TYPE__", "int");
 	define_macro("__DBL_MIN_10_EXP__", "(-307)");
@@ -78,7 +72,6 @@ void init_macros(void)
 	define_macro("__LDBL_IS_IEC_60559__", "2");
 	define_macro("__FLT64X_HAS_QUIET_NAN__", "1");
 	define_macro("__UINT_LEAST8_MAX__", "0xff");
-	define_macro("__GCC_ATOMIC_BOOL_LOCK_FREE", "1");
 	define_macro("__FLT128_DENORM_MIN__", "6.47517511943802511092443895822764655e-4966F128");
 	define_macro("__UINTMAX_TYPE__", "long unsigned int");
 	define_macro("__linux", "1");
@@ -96,7 +89,6 @@ void init_macros(void)
 	define_macro("__FLT128_MANT_DIG__", "113");
 	define_macro("__WCHAR_MIN__", "(-__WCHAR_MAX__ - 1)");
 	// define_macro("__INT64_C(c)", "c ## L");
-	define_macro("__GCC_ATOMIC_POINTER_LOCK_FREE", "2");
 	define_macro("__SIZEOF_INT__", "4");
 	define_macro("__FLT32X_MANT_DIG__", "53");
 	define_macro("__FLT64X_EPSILON__", "1.92592994438723585305597794258492732e-34F64x");
@@ -128,7 +120,7 @@ void init_macros(void)
 	define_macro("__LDBL_HAS_QUIET_NAN__", "1");
 	define_macro("__FLT64_MANT_DIG__", "53");
 	define_macro("__FLT64X_MANT_DIG__", "113");
-	define_macro("__GNUC__", "12");
+	// define_macro("__GNUC__", "12");
 	define_macro("__pie__", "2");
 	define_macro("__FLT_HAS_DENORM__", "1");
 	define_macro("__SIZEOF_LONG_DOUBLE__", "16");
@@ -148,7 +140,6 @@ void init_macros(void)
 	define_macro("__DBL_MAX_EXP__", "1024");
 	define_macro("__WCHAR_WIDTH__", "32");
 	define_macro("__FLT32_MAX__", "3.40282346638528859811704183484516925e+38F32");
-	define_macro("__GCC_ATOMIC_LONG_LOCK_FREE", "2");
 	define_macro("__PTRDIFF_MAX__", "0x7fffffffffffffffL");
 	define_macro("__FLT32_HAS_QUIET_NAN__", "1");
 	define_macro("__LONG_LONG_MAX__", "0x7fffffffffffffffLL");
@@ -188,7 +179,6 @@ void init_macros(void)
 	// define_macro("__UINT64_C(c)", "c ## UL");
 	define_macro("_STDC_PREDEF_H", "1");
 	define_macro("__INT_LEAST32_MAX__", "0x7fffffff");
-	define_macro("__GCC_ATOMIC_INT_LOCK_FREE", "2");
 	define_macro("__FLT128_MAX_EXP__", "16384");
 	define_macro("__FLT32_MANT_DIG__", "24");
 	define_macro("__FLOAT_WORD_ORDER__", "__ORDER_LITTLE_ENDIAN__");
@@ -216,7 +206,6 @@ void init_macros(void)
 	// define_macro("__UINTMAX_C(c)", "c ## UL");
 	define_macro("__FLT32X_MIN__", "2.22507385850720138309023271733240406e-308F32x");
 	define_macro("__SIG_ATOMIC_MAX__", "0x7fffffff");
-	define_macro("__GCC_ATOMIC_WCHAR_T_LOCK_FREE", "2");
 	define_macro("__USER_LABEL_PREFIX__", "");
 	define_macro("__STDC_IEC_60559_BFP__", "201404L");
 	define_macro("__SIZEOF_PTRDIFF_T__", "8");
@@ -270,7 +259,6 @@ void init_macros(void)
 	define_macro("__INT_FAST64_WIDTH__", "64");
 	define_macro("__FLT32_DECIMAL_DIG__", "9");
 	define_macro("__INT_FAST64_MAX__", "0x7fffffffffffffffL");
-	define_macro("__GCC_ATOMIC_TEST_AND_SET_TRUEVAL", "1");
 	define_macro("__FLT_NORM_MAX__", "3.40282346638528859811704183484516925e+38F");
 	define_macro("__FLT32_HAS_INFINITY__", "1");
 	define_macro("__FLT64X_MAX_EXP__", "16384");
@@ -287,7 +275,6 @@ void init_macros(void)
 	define_macro("__ORDER_BIG_ENDIAN__", "4321");
 	define_macro("__DBL_MANT_DIG__", "53");
 	define_macro("__INT_LEAST64_MAX__", "0x7fffffffffffffffL");
-	define_macro("__GCC_ATOMIC_CHAR16_T_LOCK_FREE", "1");
 	define_macro("__FP_FAST_FMAF32", "1");
 	define_macro("__WINT_TYPE__", "unsigned int");
 	define_macro("__UINT_LEAST32_TYPE__", "unsigned int");
@@ -349,14 +336,14 @@ void init_macros(void)
 	define_macro("__INTMAX_TYPE__", "long int");
 	define_macro("__FLT32X_HAS_QUIET_NAN__", "1");
 	define_macro("__ATOMIC_CONSUME", "1");
-	define_macro("__GNUC_MINOR__", "2");
+	// define_macro("__GNUC_MINOR__", "2");
 	define_macro("__INT_FAST16_WIDTH__", "64");
 	define_macro("__UINTMAX_MAX__", "0xffffffffffffffffUL");
 	define_macro("__PIE__", "2");
 	define_macro("__FLT32X_DENORM_MIN__", "4.94065645841246544176568792868221372e-324F32x");
 	define_macro("__DBL_MAX_10_EXP__", "308");
 	define_macro("__LDBL_DENORM_MIN__", "6.47517511943802511092443895822764655e-4966L");
-	define_macro("__INT16_C(c)", "c");
+	// define_macro("__INT16_C(c)", "c");
 	define_macro("__STDC__", "1");
 	define_macro("__PTRDIFF_TYPE__", "long int");
 	define_macro("__riscv_div", "1");
@@ -370,12 +357,10 @@ void init_macros(void)
 	define_macro("__FLT128_EPSILON__", "1.92592994438723585305597794258492732e-34F128");
 	define_macro("__SIZEOF_LONG_LONG__", "8");
 	define_macro("__FLT128_DECIMAL_DIG__", "36");
-	define_macro("__GCC_ATOMIC_LLONG_LOCK_FREE", "2");
 	define_macro("__riscv_cmodel_pic", "1");
 	define_macro("__FLT_DECIMAL_DIG__", "9");
 	define_macro("__UINT_FAST16_MAX__", "0xffffffffffffffffUL");
 	define_macro("__LDBL_NORM_MAX__", "1.18973149535723176508575932662800702e+4932L");
-	define_macro("__GCC_ATOMIC_SHORT_LOCK_FREE", "1");
 	define_macro("__UINT_FAST8_TYPE__", "unsigned char");
 	define_macro("__ATOMIC_ACQ_REL", "4");
 	define_macro("__ATOMIC_RELEASE", "3");
