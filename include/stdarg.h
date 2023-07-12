@@ -10,10 +10,10 @@ do {				\
 
 #define va_end(ap)
 
-#define va_arg(ap, type)	\
-({				\
-	ap += 8;		\
-	*(type *)(ap - 8);	\
+#define va_arg(ap, type)		\
+({					\
+	ap += sizeof(long);		\
+	*(type *)(ap - sizeof(long));	\
 })
 
 #define __GNUC_VA_LIST 1

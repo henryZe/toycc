@@ -24,6 +24,8 @@ static int count(void)
 	return i++;
 }
 
+#define MAX_ARG_REGS ARRAY_SIZE(argreg)
+
 // code generator
 static int depth = 0;
 static const char * const argreg[] = {
@@ -68,7 +70,7 @@ static void pop(const char *reg)
 {
 	const char *prefix;
 
-	if (strcmp(reg, "fp") && (reg[0] == 'f'))
+	if ((reg[0] == 'f') && strcmp(reg, "fp"))
 		prefix = "f";
 	else
 		prefix = "";
@@ -417,17 +419,95 @@ static void cmp_zero(struct Type *ty)
 	return;
 }
 
-static void push_args(struct Node *args)
+static void push_args2(struct Node *args, bool first_pass)
 {
-	if (args) {
-		push_args(args->next);
+	if (!args)
+		return;
 
-		gen_expr(args);
-		if (is_float(args->ty))
-			push("fa0");
-		else
-			push("a0");
+	// in the right-to-left order
+	push_args2(args->next, first_pass);
+
+	if ((first_pass && !args->pass_by_stack) ||
+	   (!first_pass && args->pass_by_stack))
+		return;
+
+	gen_expr(args);
+	if (is_float(args->ty))
+		push("fa0");
+	else
+		push("a0");
+}
+
+// Load function call arguments. Arguments are already evaluated and
+// stored to the stack as local variables. What we need to do in this
+// function is to load them to registers or push them to the stack.
+// https://github.com/riscv-non-isa/riscv-elf-psabi-doc/releases
+// Here is what the spec says:
+//
+// - Up to 8 arguments of integral type are passed using a0-a7.
+//
+// - Up to 8 arguments of floating-point type are passed using fa0-fa7.
+//
+// - Values are passed in floating-point registers whenever possible,
+//   whether or not the integer registers have been exhausted.
+//
+// - Variadic arguments are passed according to the integer calling
+//   convention.
+//
+// - If all registers of an appropriate type are already used, push an
+//   argument to the stack in the right-to-left order.
+//   float -> integer -> stack
+//
+// - Each argument passed on the stack takes 8 bytes, and the end of
+//   the argument area must be aligned to a 16 byte boundary.
+static size_t push_args(struct Node *args, struct Type *func_ty)
+{
+	size_t stack = 0, g_arg = 0, f_arg = 0;
+
+	struct Type *cur_params = func_ty->params;
+
+	for (struct Node *arg = args; arg; arg = arg->next) {
+		if (func_ty->is_variadic && cur_params == NULL) {
+			if (g_arg < MAX_ARG_REGS) {
+				g_arg++;
+
+			} else {
+				arg->pass_by_stack = true;
+				stack++;
+			}
+
+			continue;
+		}
+
+		if (is_float(arg->ty)) {
+			if (f_arg < MAX_ARG_REGS) {
+				f_arg++;
+
+			} else if (g_arg < MAX_ARG_REGS) {
+				g_arg++;
+
+			} else {
+				arg->pass_by_stack = true;
+				stack++;
+			}
+		} else {
+			if (g_arg < MAX_ARG_REGS) {
+				g_arg++;
+
+			} else {
+				arg->pass_by_stack = true;
+				stack++;
+			}
+		}
+		cur_params = cur_params->next;
 	}
+
+	// push stack arguments
+	push_args2(args, true);
+	// push register arguments
+	push_args2(args, false);
+
+	return stack;
 }
 
 // Generate code for a given node.
@@ -603,27 +683,50 @@ static void gen_expr(struct Node *node)
 	case ND_FUNCALL:
 		debug("\t# ND_FUNCALL");
 
-		push_args(node->args);
+		// push arguments into stack first
+		int stack_args = push_args(node->args, node->func_ty);
 
 		// fetch function address
 		gen_expr(node->lhs);
 		println("\tmv t0, a0");
 
-		int g_arg = 0, f_arg = 0;
+		struct Type *cur_params = node->func_ty->params;
+		size_t g_arg = 0, f_arg = 0;
+		// then pop arguments from stack
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
 			debug("\t# %sarg %.*s",
-				node->func_ty->is_variadic ? "variadic " : "",
-				arg->tok->len, arg->tok->loc);
+			      node->func_ty->is_variadic ? "variadic " : "",
+			      arg->tok->len, arg->tok->loc);
 
 			// transfer args to variadic function with generic registers
-			if (node->func_ty->is_variadic || !is_float(arg->ty))
-				pop(argreg[g_arg++]);
-			else
-				pop(argflt[f_arg++]);
+			if (node->func_ty->is_variadic && cur_params == NULL) {
+				if (g_arg < MAX_ARG_REGS)
+					pop(argreg[g_arg++]);
+				continue;
+			}
+
+			cur_params = cur_params->next;
+
+			if (is_float(arg->ty)) {
+				if (f_arg < MAX_ARG_REGS)
+					pop(argflt[f_arg++]);
+
+				else if (g_arg < MAX_ARG_REGS)
+					pop(argreg[g_arg++]);
+
+			} else {
+				if (g_arg < MAX_ARG_REGS)
+					pop(argreg[g_arg++]);
+			}
 		}
 
 		// call function
 		println("\tjalr t0");
+
+		if (stack_args) {
+			println("\taddi sp, sp, %d", stack_args * sizeof(long));
+			depth -= stack_args;
+		}
 
 		// It looks like the most significant 48 or 56 bits in a0 may
 		// contain garbage if a function return type is short or bool/char,
@@ -956,7 +1059,7 @@ static void emit_data(struct Obj *prog)
 				// declare as a pointer
 				println("\t.quad %s+%ld", rel->label, rel->addend);
 				rel = rel->next;
-				pos += 8;
+				pos += sizeof(long);
 			} else {
 				char c = var->init_data[pos++];
 
@@ -1058,7 +1161,7 @@ static void emit_text(struct Obj *prog)
 			// store "__va_area__"(local variable) into stack
 			int off = fn->va_area->offset;
 
-			while (g_arg < ARRAY_SIZE(argreg)) {
+			while (g_arg < MAX_ARG_REGS) {
 				store_args(g_arg++, off, sizeof(long));
 				off += sizeof(long);
 			}
@@ -1076,9 +1179,9 @@ static void emit_text(struct Obj *prog)
 		debug("\t# end '%s' save args", fn->name);
 
 		// Emit code
-		int cur_depth = depth;
+		int pre_depth = depth;
 		gen_stmt(fn->body);
-		assert(depth == cur_depth);
+		assert(depth == pre_depth);
 
 		// epilogue
 		println("return.%s:", fn->name);

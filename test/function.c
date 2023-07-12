@@ -136,6 +136,12 @@ char *function_fn(void)
 	return __FUNCTION__;
 }
 
+int add10_int(int x1, int x2, int x3, int x4, int x5, int x6, int x7, int x8, int x9, int x10);
+float add10_float(float x1, float x2, float x3, float x4, float x5, float x6, float x7, float x8, float x9, float x10);
+double add10_double(double x1, double x2, double x3, double x4, double x5, double x6, double x7, double x8, double x9, double x10);
+float add19_float(float x1, float x2, float x3, float x4, float x5, float x6, float x7, float x8, float x9, float x10,
+		  float x11, float x12, float x13, float x14, float x15, float x16, float x17, float x18, float x19);
+
 int main()
 {
 	ASSERT(3, ret3());
@@ -227,6 +233,19 @@ int main()
 	ASSERT(0, strcmp("func_fn", func_fn()));
 	ASSERT(0, strcmp("main", __FUNCTION__));
 	ASSERT(0, strcmp("function_fn", function_fn()));
+
+	ASSERT(55, add10_int(1,2,3,4,5,6,7,8,9,10));
+	ASSERT(55, add10_float(1,2,3,4,5,6,7,8,9,10));
+	ASSERT(55, add10_double(1,2,3,4,5,6,7,8,9,10));
+
+	ASSERT(190, add19_float(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19));
+
+	ASSERT(0, ({
+		char buf[200];
+		sprintf(buf, "%d %.1f %.1f %.1f %d %d %.1f %d %d %d %d %.1f %d %d %.1f %.1f %.1f %.1f %d",
+			1, 1.0, 1.0, 1.0, 1, 1, 1.0, 1, 1, 1, 1, 1.0, 1, 1, 1.0, 1.0, 1.0, 1.0, 1);
+		strcmp("1 1.0 1.0 1.0 1 1 1.0 1 1 1 1 1.0 1 1 1.0 1.0 1.0 1.0 1", buf);
+		}));
 
 	printf("OK\n");
 	return 0;

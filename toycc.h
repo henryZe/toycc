@@ -180,6 +180,7 @@ struct Node {
 	// function call
 	struct Type *func_ty;
 	struct Node *args;
+	bool pass_by_stack;
 
 	// goto or labeled statement
 	const char *label;

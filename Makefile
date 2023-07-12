@@ -75,7 +75,7 @@ output/%.o: %.c $(HEADERFILES)
 output/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
-	$(OBJDUMP) -S $@ > $@.asm
+	# $(OBJDUMP) -S $@ > $@.asm
 
 # test
 output/test/%.s: test/%.c output/$(TARGET)
@@ -89,10 +89,11 @@ TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 # -E: preprocess C files
 # -xc: compile following files as C language
 # -o-: set output as stdout
+# test/common.c is designed for lib function invocation test
 output/test/%: test/%.c output/$(TARGET) test/common.c
 	@mkdir -p $(@D)
 	output/$(TARGET) $(TEST_INCLUDE) -c $< -o $@.o
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static -o $@ $@.o test/common.c
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.o test/common.c -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 # test with qemu-riscv64
@@ -100,29 +101,30 @@ test: $(TESTS)
 	for i in $^; do echo $$i; qemu-riscv64 $$i || exit 1; echo; done
 	@sh $(TEST_DRV) output/$(TARGET)
 
-# selfhost
-selfhost/src/%.s: %.c output/$(TARGET) self.py $(HEADERFILES)
+# self-host
+# todo: remove self.py
+selfhost/src/%.s: %.c output/$(TARGET) self.py
 	@mkdir -p $(@D)
-	python3 self.py $(HEADERFILES) $< > selfhost/src/$<
+	python3 self.py $< > selfhost/src/$<
 	output/$(TARGET) $(INCLUDE) -c -S selfhost/src/$< -o $@
 	# output/$(TARGET) $(INCLUDE) -c -S $< -o $@
 
 SELFHOST_SRCASM := $(patsubst %.c, selfhost/src/%.s, $(SRCFILES))
 selfhost_build: $(SELFHOST_SRCASM)
 
-selfhost/src/%.o: %.c output/$(TARGET) self.py $(HEADERFILES)
+# todo: remove self.py
+selfhost/src/%.c: %.c self.py
 	@mkdir -p $(@D)
-	python3 self.py $(HEADERFILES) $< > selfhost/src/$<
-	output/$(TARGET) $(INCLUDE) -c selfhost/src/$< -o $@
-	# output/$(TARGET) $(INCLUDE) -c $< -o $@
+	python3 self.py $< > selfhost/src/$<
 
-SELFHOST_SRCOBJ := $(patsubst %.c, selfhost/src/%.o, $(SRCFILES))
-selfhost/$(TARGET): $(SELFHOST_SRCOBJ)
-	output/$(TARGET) $(SELFHOST_SRCOBJ) -o $@
+SELFHOST_SRC := $(patsubst %.c, selfhost/src/%.c, $(SRCFILES))
+selfhost/$(TARGET): $(SELFHOST_SRC) output/$(TARGET) $(HEADERFILES)
+	@mkdir -p $(@D)
+	output/$(TARGET) $(INCLUDE) $(SELFHOST_SRC) -o $@
 
 selfhost: selfhost/$(TARGET)
 
-test_all: selfhost test
+test_all: test selfhost
 
 # selfhost test-cases
 selfhost/test/%.c: test/%.c
@@ -138,8 +140,8 @@ selfhost_test_asm: $(SELFHOST_PRE)
 	cp qemu_script/run_compile/default.sh selfhost/
 	@sh $(TEST_QEMU) selfhost
 
-selfhost/test/%: selfhost_test_asm test/common.c
-	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.s test/common.c -o $@
+selfhost/test/%: test/common.c selfhost_test_asm
+	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.s $< -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 SELFHOST_TESTS = $(patsubst output/test/%, selfhost/test/%, $(TESTS))
@@ -152,4 +154,4 @@ extra: test_all selfhost_test
 clean:
 	rm -rf output selfhost
 
-.PHONY: clean test selfhost test_all selfhost_test_asm selfhost_test extra test_build selfhost_build
+.PHONY: clean test selfhost test_all extra test_build selfhost_build
