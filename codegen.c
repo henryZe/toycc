@@ -1009,22 +1009,63 @@ static void gen_stmt(struct Node *node)
 	error_tok(node->tok, "invalid statement");
 }
 
-// Assign offsets to local variables.
 static void assign_lvar_offsets(struct Obj *prog)
 {
 	for (struct Obj *fn = prog; fn; fn = fn->next) {
 		if (!fn->is_function)
 			continue;
 
-		int offset = 0;
+		// If a function has many parameters, some parameters are
+		// inevitably passed by stack rather than by register.
+		// The first passed-by-stack parameter resides at fp+16.
+		// +-----------------+
+		// |    stack args   | (NR*8)			[caller]
+		// |-----------------| top: stack's first arg (fp+16)
+		// |        ra       |
+		// |        fp       |				[callee]
+		// +-----------------+ bottom
+		// |    local vars   |
+		// +-----------------+
+		int top = 16;
+
+		size_t g_arg = 0, f_arg = 0;
+		// initialize pass-by-stack parameters' offset
+		for (struct Obj *var = fn->params; var; var = var->next) {
+			if (is_float(var->ty)) {
+				if (f_arg < MAX_ARG_REGS) {
+					f_arg++;
+					continue;
+
+				} else if (g_arg < MAX_ARG_REGS) {
+					g_arg++;
+					continue;
+				}
+
+			} else {
+				if (g_arg < MAX_ARG_REGS) {
+					g_arg++;
+					continue;
+				}
+			}
+
+			top = align_to(top, sizeof(long));
+			var->offset = top;
+			top += var->ty->size;
+		}
+
+		int bottom = 0;
 		// initialize var's offset
+		// Assign offsets to pass-by-register parameters and local variables.
 		for (struct Obj *var = fn->locals; var; var = var->next) {
-			offset += var->ty->size;
-			offset = align_to(offset, var->align);
-			var->offset = -offset;
+			if (var->offset)
+				continue;
+
+			bottom += var->ty->size;
+			bottom = align_to(bottom, var->align);
+			var->offset = -bottom;
 		}
 		// initialize stack size
-		fn->stack_size = align_to(offset, sizeof(long));
+		fn->stack_size = align_to(bottom, sizeof(long));
 	}
 }
 
@@ -1106,8 +1147,10 @@ static void store_args(int r, int offset, int sz)
 	}
 }
 
-static void store_fltargs(int r, int offset, int sz)
+static void store_fltargs(size_t r, int offset, int sz)
 {
+	assert(r < MAX_ARG_REGS);
+
 	switch (sz) {
 	case sizeof(float):
 		println("\tfsw %s, %d(sp)", argflt[r], offset);
@@ -1146,9 +1189,13 @@ static void emit_text(struct Obj *prog)
 		// Save passed-by-register arguments to the stack
 		debug("\t# '%s' save args into stack", fn->name);
 
-		uint32_t g_arg = 0, f_arg = 0;
+		size_t g_arg = 0, f_arg = 0;
 		for (struct Obj *var = fn->params; var; var = var->next) {
-			if (is_float(var->ty))
+			if (var->offset > 0)
+				// pass-by-stack parameters are already in stack now
+				continue;
+
+			if (is_float(var->ty) && (f_arg < MAX_ARG_REGS))
 				store_fltargs(f_arg++, var->offset, var->ty->size);
 			else
 				store_args(g_arg++, var->offset, var->ty->size);

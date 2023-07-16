@@ -142,6 +142,37 @@ double add10_double(double x1, double x2, double x3, double x4, double x5, doubl
 float add19_float(float x1, float x2, float x3, float x4, float x5, float x6, float x7, float x8, float x9, float x10,
 		  float x11, float x12, float x13, float x14, float x15, float x16, float x17, float x18, float x19);
 
+int many_args1(int a, int b, int c, int d, int e, int f, int g, int h)
+{
+	return g / h;
+}
+
+int many_args4(int a, int b, int c, int d, int e, int f, int g, int h, int i, int j)
+{
+	return i / j;
+}
+
+double many_args2(double a, double b, double c, double d, double e,
+                  double f, double g, double h, double i, double j)
+{
+	return i / j;
+}
+
+int many_args3(int a, double b, int c, int d, double e, int f,
+               double g, int h, double i, double j, double k,
+               double l, double m, int n, int o, double p)
+{
+	return o / p;
+}
+
+int many_args5(int a, double b, int c, int d, double e, int f,
+               double g, int h, double i, double j, double k,
+               double l, double m, int n, int o, double p, int q,
+	       double r)
+{
+	return q / r;
+}
+
 int main()
 {
 	ASSERT(3, ret3());
@@ -246,6 +277,13 @@ int main()
 			1, 1.0, 1.0, 1.0, 1, 1, 1.0, 1, 1, 1, 1, 1.0, 1, 1, 1.0, 1.0, 1.0, 1.0, 1);
 		strcmp("1 1.0 1.0 1.0 1 1 1.0 1 1 1 1 1.0 1 1 1.0 1.0 1.0 1.0 1", buf);
 		}));
+
+	ASSERT(4, many_args1(1,2,3,4,5,6,40,10));
+	ASSERT(4, many_args2(1,2,3,4,5,6,7,8,40,10));
+	ASSERT(8, many_args3(1,2,3,4,5,6,7,8,9,10,11,12,13,14,80,10));
+
+	ASSERT(3, many_args4(1,2,3,4,5,6,40,10,60,20));
+	ASSERT(10, many_args5(1,2,3,4,5,6,7,8,9,10,11,12,13,14,80,10,90,9));
 
 	printf("OK\n");
 	return 0;
