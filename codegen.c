@@ -419,6 +419,40 @@ static void cmp_zero(struct Type *ty)
 	return;
 }
 
+// Structs or unions equal or smaller than 16 bytes are passed
+// using up to two registers.
+// When structs or unions larger than 16 bytes, save the struct
+// in caller's stack, and transmit the pointer to callee by one
+// register.
+static void push_struct(struct Type *ty)
+{
+	int i;
+	int sz = align_to(ty->size, sizeof(long));
+	int n = sz / sizeof(long);
+
+	// transmission by registers
+	if (n <= 2) {
+		while (n--) {
+			println("\tld t0, %d(a0)", n * sizeof(long));
+			push("t0");
+		}
+		return;
+	}
+
+	// transmission by stack pointer
+	for (i = 0; i < n; i++) {
+		// push struct content into stack
+		println("\tld t0, %d(a0)", i * sizeof(long));
+		println("\tsd t0, %d(t1)", i * sizeof(long));
+	}
+	depth += n;
+
+	// save struct's pointer into stack
+	println("\tmv a0, t1");
+	println("\tadd t1, t1, %d", sz);
+	push("a0");
+}
+
 static void push_args2(struct Node *args, bool first_pass)
 {
 	if (!args)
@@ -432,18 +466,79 @@ static void push_args2(struct Node *args, bool first_pass)
 		return;
 
 	gen_expr(args);
-	if (is_float(args->ty))
+
+	switch (args->ty->kind) {
+	case TY_STRUCT:
+	case TY_UNION:
+		push_struct(args->ty);
+		break;
+
+	case TY_FLOAT:
+	case TY_DOUBLE:
 		push("fa0");
-	else
+		break;
+
+	default:
 		push("a0");
+		break;
+	}
+}
+
+#define USED_GENERIC_REG 1
+#define USED_FLOAT_REG 2
+#define MIXED_REG 3
+
+static void check_struct_mixed(struct Type *ty, int *mixed, int *idx)
+{
+	if (ty->kind == TY_STRUCT) {
+		for (struct Member *mem = ty->members; mem; mem = mem->next)
+			check_struct_mixed(mem->ty, mixed, idx);
+		return;
+	}
+
+	if (ty->kind == TY_ARRAY) {
+		for (int i = 0; i < ty->array_len; i++)
+			check_struct_mixed(ty->base, mixed, idx);
+		return;
+	}
+
+	if (is_float(ty)) {
+		*mixed |= USED_FLOAT_REG;
+		(*idx)++;
+		return;
+	}
+
+	*mixed |= USED_GENERIC_REG;
+	(*idx)++;
+}
+
+static void check_struct_contain_float(struct Token *tok,
+				       struct Type *ty, size_t g_arg)
+{
+	int n = align_to(ty->size, sizeof(long)) / sizeof(long);
+	if (n > 2)
+		return;
+
+	int mixed = 0, idx = 0;
+	check_struct_mixed(ty, &mixed, &idx);
+	if (mixed != USED_GENERIC_REG && idx == 2) {
+		if (g_arg < MAX_ARG_REGS) {
+			// transmit by register
+			if ((g_arg + 1) == MAX_ARG_REGS && n == 1)
+				// pass as the last argument by generic register
+				return;
+
+			error_tok(tok, "Not support transmit struct arguments's float member by float register");
+		}
+	}
 }
 
 // Load function call arguments. Arguments are already evaluated and
 // stored to the stack as local variables. What we need to do in this
 // function is to load them to registers or push them to the stack.
 // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/releases
-// Here is what the spec says:
 //
+// Here is what the spec says:
 // - Up to 8 arguments of integral type are passed using a0-a7.
 //
 // - Up to 8 arguments of floating-point type are passed using fa0-fa7.
@@ -460,10 +555,20 @@ static void push_args2(struct Node *args, bool first_pass)
 //
 // - Each argument passed on the stack takes 8 bytes, and the end of
 //   the argument area must be aligned to a 16 byte boundary.
+//
+// +---------------------------------------+
+// |       struct or union in stack        |
+// |---------------------------------------| <--- t1
+// |                  ...                  |
+// |      other args passed by stack       |
+// |                  ...                  |
+// |---------------------------------------|
+// | arg-pointers forwards struct or union |
+// +---------------------------------------+ <--- sp
+//
 static size_t push_args(struct Node *args, struct Type *func_ty)
 {
-	size_t stack = 0, g_arg = 0, f_arg = 0;
-
+	size_t stack = 0, struct_stack = 0, g_arg = 0, f_arg = 0;
 	struct Type *cur_params = func_ty->params;
 
 	for (struct Node *arg = args; arg; arg = arg->next) {
@@ -475,32 +580,52 @@ static size_t push_args(struct Node *args, struct Type *func_ty)
 				arg->pass_by_stack = true;
 				stack++;
 			}
-
 			continue;
 		}
 
-		if (is_float(arg->ty)) {
-			if (f_arg < MAX_ARG_REGS) {
-				f_arg++;
-
-			} else if (g_arg < MAX_ARG_REGS) {
-				g_arg++;
-
-			} else {
-				arg->pass_by_stack = true;
-				stack++;
-			}
-		} else {
-			if (g_arg < MAX_ARG_REGS) {
-				g_arg++;
-
-			} else {
-				arg->pass_by_stack = true;
-				stack++;
-			}
-		}
 		cur_params = cur_params->next;
+
+		if (is_struct_union(arg->ty)) {
+			check_struct_contain_float(arg->tok, arg->ty, g_arg);
+
+			int n = align_to(arg->ty->size, sizeof(long)) / sizeof(long);
+			if (n <= 2) {
+				// transmission struct by stack or register(s)
+				while (n--) {
+					if (g_arg < MAX_ARG_REGS)
+						g_arg++;
+					else
+						stack++;
+				}
+			} else {
+				// reserve stack space for the struct
+				struct_stack += n;
+				stack += n;
+
+				// push stack pointer
+				if (g_arg < MAX_ARG_REGS)
+					g_arg++;
+				else
+					stack++;
+			}
+			continue;
+		}
+
+		if (is_float(arg->ty) && (f_arg < MAX_ARG_REGS)) {
+			f_arg++;
+
+		} else if (g_arg < MAX_ARG_REGS) {
+			g_arg++;
+
+		} else {
+			arg->pass_by_stack = true;
+			stack++;
+		}
 	}
+
+	// expand space for struct or union in stack
+	println("\tadd sp, sp, -%d", struct_stack * sizeof(long));
+	println("\tmv t1, sp");
 
 	// push stack arguments
 	push_args2(args, true);
@@ -707,17 +832,25 @@ static void gen_expr(struct Node *node)
 
 			cur_params = cur_params->next;
 
-			if (is_float(arg->ty)) {
-				if (f_arg < MAX_ARG_REGS)
-					pop(argflt[f_arg++]);
+			if (is_struct_union(arg->ty)) {
+				int n = align_to(arg->ty->size, sizeof(long)) / sizeof(long);
 
-				else if (g_arg < MAX_ARG_REGS)
-					pop(argreg[g_arg++]);
-
-			} else {
-				if (g_arg < MAX_ARG_REGS)
-					pop(argreg[g_arg++]);
+				// transmission by register(s) or stack
+				if (n <= 2) {
+					while (n--) {
+						if (g_arg >= MAX_ARG_REGS)
+							break;
+						pop(argreg[g_arg++]);
+					}
+					continue;
+				}
 			}
+
+			if (is_float(arg->ty) && (f_arg < MAX_ARG_REGS))
+				pop(argflt[f_arg++]);
+
+			else if (g_arg < MAX_ARG_REGS)
+				pop(argreg[g_arg++]);
 		}
 
 		// call function
@@ -1228,7 +1361,11 @@ static void emit_text(struct Obj *prog)
 		// Emit code
 		int pre_depth = depth;
 		gen_stmt(fn->body);
-		assert(depth == pre_depth);
+		if (depth != pre_depth) {
+			printf("pre_depth: %d != depth: %d\n",
+				pre_depth, depth);
+			assert(depth == pre_depth);
+		}
 
 		// epilogue
 		println("return.%s:", fn->name);
