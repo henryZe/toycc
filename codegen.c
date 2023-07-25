@@ -440,6 +440,8 @@ static void push_struct(struct Type *ty)
 	}
 
 	// transmission by stack pointer
+	println("\tadd t1, t1, %d", -sz);
+
 	for (i = 0; i < n; i++) {
 		// push struct content into stack
 		println("\tld t0, %d(a0)", i * sizeof(long));
@@ -447,10 +449,7 @@ static void push_struct(struct Type *ty)
 	}
 	depth += n;
 
-	// save struct's pointer into stack
-	println("\tmv a0, t1");
-	println("\tadd t1, t1, %d", sz);
-	push("a0");
+	push("t1");
 }
 
 static void push_args2(struct Node *args, bool first_pass)
@@ -558,12 +557,12 @@ static void check_struct_contain_float(struct Token *tok,
 //
 // +---------------------------------------+
 // |       struct or union in stack        |
-// |---------------------------------------| <--- t1
-// |                  ...                  |
-// |      other args passed by stack       |
-// |                  ...                  |
-// |---------------------------------------|
-// | arg-pointers forwards struct or union |
+// |---------------------------------------|<--- t1 <---+
+// |                  ...                  |            |
+// |      other args passed by stack       |            |
+// |                  ...                  |            |
+// |---------------------------------------|            |
+// | arg-pointers forwards struct or union |------------+
 // +---------------------------------------+ <--- sp
 //
 static size_t push_args(struct Node *args, struct Type *func_ty)
@@ -624,8 +623,8 @@ static size_t push_args(struct Node *args, struct Type *func_ty)
 	}
 
 	// expand space for struct or union in stack
-	println("\tadd sp, sp, -%d", struct_stack * sizeof(long));
 	println("\tmv t1, sp");
+	println("\tadd sp, sp, -%d", struct_stack * sizeof(long));
 
 	// push stack arguments
 	push_args2(args, true);
@@ -1164,7 +1163,25 @@ static void assign_lvar_offsets(struct Obj *prog)
 		size_t g_arg = 0, f_arg = 0;
 		// initialize pass-by-stack parameters' offset
 		for (struct Obj *var = fn->params; var; var = var->next) {
-			if (is_float(var->ty)) {
+			if (is_struct_union(var->ty)) {
+				int sz = align_to(var->ty->size, sizeof(long));
+				int n = sz / sizeof(long);
+
+				if (n <= 2) {
+					if ((g_arg + n) <= MAX_ARG_REGS) {
+						g_arg += n;
+						continue;
+					} else if (g_arg + 1 == MAX_ARG_REGS) {
+						error_tok(var->ty->name_pos,
+							"Not support transmit struct parameter half by register and half by stack");
+					}
+				} else {
+					// Passed by caller stack,
+					// so just skip the register.
+					if (g_arg < MAX_ARG_REGS)
+						g_arg++;
+				}
+			} else if (is_float(var->ty)) {
 				if (f_arg < MAX_ARG_REGS) {
 					f_arg++;
 					continue;
@@ -1173,7 +1190,6 @@ static void assign_lvar_offsets(struct Obj *prog)
 					g_arg++;
 					continue;
 				}
-
 			} else {
 				if (g_arg < MAX_ARG_REGS) {
 					g_arg++;
@@ -1275,7 +1291,10 @@ static void store_args(int r, int offset, int sz)
 		break;
 
 	default:
-		unreachable();
+		for (int i = 0; i < sz; i++) {
+			println("\tsb %s, %d(%s)", argreg[r], offset + i, rs);
+			println("\tsrli %s, %s, 8", argreg[r], argreg[r]);
+		}
 		break;
 	}
 }
@@ -1324,14 +1343,32 @@ static void emit_text(struct Obj *prog)
 
 		size_t g_arg = 0, f_arg = 0;
 		for (struct Obj *var = fn->params; var; var = var->next) {
-			if (var->offset > 0)
-				// pass-by-stack parameters are already in stack now
+			// pass-by-stack parameters are already in stack now
+			if (var->offset > 0) {
+				if (g_arg < MAX_ARG_REGS) {
+					// skip the argument register
+					// only when struct's size > (2 * sizeof(long))
+					assert(is_struct_union(var->ty));
+					g_arg++;
+				}
 				continue;
+			}
 
-			if (is_float(var->ty) && (f_arg < MAX_ARG_REGS))
+			if (is_struct_union(var->ty)) {
+				store_args(g_arg++, var->offset,
+					   MIN(var->ty->size, (int)sizeof(long)));
+
+				if (var->ty->size > (int)sizeof(long))
+					store_args(g_arg++, var->offset + sizeof(long),
+							    var->ty->size - sizeof(long));
+				continue;
+			}
+
+			if (is_float(var->ty) && (f_arg < MAX_ARG_REGS)) {
 				store_fltargs(f_arg++, var->offset, var->ty->size);
-			else
+			} else if (g_arg < MAX_ARG_REGS) {
 				store_args(g_arg++, var->offset, var->ty->size);
+			}
 		}
 
 		// Save arg registers if function is variadic
