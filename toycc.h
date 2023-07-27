@@ -181,6 +181,7 @@ struct Node {
 	struct Type *func_ty;
 	struct Node *args;
 	bool pass_by_stack;
+	struct Obj *ret_buffer;
 
 	// goto or labeled statement
 	const char *label;

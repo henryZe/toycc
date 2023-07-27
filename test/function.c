@@ -366,6 +366,15 @@ int struct_type_12_1_test_2(int a0, int a1, int a2, int a3, int a4, int a5, int 
 int union_type_1_1_test_2(UnTy1_1 x, int n) {switch (n) { case 0: return x.a; case 1: return x.b; default: return -1;}}
 int union_type_1_2_test_2(UnTy1_2 x, int n) {switch (n) { case 0: return x.a; case 1: return x.b; case 2: return x.c; default: return -1;}}
 
+typedef struct { unsigned char a[10]; } Ty20;
+typedef struct { unsigned char a[20]; } Ty21;
+
+Ty4 struct_test24(void);
+Ty5 struct_test25(void);
+Ty6 struct_test26(void);
+Ty20 struct_test27(void);
+Ty21 struct_test28(void);
+
 int main()
 {
 	ASSERT(3, ret3());
@@ -791,6 +800,29 @@ int main()
 	ASSERT(10, ({UnTy1_2 x; x.a=10.0; union_type_1_2_test_2(x,0);}));
 	ASSERT(20, ({UnTy1_2 x; x.b=20.0; union_type_1_2_test_2(x,1);}));
 	ASSERT(30, ({UnTy1_2 x; x.c=30.0; union_type_1_2_test_2(x,2);}));
+
+	ASSERT(10, struct_test24().a);
+	ASSERT(20, struct_test24().b);
+	ASSERT(30, struct_test24().c);
+	ASSERT(40, struct_test24().d);
+
+	ASSERT(10, struct_test25().a);
+	ASSERT(20, struct_test25().b);
+	ASSERT(30, struct_test25().c);
+
+	ASSERT(10, struct_test26().a[0]);
+	ASSERT(20, struct_test26().a[1]);
+	ASSERT(30, struct_test26().a[2]);
+
+	ASSERT(10, struct_test27().a[0]);
+	ASSERT(60, struct_test27().a[5]);
+	ASSERT(100, struct_test27().a[9]);
+
+	ASSERT(1, struct_test28().a[0]);
+	ASSERT(5, struct_test28().a[4]);
+	ASSERT(10, struct_test28().a[9]);
+	ASSERT(15, struct_test28().a[14]);
+	ASSERT(20, struct_test28().a[19]);
 
 	printf("OK\n");
 	return 0;

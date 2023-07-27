@@ -2,7 +2,7 @@
 #include <type.h>
 
 #ifdef DEBUG
-#define debug(fmt, args...) println(fmt, ##args)
+#define debug(fmt, args...) println("\t# " fmt, ##args)
 #else
 #define debug(...)
 #endif
@@ -179,13 +179,13 @@ static void gen_addr(struct Node *node)
 		if (node->ty->kind == TY_FUNC) {
 			if (node->var->is_definition) {
 				// relative address
-				debug("\t# function call by relative address '%s'",
+				debug("function call by relative address '%s'",
 					node->var->name);
 				relative_addressing(node->var->name);
 
 			} else {
 				// dynamic linking, from .so files
-				debug("\t# function call from DSOs '%s'",
+				debug("function call from DSOs '%s'",
 					node->var->name);
 				GOT_relative_addressing(node->var->name);
 			}
@@ -193,7 +193,7 @@ static void gen_addr(struct Node *node)
 		}
 
 		// global variable
-		debug("\t# global variable '%s'", node->var->name);
+		debug("global variable '%s'", node->var->name);
 		GOT_relative_addressing(node->var->name);
 		break;
 
@@ -209,6 +209,11 @@ static void gen_addr(struct Node *node)
 	case ND_MEMBER:
 		gen_addr(node->lhs);
 		println("\tadd a0, a0, %d", node->member->offset);
+		break;
+
+	case ND_FUNCALL:
+		if (node->ret_buffer)
+			gen_expr(node);
 		break;
 
 	default:
@@ -393,9 +398,9 @@ static void cast(struct Type *from, struct Type *to)
 	int t2 = getTypeId(to);
 
 	if (cast_matrix[t1][t2]) {
-		debug("\t# cast t1 %d t2 %d", t1, t2);
+		debug("cast t1 %d t2 %d", t1, t2);
 		println("%s", cast_matrix[t1][t2]);
-		debug("\t# end cast");
+		debug("end cast");
 	}
 }
 
@@ -564,14 +569,19 @@ static void check_struct_contain_float(struct Token *tok,
 // |---------------------------------------|            |
 // | arg-pointers forwards struct or union |------------+
 // +---------------------------------------+ <--- sp
-//
-static size_t push_args(struct Node *args, struct Type *func_ty)
+static size_t push_args(struct Node *node)
 {
 	size_t stack = 0, struct_stack = 0, g_arg = 0, f_arg = 0;
-	struct Type *cur_params = func_ty->params;
+	struct Type *cur_params = node->func_ty->params;
 
-	for (struct Node *arg = args; arg; arg = arg->next) {
-		if (func_ty->is_variadic && cur_params == NULL) {
+	// If the return type is a large struct/union, the caller passes
+	// a pointer to a buffer as if it were the first argument.
+	if (node->ret_buffer && node->ty->size > 2 * (int)sizeof(long))
+		g_arg++;
+
+	// Load as many arguments to the registers as possible.
+	for (struct Node *arg = node->args; arg; arg = arg->next) {
+		if (node->func_ty->is_variadic && cur_params == NULL) {
 			if (g_arg < MAX_ARG_REGS) {
 				g_arg++;
 
@@ -627,11 +637,39 @@ static size_t push_args(struct Node *args, struct Type *func_ty)
 	println("\tadd sp, sp, -%d", struct_stack * sizeof(long));
 
 	// push stack arguments
-	push_args2(args, true);
+	push_args2(node->args, true);
 	// push register arguments
-	push_args2(args, false);
+	push_args2(node->args, false);
+
+	// If the return type is a large struct/union, the caller passes
+	// a pointer to a buffer as if it were the first argument.
+	if (node->ret_buffer && node->ty->size > 2 * (int)sizeof(long)) {
+		println("\tadd a0, fp, %d", node->ret_buffer->offset);
+		push("a0");
+	}
 
 	return stack;
+}
+
+static void copy_ret_buffer(struct Obj *var)
+{
+	struct Type *ty = var->ty;
+
+	debug("copy_ret_buffer size %d", ty->size);
+
+	for (int i = 0; i < MIN((int)sizeof(long), ty->size); i++) {
+		println("\tsb a0, %d(fp)", var->offset + i);
+		println("\tsrl a0, a0, 8");
+	}
+
+	if (ty->size > (int)sizeof(long)) {
+		for (int i = 8; i < MIN(16, ty->size); i++) {
+			println("\tsb a1, %d(fp)", var->offset + i);
+			println("\tsrl a1, a1, 8");
+		}
+	}
+
+	debug("copy_ret_buffer end");
 }
 
 // Generate code for a given node.
@@ -700,25 +738,25 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_DEREF:
-		debug("\t# ND_DEREF load");
+		debug("ND_DEREF load");
 		gen_expr(node->lhs);
 		load(node->ty);
-		debug("\t# end ND_DEREF load");
+		debug("end ND_DEREF load");
 		return;
 
 	case ND_ADDR:
-		debug("\t# ND_ADDR var");
+		debug("ND_ADDR var");
 		gen_addr(node->lhs);
-		debug("\t# end ND_ADDR var");
+		debug("end ND_ADDR var");
 		return;
 
 	case ND_ASSIGN:
-		debug("\t# ND_ASSIGN var");
+		debug("ND_ASSIGN var");
 		gen_addr(node->lhs);
 		push("a0");
 		gen_expr(node->rhs);
 		store(node->ty);
-		debug("\t# end ND_ASSIGN var");
+		debug("end ND_ASSIGN var");
 		return;
 
 	case ND_STMT_EXPR:
@@ -737,7 +775,7 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_MEMZERO:
-		debug("\t# ND_MEMZERO size %d", node->var->ty->size);
+		debug("ND_MEMZERO size %d", node->var->ty->size);
 		for (int i = 0; i < node->var->ty->size; i++) {
 			int offset = node->var->offset + i;
 
@@ -749,7 +787,7 @@ static void gen_expr(struct Node *node)
 				println("\tsb zero, %d(fp)", offset);
 			}
 		}
-		debug("\t# end ND_MEMZERO");
+		debug("end ND_MEMZERO");
 		return;
 
 	case ND_COND:
@@ -805,10 +843,10 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_FUNCALL:
-		debug("\t# ND_FUNCALL");
+		debug("ND_FUNCALL");
 
 		// push arguments into stack first
-		int stack_args = push_args(node->args, node->func_ty);
+		int stack_args = push_args(node);
 
 		// fetch function address
 		gen_expr(node->lhs);
@@ -816,9 +854,15 @@ static void gen_expr(struct Node *node)
 
 		struct Type *cur_params = node->func_ty->params;
 		size_t g_arg = 0, f_arg = 0;
+
+		// If the return type is a large struct/union, the caller passes
+		// a pointer to a buffer as if it were the first argument.
+		if (node->ret_buffer && node->ty->size > (int)sizeof(long) * 2)
+			pop(argreg[g_arg++]);
+
 		// then pop arguments from stack
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
-			debug("\t# %sarg %.*s",
+			debug("%sarg %.*s",
 			      node->func_ty->is_variadic ? "variadic " : "",
 			      arg->tok->len, arg->tok->loc);
 
@@ -885,7 +929,15 @@ static void gen_expr(struct Node *node)
 			break;
 		}
 
-		debug("\t# end ND_FUNCALL");
+		// If the return type is a small struct, a value is returned
+		// using up to two registers.
+		if (node->ret_buffer && node->ty->size <= 2 * (int)sizeof(long)) {
+			copy_ret_buffer(node->ret_buffer);
+			debug("save struct's pointer to a0");
+			println("\tadd a0, fp, %d", node->ret_buffer->offset);
+		}
+
+		debug("end ND_FUNCALL");
 		return;
 
 	default:
@@ -1035,7 +1087,7 @@ static void gen_stmt(struct Node *node)
 	case ND_IF:
 		c = count();
 
-		debug("\t# ND_IF");
+		debug("ND_IF");
 		gen_expr(node->cond);
 		cmp_zero(node->cond->ty);
 		println("\tbnez a0, else.%d", c);
@@ -1048,13 +1100,13 @@ static void gen_stmt(struct Node *node)
 			gen_stmt(node->els);
 
 		println("end.%d:", c);
-		debug("\t# end ND_IF");
+		debug("end ND_IF");
 		return;
 
 	case ND_FOR:
 		c = count();
 
-		debug("\t# ND_FOR");
+		debug("ND_FOR");
 		if (node->init)
 			gen_stmt(node->init);
 
@@ -1071,7 +1123,7 @@ static void gen_stmt(struct Node *node)
 		println("\tj begin.%d", c);
 
 		println("%s:", node->brk_label);
-		debug("\t# end ND_FOR");
+		debug("end ND_FOR");
 		return;
 
 	case ND_DO:
@@ -1176,8 +1228,7 @@ static void assign_lvar_offsets(struct Obj *prog)
 							"Not support transmit struct parameter half by register and half by stack");
 					}
 				} else {
-					// Passed by caller stack,
-					// so just skip the register.
+					// Passed by caller stack, so just skip the register.
 					if (g_arg < MAX_ARG_REGS)
 						g_arg++;
 				}
@@ -1339,14 +1390,14 @@ static void emit_text(struct Obj *prog)
 		println("\tmv fp, sp");
 
 		// Save passed-by-register arguments to the stack
-		debug("\t# '%s' save args into stack", fn->name);
+		debug("'%s' save args into stack", fn->name);
 
 		size_t g_arg = 0, f_arg = 0;
 		for (struct Obj *var = fn->params; var; var = var->next) {
 			// pass-by-stack parameters are already in stack now
 			if (var->offset > 0) {
 				if (g_arg < MAX_ARG_REGS) {
-					// skip the argument register
+					// Skip the argument register,
 					// only when struct's size > (2 * sizeof(long))
 					assert(is_struct_union(var->ty));
 					g_arg++;
@@ -1361,11 +1412,10 @@ static void emit_text(struct Obj *prog)
 				if (var->ty->size > (int)sizeof(long))
 					store_args(g_arg++, var->offset + sizeof(long),
 							    var->ty->size - sizeof(long));
-				continue;
-			}
 
-			if (is_float(var->ty) && (f_arg < MAX_ARG_REGS)) {
+			} else if (is_float(var->ty) && (f_arg < MAX_ARG_REGS)) {
 				store_fltargs(f_arg++, var->offset, var->ty->size);
+
 			} else if (g_arg < MAX_ARG_REGS) {
 				store_args(g_arg++, var->offset, var->ty->size);
 			}
@@ -1373,7 +1423,7 @@ static void emit_text(struct Obj *prog)
 
 		// Save arg registers if function is variadic
 		if (fn->va_area) {
-			debug("\t# '%s' save variadic args into stack", fn->va_area->name);
+			debug("'%s' save variadic args into stack", fn->va_area->name);
 
 			// store "__va_area__"(local variable) into stack
 			int off = fn->va_area->offset;
@@ -1383,7 +1433,7 @@ static void emit_text(struct Obj *prog)
 				off += sizeof(long);
 			}
 
-			debug("\t# end '%s' save variadic args into stack", fn->va_area->name);
+			debug("end '%s' save variadic args into stack", fn->va_area->name);
 		}
 
 		if (beyond_instruction_offset(-fn->stack_size)) {
@@ -1393,7 +1443,7 @@ static void emit_text(struct Obj *prog)
 			println("\tadd sp, sp, -%d", fn->stack_size);
 		}
 
-		debug("\t# end '%s' save args", fn->name);
+		debug("end '%s' save args", fn->name);
 
 		// Emit code
 		int pre_depth = depth;

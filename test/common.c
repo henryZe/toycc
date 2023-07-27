@@ -205,3 +205,26 @@ typedef union {float a; int b;} UnTy1_1;
 typedef union {float a; int b; long c;} UnTy1_2;
 int union_type_1_1_test(UnTy1_1 x, int n) {switch (n) { case 0: return x.a; case 1: return x.b; default: return -1;}}
 int union_type_1_2_test(UnTy1_2 x, int n) {switch (n) { case 0: return x.a; case 1: return x.b; case 2: return x.c; default: return -1;}}
+
+Ty4 struct_test24(void) {
+  return (Ty4){10, 20, 30, 40};
+}
+
+Ty5 struct_test25(void) {
+  return (Ty5){10, 20, 30};
+}
+
+Ty6 struct_test26(void) {
+  return (Ty6){10, 20, 30};
+}
+
+typedef struct { unsigned char a[10]; } Ty20;
+typedef struct { unsigned char a[20]; } Ty21;
+
+Ty20 struct_test27(void) {
+  return (Ty20){10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+}
+
+Ty21 struct_test28(void) {
+  return (Ty21){1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
+}

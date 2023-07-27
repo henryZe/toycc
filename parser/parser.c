@@ -71,6 +71,11 @@ static struct Node *funcall(struct Token **rest, struct Token *tok, struct Node 
 	node->ty = ty->return_ty;
 	node->args = head.next;
 
+	// If a function returns a struct, it is caller's responsibility
+	// to allocate a space for the return value.
+	if (is_struct_union(node->ty))
+		node->ret_buffer = new_lvar("", node->ty);
+
 	return node;
 }
 
