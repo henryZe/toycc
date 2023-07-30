@@ -857,8 +857,10 @@ static void gen_expr(struct Node *node)
 
 		// If the return type is a large struct/union, the caller passes
 		// a pointer to a buffer as if it were the first argument.
-		if (node->ret_buffer && node->ty->size > (int)sizeof(long) * 2)
+		if (node->ret_buffer && node->ty->size > (int)sizeof(long) * 2) {
+			debug("pop struct's pointer to a0");
 			pop(argreg[g_arg++]);
+		}
 
 		// then pop arguments from stack
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
@@ -933,7 +935,7 @@ static void gen_expr(struct Node *node)
 		// using up to two registers.
 		if (node->ret_buffer && node->ty->size <= 2 * (int)sizeof(long)) {
 			copy_ret_buffer(node->ret_buffer);
-			debug("save struct's pointer to a0");
+			debug("mv struct's pointer to a0");
 			println("\tadd a0, fp, %d", node->ret_buffer->offset);
 		}
 
@@ -1075,6 +1077,63 @@ static void gen_expr(struct Node *node)
 	}
 }
 
+static void copy_struct_reg(void)
+{
+	int i, pos, sz;
+	struct Type *ty = current_fn->ty->return_ty;
+
+	debug("copy_struct_reg");
+
+	println("\tmv t0, a0");
+	// load instruction(like lb, lh, lw) would clear invalid high bits
+	for (i = 0, pos = 0; pos < ty->size; i++, pos += sz) {
+		sz = MIN((int)sizeof(long), ty->size);
+
+		println("\tli a%d, 0", i);
+		switch (sz) {
+		case 1:
+			println("\tlb a%d, %d(t0)", i, pos);
+			break;
+
+		case 2:
+			println("\tlh a%d, %d(t0)", i, pos);
+			break;
+
+		case 3:
+		case 4:
+			println("\tlw a%d, %d(t0)", i, pos);
+			break;
+
+		default:
+			println("\tld a%d, %d(t0)", i, pos);
+			break;
+		}
+	}
+
+	debug("copy_struct_reg end");
+}
+
+static void copy_struct_mem(void)
+{
+	struct Type *ty = current_fn->ty->return_ty;
+	struct Obj *var = current_fn->params;
+
+	debug("copy_struct_mem");
+
+	debug("get struct's pointer passed by caller");
+	println("\tld a1, %d(fp)", var->offset);
+
+	for (int i = 0; i < ty->size; i++) {
+		println("\tlb t0, %d(a0)", i);
+		println("\tsb t0, %d(a1)", i);
+	}
+
+	debug("return struct's pointer by a0");
+	println("\tmv a0, a1");
+
+	debug("copy_struct_mem end");
+}
+
 static void gen_stmt(struct Node *node)
 {
 	int c;
@@ -1177,8 +1236,17 @@ static void gen_stmt(struct Node *node)
 		return;
 
 	case ND_RETURN:
-		if (node->lhs)
+		if (node->lhs) {
 			gen_expr(node->lhs);
+
+			struct Type *ty = node->lhs->ty;
+			if (is_struct_union(ty)) {
+				if (ty->size <= (int)sizeof(long) * 2)
+					copy_struct_reg();
+				else
+					copy_struct_mem();
+			}
+		}
 		println("\tj return.%s", current_fn->name);
 		return;
 
@@ -1202,14 +1270,14 @@ static void assign_lvar_offsets(struct Obj *prog)
 		// If a function has many parameters, some parameters are
 		// inevitably passed by stack rather than by register.
 		// The first passed-by-stack parameter resides at fp+16.
-		// +-----------------+
-		// |    stack args   | (NR*8)			[caller]
-		// |-----------------| top: stack's first arg (fp+16)
-		// |        ra       |
-		// |        fp       |				[callee]
-		// +-----------------+ bottom
-		// |    local vars   |
-		// +-----------------+
+		// +----------------+
+		// |   stack args   | (NR*8)			[caller]
+		// |----------------| top: stack's first arg (fp+16)
+		// |       ra       |
+		// |       fp       |				[callee]
+		// +----------------+ bottom (fp)
+		// |   local vars   |
+		// +----------------+
 		int top = 16;
 
 		size_t g_arg = 0, f_arg = 0;
@@ -1443,7 +1511,7 @@ static void emit_text(struct Obj *prog)
 			println("\tadd sp, sp, -%d", fn->stack_size);
 		}
 
-		debug("end '%s' save args", fn->name);
+		debug("'%s' save args end", fn->name);
 
 		// Emit code
 		int pre_depth = depth;

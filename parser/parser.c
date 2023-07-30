@@ -791,7 +791,12 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		struct Node *exp = expr(&tok, tok->next);
 		*rest = skip(tok, ";");
 
-		node->lhs = new_cast(exp, current_fn->ty->return_ty);
+		add_type(exp);
+		struct Type *ty = current_fn->ty->return_ty;
+		if (!is_struct_union(ty))
+			exp = new_cast(exp, current_fn->ty->return_ty);
+
+		node->lhs = exp;
 		return node;
 	}
 
@@ -1059,7 +1064,14 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	// initialize local variables list
 	init_locals();
 	enter_scope();
+
 	create_param_lvars(ty->params);
+	// A buffer for a struct/union return value is passed
+	// as the hidden first parameter.
+	struct Type *rty = ty->return_ty;
+	if (is_struct_union(rty) && rty->size > 2 * (int)sizeof(long))
+		new_lvar("", pointer_to(rty));
+
 	fn->params = ret_locals();
 	if (ty->is_variadic)
 		fn->va_area = new_lvar("__va_area__",
