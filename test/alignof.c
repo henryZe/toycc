@@ -40,6 +40,6 @@ int main()
 	ASSERT(1, _Alignof(char) << 63 >> 63);
 	ASSERT(1, ({ char x; _Alignof(x) << 63 >> 63; }));
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

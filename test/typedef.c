@@ -13,6 +13,6 @@ int main()
 	ASSERT(3, ({ MyInt x=3; x; }));
 	ASSERT(16, ({ MyInt2 x; sizeof(x); }));
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

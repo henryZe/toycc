@@ -2,14 +2,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+static const char *reset = "\33[0m";
+static const char *red = "\33[31m";
+static const char *green = "\33[32m";
+
 void assert(int expected, int actual, const char *code)
 {
 	if (expected != actual) {
-		printf("%s => %d expected but got %d\n", code, expected, actual);
+		printf("%s%s => %d expected but got %d%s\n",
+			red, code, expected, actual, reset);
 		exit(1);
 	}
 
 	printf("%s => %d\n", code, actual);
+}
+
+void pass(void)
+{
+	printf("%sOK%s\n", green, reset);
 }
 
 static int static_fn() { return 5; }

@@ -14,6 +14,6 @@ int main()
 	ASSERT(4, ({ enum { zero, one, two } x; sizeof(x); }));
 	ASSERT(4, ({ enum t { zero, one, two }; enum t y; sizeof(y); }));
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

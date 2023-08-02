@@ -867,6 +867,6 @@ int main()
 	ASSERT(15, struct_test38().a[14]);
 	ASSERT(20, struct_test38().a[19]);
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

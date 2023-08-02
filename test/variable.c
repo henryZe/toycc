@@ -68,6 +68,6 @@ int main()
 
 	ASSERT(3, g3);
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

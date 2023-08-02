@@ -35,6 +35,6 @@ int main()
 	ASSERT(6, sum1(1, 2, 3, 0));
 	ASSERT(21, sum2(1, 2.0, 3, 4.0, 5, 6.0, 0));
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

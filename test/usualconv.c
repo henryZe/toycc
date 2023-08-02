@@ -28,6 +28,6 @@ int main()
 
 	ASSERT(10, (1 ? ret10 : (void *)0)());
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

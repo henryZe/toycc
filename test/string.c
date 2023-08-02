@@ -42,6 +42,6 @@ int main()
 	ASSERT(0, !strcmp("abc" "d", "abcd\nefgh"));
 	ASSERT(0, strcmp("\x9" "0", "\t0"));
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

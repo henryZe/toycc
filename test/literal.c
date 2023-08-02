@@ -99,6 +99,6 @@ of(char), \
 	ASSERT(4, sizeof(L'\0'));
 	ASSERT(97, L'a');
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

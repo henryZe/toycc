@@ -366,6 +366,6 @@ int main()
 #define M14(x, ...) x
 	ASSERT(5, M14(5));
 
-	printf("OK\n");
+	pass();
 	return 0;
 }

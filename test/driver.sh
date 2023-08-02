@@ -2,6 +2,10 @@
 cc=$1
 exec='qemu-riscv64'
 
+reset='\33[0m'
+red='\33[31m'
+green='\33[32m'
+
 # Create a temporary directory
 tmp=`mktemp -d ./toycc-test-XXXXXX`
 trap 'rm -rf $tmp' INT TERM HUP EXIT
@@ -11,7 +15,7 @@ check() {
 	if [ $? -eq 0 ]; then
 		echo "testing $1 ... passed"
 	else
-		echo "testing $1 ... failed"
+		echo "${red}testing $1 ... failed${reset}"
 		exit 1
 	fi
 }
@@ -93,4 +97,4 @@ echo foo > $tmp/dir/i-option-test
 echo "#include \"i-option-test\"" | $cc -I$tmp/dir -E - | grep -q foo
 check -I
 
-echo OK
+echo "${green}OK${reset}"

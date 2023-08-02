@@ -108,6 +108,6 @@ int main()
 
 	ASSERT(8, sizeof(long double));
 
-	printf("OK\n");
+	pass();
 	return 0;
 }
