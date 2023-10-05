@@ -78,6 +78,13 @@ output/$(TARGET): $(SRC_OBJFILES)
 	# $(OBJDUMP) -S $@ > $@.asm
 
 # test
+output/test/%.preprocess.c: test/%.c output/$(TARGET)
+	@mkdir -p $(@D)
+	output/$(TARGET) $(TEST_INCLUDE) -c -E $< -o $@
+
+TEST_PRE := $(patsubst %.c, output/test/%.preprocess.c, $(TEST_SRCS))
+test_prebuild: $(TEST_PRE)
+
 output/test/%.s: test/%.c output/$(TARGET)
 	@mkdir -p $(@D)
 	output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@
@@ -156,4 +163,4 @@ extra: test_all selfhost_test
 clean:
 	rm -rf output selfhost
 
-.PHONY: clean test selfhost test_all extra test_build selfhost_build
+.PHONY: clean test selfhost test_all extra test_prebuild test_build selfhost_build
