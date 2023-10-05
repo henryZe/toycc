@@ -30,13 +30,15 @@ int sum2(int x, ...)
 	}
 }
 
-char *fmt(char *buf, char *fmt, ...)
+void fmt(char *buf, char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	vsprintf(buf, fmt, ap);
-	va_end(ap);
-	return buf;
+
+	va_list ap2;
+	va_copy(ap2, ap);
+	vsprintf(buf, fmt, ap2);
+	va_end(buf);
 }
 
 int sum2_2(int a, int x, ...)
@@ -113,6 +115,7 @@ int main()
 			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 			1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0));
+
 	ASSERT(21, sum2(1, 2.0, 3, 4.0, 5, 6.0, 0));
 	ASSERT(210, sum2(1, 2.0, 3, 4.0, 5, 6.0, 7, 8.0, 9, 10.0, 11, 12.0, 13, 14.0,
 			15, 16.0, 17, 18.0, 19, 20.0, 0));
@@ -126,6 +129,8 @@ int main()
 			12, 13, 14, 15, 16, 17, 18, 19, 20, 0));
 	ASSERT(302, sum2_6(11.0, 12, 13, 14.0, 15, 16.0, 17, 18.0, 19, 1, 1, 10, 11,
 			12, 13, 14, 15, 16, 17, 18, 19, 20, 0));
+
+	ASSERT(0, ({ char buf[100]; fmt(buf, "%d %d", 2, 3); strcmp(buf, "2 3"); }));
 
 	pass();
 	return 0;

@@ -19,4 +19,6 @@ do {				\
 #define __GNUC_VA_LIST 1
 typedef va_list __gnuc_va_list;
 
+#define va_copy(dest, src) (dest = src)
+
 #endif
