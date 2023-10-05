@@ -1074,8 +1074,8 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 
 	fn->params = ret_locals();
 	if (ty->is_variadic)
-		fn->va_area = new_lvar("__va_area__",
-					array_of(p_ty_char(), sizeof(long) * 8));
+		fn->va_area =
+			new_lvar("__va_area__", array_of(p_ty_char(), 0));
 
 	tok = skip(tok, "{");
 

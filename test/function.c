@@ -442,6 +442,8 @@ int main()
 
 	ASSERT(6, add_all(3,1,2,3));
 	ASSERT(5, add_all(4,1,2,3,-1));
+	ASSERT(210, add_all(20,1,2,3,4,5,6,7,8,9,10,
+			11,12,13,14,15,16,17,18,19,20));
 
 	{ char buf[100]; fmt(buf, "%d %d %s", 1, 2, "foo"); printf("%s\n", buf); }
 	ASSERT(0, ({ char buf[100]; sprintf(buf, "%d %d %s", 1, 2, "foo"); strcmp("1 2 foo", buf); }));

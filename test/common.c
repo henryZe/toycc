@@ -238,3 +238,47 @@ Ty20 struct_test27(void) {
 Ty21 struct_test28(void) {
   return (Ty21){1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20};
 }
+
+// 支持可变参数函数接受任意数量的参数
+int sum2_3(float b, int x, ...)
+{
+	va_list ap;
+	va_start(ap, x);
+	x += b;
+
+	for (;;) {
+		double y = va_arg(ap, double);
+		x += y;
+
+		int z = va_arg(ap, int);
+		if (z == 0)
+			return x;
+		x += z;
+	}
+}
+
+int sum2_5(int a0, float fa0, int a1, int a2, int a3, int a4, float fa1, int a5,
+	   int a6, int a7, int x, ...)
+{
+	x += fa0;
+	x += fa1;
+
+	x += a0;
+	x += a1;
+	x += a2;
+	x += a3;
+	x += a4;
+	x += a5;
+	x += a6;
+	x += a7;
+
+	va_list ap;
+	va_start(ap, x);
+
+	for (;;) {
+		int z = va_arg(ap, int);
+		if (z == 0)
+			return x;
+		x += z;
+	}
+}

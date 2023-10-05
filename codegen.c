@@ -582,6 +582,7 @@ static size_t push_args(struct Node *node)
 	// Load as many arguments to the registers as possible.
 	for (struct Node *arg = node->args; arg; arg = arg->next) {
 		if (node->func_ty->is_variadic && cur_params == NULL) {
+			// this parameter is variadic
 			if (g_arg < MAX_ARG_REGS) {
 				g_arg++;
 
@@ -1271,8 +1272,10 @@ static void assign_lvar_offsets(struct Obj *prog)
 		// inevitably passed by stack rather than by register.
 		// The first passed-by-stack parameter resides at fp+16.
 		// +----------------+
+		// |    va_area?    |
+		// +----------------+
 		// |   stack args   | (NR*8)			[caller]
-		// |----------------| top: stack's first arg (fp+16)
+		// +----------------+ top: stack's first arg (fp+16) --> sp
 		// |       ra       |
 		// |       fp       |				[callee]
 		// +----------------+ bottom (fp)
@@ -1318,7 +1321,14 @@ static void assign_lvar_offsets(struct Obj *prog)
 
 			top = align_to(top, sizeof(long));
 			var->offset = top;
+			debug("%s's parameter %s offset %d",
+				fn->name, var->name, var->offset);
 			top += var->ty->size;
+		}
+
+		if (fn->va_area) {
+			top = align_to(top, sizeof(long));
+			fn->va_area->offset = top;
 		}
 
 		int bottom = 0;
@@ -1453,9 +1463,47 @@ static void emit_text(struct Obj *prog)
 		current_fn = fn;
 
 		// Prologue
-		push("fp");
+		debug("Prologue");
+
+		int va_size = 0;
+		if (fn->va_area) {
+			size_t va_gp = 0, va_fp = 0;
+
+			for (struct Obj *var = fn->params; var; var = var->next) {
+				// count all used registers by all type parameters
+				struct Type *ty = var->ty;
+
+				switch (ty->kind) {
+				case TY_STRUCT:
+				case TY_UNION:
+					error_tok(var->ty->name_pos,
+						 "Not support transmit struct or union parameter in variadic function");
+					break;
+
+				case TY_FLOAT:
+				case TY_DOUBLE:
+					va_fp < MAX_ARG_REGS ? va_fp++ : va_gp++;
+					break;
+
+				default:
+					va_gp++;
+					break;
+				}
+			}
+
+			// Expand the space only when variadic parameters
+			// are transmitted by registers.
+			if (va_gp < MAX_ARG_REGS) {
+				va_size = (MAX_ARG_REGS - va_gp) * sizeof(long);
+				debug("va_area's size is %d", va_size);
+				println("\tadd sp, sp, -%d", va_size);
+			}
+		}
+
 		push("ra");
+		push("fp");
 		println("\tmv fp, sp");
+		debug("Prologue end");
 
 		// Save passed-by-register arguments to the stack
 		debug("'%s' save args into stack", fn->name);
@@ -1470,10 +1518,8 @@ static void emit_text(struct Obj *prog)
 					assert(is_struct_union(var->ty));
 					g_arg++;
 				}
-				continue;
-			}
 
-			if (is_struct_union(var->ty)) {
+			} else if (is_struct_union(var->ty)) {
 				store_args(g_arg++, var->offset,
 					   MIN(var->ty->size, (int)sizeof(long)));
 
@@ -1491,17 +1537,20 @@ static void emit_text(struct Obj *prog)
 
 		// Save arg registers if function is variadic
 		if (fn->va_area) {
-			debug("'%s' save variadic args into stack", fn->va_area->name);
+			debug("'%s' save variadic args into stack",
+				fn->va_area->name);
 
 			// store "__va_area__"(local variable) into stack
 			int off = fn->va_area->offset;
+			debug("va_area->offset %d", fn->va_area->offset);
 
 			while (g_arg < MAX_ARG_REGS) {
 				store_args(g_arg++, off, sizeof(long));
 				off += sizeof(long);
 			}
 
-			debug("end '%s' save variadic args into stack", fn->va_area->name);
+			debug("end '%s' save variadic args into stack",
+				fn->va_area->name);
 		}
 
 		if (beyond_instruction_offset(-fn->stack_size)) {
@@ -1513,8 +1562,8 @@ static void emit_text(struct Obj *prog)
 
 		debug("'%s' save args end", fn->name);
 
-		// Emit code
 		int pre_depth = depth;
+		// Emit code
 		gen_stmt(fn->body);
 		if (depth != pre_depth) {
 			printf("pre_depth: %d != depth: %d\n",
@@ -1523,15 +1572,24 @@ static void emit_text(struct Obj *prog)
 		}
 
 		// epilogue
+		debug("epilogue");
 		println("return.%s:", fn->name);
 		// restore sp register
 		println("\tmv sp, fp");
-		// restore ra register
-		pop("ra");
 		// restore fp register
 		pop("fp");
+		// restore ra register
+		pop("ra");
+
+		// return the space reserved for va_area
+		if (fn->va_area && va_size) {
+			debug("return va_area's size is %d", va_size);
+			println("add sp, sp, %d", va_size);
+		}
+
 		// mv ra to pc
 		println("\tret");
+		debug("epilogue end");
 
 		assert(!depth);
 	}
