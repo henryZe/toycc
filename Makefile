@@ -92,6 +92,7 @@ TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 # test/common.c is designed for lib function invocation test
 output/test/%: test/%.c output/$(TARGET) test/common.c
 	@mkdir -p $(@D)
+	output/$(TARGET) $(TEST_INCLUDE) -c -E $< -o $@.preprocess.c
 	output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@.s
 	output/$(TARGET) $(TEST_INCLUDE) -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) -march=rv64g -static $@.o test/common.c -o $@

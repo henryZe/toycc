@@ -190,6 +190,9 @@ static long eval_const_expr(struct Token **rest, struct Token *tok)
 		}
 	}
 
+	// Convert pp-numbers to regular numbers
+	convert_pp_tokens(expr);
+
 	struct Token *rest2;
 	long val = const_expr(&rest2, expr);
 
@@ -1030,7 +1033,7 @@ struct Token *preprocessor(struct Token *tok)
 	if (cond_incl)
 		error_tok(cond_incl->tok, "unterminated conditional directive");
 
-	convert_keywords(tok);
+	convert_pp_tokens(tok);
 	join_adjacent_string_literals(tok);
 	return tok;
 };

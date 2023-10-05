@@ -32,6 +32,7 @@ enum TokenKind {
 	TK_KEYWORD,	// keywords
 	TK_STR,		// String literals
 	TK_NUM,		// numeric literals
+	TK_PP_NUM,	// Preprocessing numbers
 	TK_EOF,		// End-of-file markers
 };
 
@@ -64,7 +65,7 @@ struct File {
 };
 
 bool consume(struct Token **rest, struct Token *tok, const char *str);
-void convert_keywords(struct Token *tok);
+void convert_pp_tokens(struct Token *tok);
 struct File **get_input_files(void);
 struct Token *tokenize_file(const char *filename);
 struct Token *tokenize(struct File *file);
