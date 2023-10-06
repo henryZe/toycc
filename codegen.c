@@ -742,7 +742,6 @@ static void gen_expr(struct Node *node)
 		load(node->ty);
 
 		struct Member *mem = node->member;
-
 		if (mem->is_bitfield) {
 			// Clear unused high bits of field member variables
 			println("\tslli a0, a0, %d", 64 - mem->bit_width - mem->bit_offset);
