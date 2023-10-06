@@ -131,6 +131,22 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
+		// These options are ignored for now.
+		if (!strncmp(argv[i], "-O", 2) ||
+		    !strncmp(argv[i], "-W", 2) ||
+		    !strncmp(argv[i], "-std=", 5) ||
+		    !strcmp(argv[i], "-g") ||
+		    !strcmp(argv[i], "-ffreestanding") ||
+		    !strcmp(argv[i], "-fno-builtin") ||
+		    !strcmp(argv[i], "-fno-omit-frame-pointer") ||
+		    !strcmp(argv[i], "-fno-stack-protector") ||
+		    !strcmp(argv[i], "-fno-strict-aliasing") ||
+		    !strcmp(argv[i], "-m64") ||
+		    !strcmp(argv[i], "-mno-red-zone") ||
+		    !strcmp(argv[i], "-w") ||
+		    !strcmp(argv[i], "-march=native"))
+			continue;
+
 		if (argv[i][0] == '-' && argv[i][1] != '\0')
 			error("unknown argument: %s", argv[i]);
 
