@@ -733,9 +733,25 @@ static void gen_expr(struct Node *node)
 		return;
 
 	case ND_VAR:
+		gen_addr(node);
+		load(node->ty);
+		return;
+
 	case ND_MEMBER:
 		gen_addr(node);
 		load(node->ty);
+
+		struct Member *mem = node->member;
+
+		if (mem->is_bitfield) {
+			// Clear unused high bits of field member variables
+			println("\tslli a0, a0, %d", 64 - mem->bit_width - mem->bit_offset);
+			// Clear unused low bits of field member variables
+			if (mem->ty->is_unsigned)
+				println("\tsrli a0, a0, %d", 64 - mem->bit_width);
+			else
+				println("\tsrai a0, a0, %d", 64 - mem->bit_width);
+		}
 		return;
 
 	case ND_DEREF:
@@ -756,6 +772,35 @@ static void gen_expr(struct Node *node)
 		gen_addr(node->lhs);
 		push("a0");
 		gen_expr(node->rhs);
+
+		if (node->lhs->kind == ND_MEMBER &&
+		    node->lhs->member->is_bitfield) {
+			// If the lhs is a bitfield, we need to read
+			// the current value from memory and merge it
+			// with a new value.
+			struct Member *mem = node->lhs->member;
+
+			debug("merge new value into bit_field");
+
+			println("\tmv t0, a0");
+			println("\tli t1, %ld", (1L << mem->bit_width) - 1);
+			println("\tand t0, t0, t1");
+
+			println("\tslli t0, t0, %d", mem->bit_offset);
+
+			// Load the address where the bit field value is saved in.
+			println("\tld a0, (sp)");
+			load(mem->ty);
+
+			long mask = ((1L << mem->bit_width) - 1) << mem->bit_offset;
+			println("\tli t1, %ld", ~mask);
+
+			println("\tand a0, a0, t1");
+			println("\tor a0, a0, t0");
+
+			debug("merge new value into bit_field end");
+		}
+
 		store(node->ty);
 		debug("end ND_ASSIGN var");
 		return;

@@ -45,6 +45,11 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 			// otherwise refer to ty->align.
 			mem->align = attr.align ? attr.align : mem->ty->align;
 
+			if (consume(&tok, tok, ":")) {
+				mem->is_bitfield = true;
+				mem->bit_width = const_expr(&tok, tok);
+			}
+
 			cur->next = mem;
 			cur = cur->next;
 		}
@@ -109,6 +114,11 @@ static struct Type *struct_union_decl(struct Token **rest, struct Token *tok)
 	return ty;
 }
 
+static int align_down(int n, int align)
+{
+	return align_to(n - align + 1, align);
+}
+
 // struct-decl = struct-union-decl
 static struct Type *struct_decl(struct Token **rest, struct Token *tok)
 {
@@ -119,17 +129,36 @@ static struct Type *struct_decl(struct Token **rest, struct Token *tok)
 		return ty;
 
 	// Assign offsets within the struct to members
-	int offset = 0;
+	int bits = 0;
 	for (struct Member *mem = ty->members; mem; mem = mem->next) {
-		offset = align_to(offset, mem->align);
-		mem->offset = offset;
-		offset += mem->ty->size;
+		if (mem->is_bitfield) {
+			int sz = mem->ty->size;
+
+			// `bits` corresponds to the lowest position of the member,
+			// while `(bits+ mem->bit_width - 1)` corresponds to the
+			// highest position of the member.
+			//
+			// If the two are not equal, it indicates that the
+			// remaining space of this type is not enough to save
+			// and new space needs to expand.
+			if (bits / (sz * 8) != (bits + mem->bit_width - 1) / (sz * 8))
+				bits = align_to(bits, sz * 8);
+
+			mem->offset = align_down(bits / 8, sz);
+			mem->bit_offset = bits % (sz * 8);
+			bits += mem->bit_width;
+
+		} else {
+			bits = align_to(bits, mem->align * 8);
+			mem->offset = bits / 8;
+			bits += mem->ty->size * 8;
+		}
 
 		// align of struct is max among each member's alignment
 		if (ty->align < mem->align)
 			ty->align = mem->align;
 	}
-	ty->size = align_to(offset, ty->align);
+	ty->size = align_to(bits, ty->align * 8) / 8;
 
 	return ty;
 }
