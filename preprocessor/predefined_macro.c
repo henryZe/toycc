@@ -1,7 +1,7 @@
 #include <toycc.h>
 #include <preprocessor.h>
 
-static void define_macro(const char *name, const char *buf)
+void define_macro(const char *name, const char *buf)
 {
 	struct Token *tok = tokenize(new_file("<built-in>", 1, buf));
 	add_macro(name, true, tok);

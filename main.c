@@ -36,6 +36,16 @@ static bool take_arg(const char *arg)
 	return false;
 }
 
+static void define(const char *str)
+{
+	const char *eq = strchr(str, '=');
+
+	if (eq)
+		define_macro(strndup(str, eq - str), eq + 1);
+	else
+		define_macro(str, "1");
+}
+
 static void parse_args(int argc, const char **argv)
 {
 	int i;
@@ -88,6 +98,16 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strncmp(argv[i], "-I", 2)) {
 			strarray_push(&include_paths, argv[i] + 2);
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-D")) {
+			define(argv[++i]);
+			continue;
+		}
+
+		if (!strncmp(argv[i], "-D", 2)) {
+			define(argv[i] + 2);
 			continue;
 		}
 
@@ -388,6 +408,7 @@ int main(int argc, const char **argv)
 	struct StringArray ld_args = {};
 
 	atexit(cleanup);
+	init_macros();
 	parse_args(argc, argv);
 
 	if (opt_cc1) {

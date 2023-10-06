@@ -1028,7 +1028,6 @@ static void join_adjacent_string_literals(struct Token *tok1)
 // Entry point function of the preprocessor
 struct Token *preprocessor(struct Token *tok)
 {
-	init_macros();
 	tok = preprocess(tok);
 	if (cond_incl)
 		error_tok(cond_incl->tok, "unterminated conditional directive");

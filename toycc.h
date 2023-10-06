@@ -101,6 +101,8 @@ struct Member {
 };
 
 // preprocess.c
+void init_macros(void);
+void define_macro(const char *name, const char *buf);
 struct Token *preprocessor(struct Token *tok);
 
 // parser.c
