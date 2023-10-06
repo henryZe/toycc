@@ -210,14 +210,50 @@ static struct Node *struct_ref(struct Node *lhs, struct Token *tok)
 	return n;
 }
 
-// Convert `A op= B` to `tmp = &A, *tmp = *tmp op B`
-// where tmp is a fresh pointer variable.
+// Convert op= operators to expressions containing an assignment.
+//
+// In general, `A op= C` is converted to ``tmp = &A, *tmp = *tmp op B`.
+// However, if a given expression is of form `A.x op= C`, the input is
+// converted to `tmp = &A, (*tmp).x = (*tmp).x op C` to handle assignments
+// to bitfields.
 static struct Node *to_assign(struct Node *binary)
 {
 	add_type(binary->lhs);
 	add_type(binary->rhs);
 
 	struct Token *tok = binary->tok;
+
+	// Convert `A.x op= C` to `tmp = &A, (*tmp).x = (*tmp).x op C`.
+	if (binary->lhs->kind == ND_MEMBER) {
+		// var tmp
+		struct Obj *var = new_lvar("", pointer_to(binary->lhs->lhs->ty));
+
+		// tmp = &A
+		struct Node *expr1 = new_binary(ND_ASSIGN, new_var_node(var, tok),
+					new_unary(ND_ADDR, binary->lhs->lhs, tok), tok);
+
+		// (*tmp).x
+		struct Node *expr2 = new_unary(ND_MEMBER,
+					new_unary(ND_DEREF, new_var_node(var, tok), tok),
+					tok);
+		expr2->member = binary->lhs->member;
+
+		// the same as expr2
+		struct Node *expr3 = new_unary(ND_MEMBER,
+					new_unary(ND_DEREF, new_var_node(var, tok), tok),
+					tok);
+		expr3->member = binary->lhs->member;
+
+		// expr2 = expr3 op C
+		struct Node *expr4 = new_binary(ND_ASSIGN, expr2,
+					new_binary(binary->kind, expr3, binary->rhs, tok),
+					tok);
+
+		// expr1, expr4
+		return new_binary(ND_COMMA, expr1, expr4, tok);
+	}
+
+	// Convert `A op= C` to `tmp = &A, *tmp = *tmp op B`.
 	// var tmp
 	struct Obj *var = new_lvar("", pointer_to(binary->lhs->ty));
 	// tmp = &A

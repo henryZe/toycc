@@ -774,6 +774,9 @@ static void gen_expr(struct Node *node)
 
 		if (node->lhs->kind == ND_MEMBER &&
 		    node->lhs->member->is_bitfield) {
+			// save value of the bitfield
+			println("\tmv t2, a0");
+
 			// If the lhs is a bitfield, we need to read
 			// the current value from memory and merge it
 			// with a new value.
@@ -796,8 +799,14 @@ static void gen_expr(struct Node *node)
 
 			println("\tand a0, a0, t1");
 			println("\tor a0, a0, t0");
+			store(node->ty);
 
 			debug("merge new value into bit_field end");
+
+			// restore value of the bitfield
+			println("\tmv a0, t2");
+			debug("end ND_ASSIGN var");
+			return;
 		}
 
 		store(node->ty);
