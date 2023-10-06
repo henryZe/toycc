@@ -54,6 +54,9 @@ int main()
 	ASSERT(8, sizeof(struct {int a:3; int:0; int c:5;}));
 	ASSERT(4, sizeof(struct {int a:3; int:0;}));
 
+	// test for commit-214
+	// &g46.c;
+
 	pass();
 	return 0;
 }

@@ -517,8 +517,14 @@ static struct Node *unary(struct Token **rest, struct Token *tok)
 		// depth--
 		return new_unary(ND_NEG, cast(rest, tok->next), tok);
 
-	if (equal(tok, "&"))
-		return new_unary(ND_ADDR, cast(rest, tok->next), tok);
+	if (equal(tok, "&")) {
+		struct Node *lhs = cast(rest, tok->next);
+
+		if (lhs->kind == ND_MEMBER && lhs->member->is_bitfield)
+			error_tok(tok, "cannot take address of bitfield");
+
+		return new_unary(ND_ADDR, lhs, tok);
+	}
 
 	if (equal(tok, "*")) {
 		struct Node *node = cast(rest, tok->next);
