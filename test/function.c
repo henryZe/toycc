@@ -872,5 +872,4 @@ int main()
 	ASSERT(5, (***add2)(2,3));
 
 	pass();
-	return 0;
 }

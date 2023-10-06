@@ -1624,6 +1624,14 @@ static void emit_text(struct Obj *prog)
 			assert(depth == pre_depth);
 		}
 
+		// [https://www.sigbus.info/n1570#5.1.2.2.3p1]
+		// The C spec defines a special rule for the main function.
+		// Reaching the end of the main function is equivalent to
+		// returning 0, even though the behavior is undefined for
+		// the other functions.
+		if (!strcmp(fn->name, "main"))
+			println("\tli a0, 0");
+
 		// epilogue
 		debug("epilogue");
 		println("return.%s:", fn->name);
