@@ -31,6 +31,18 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 		struct Type *basety = declspec(&tok, tok, &attr);
 		bool first = true;
 
+		// Anonymous struct member
+		if ((basety->kind == TY_STRUCT || basety->kind == TY_UNION) &&
+		     consume(&tok, tok, ";")) {
+			struct Member *mem = calloc(1, sizeof(struct Member));
+			mem->ty = basety;
+			mem->idx = idx++;
+			mem->align = attr.align ? attr.align : mem->ty->align;
+			cur = cur->next = mem;
+			continue;
+		}
+
+		// Regular struct members
 		while (!consume(&tok, tok, ";")) {
 			if (!first)
 				tok = skip(tok, ",");

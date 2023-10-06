@@ -188,26 +188,63 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 	error_tok(tok, "expected an expression");
 }
 
+// Find a struct member by name.
 static struct Member *get_struct_member(struct Type *ty, struct Token *tok)
 {
-	for (struct Member *mem = ty->members; mem; mem = mem->next)
-		if (mem->name->len == tok->len &&
-			!strncmp(mem->name->loc, tok->loc, tok->len))
-			return mem;
+	for (struct Member *mem = ty->members; mem; mem = mem->next) {
+		// Anonymous struct member
+		if ((mem->ty->kind == TY_STRUCT || mem->ty->kind == TY_UNION) &&
+		    !mem->name) {
+			// Try to get struct member from the children of this member
+			if (get_struct_member(mem->ty, tok))
+				return mem;
+			continue;
+		}
 
-	error_tok(tok, "no such member");
+		// Regular struct member
+		if (mem->name->len == tok->len &&
+		   !strncmp(mem->name->loc, tok->loc, tok->len))
+			return mem;
+	}
+	return NULL;
 }
 
-static struct Node *struct_ref(struct Node *lhs, struct Token *tok)
+// Create a node representing a struct member access, such as foo.bar
+// where foo is a struct and bar is a member name.
+//
+// C has a feature called "anonymous struct" which allows a struct to
+// have another unnamed struct as a member like this:
+//
+//   struct { struct { int a; }; int b; } x;
+//
+// The members of an anonymous struct belong to the outer struct's
+// member namespace. Therefore, in the above example, you can access
+// member "a" of the anonymous struct as "x.a".
+//
+// This function takes care of anonymous structs.
+static struct Node *struct_ref(struct Node *node, struct Token *tok)
 {
-	add_type(lhs);
+	add_type(node);
+	struct Type *ty = node->ty;
+	if (ty->kind != TY_STRUCT && ty->kind != TY_UNION)
+		error_tok(node->tok, "not a struct nor a union");
 
-	if (lhs->ty->kind != TY_STRUCT && lhs->ty->kind != TY_UNION)
-		error_tok(lhs->tok, "not a struct nor a union");
+	for (;;) {
+		struct Member *mem = get_struct_member(ty, tok);
+		if (!mem)
+			error_tok(tok, "no such member");
 
-	struct Node *n = new_unary(ND_MEMBER, lhs, tok);
-	n->member = get_struct_member(lhs->ty, tok);
-	return n;
+		node = new_unary(ND_MEMBER, node, tok);
+		node->member = mem;
+		if (mem->name)
+			break;
+
+		// Anonymous struct member,
+		// search until the named member
+		ty = mem->ty;
+	}
+
+	return node;
 }
 
 // Convert op= operators to expressions containing an assignment.
