@@ -240,11 +240,19 @@ static void cc1(void)
 
 	struct Obj *prog = parser(tok);
 
-	// Traverse the AST to emit assembly.
-	FILE *out = open_file(output_file);
+	// Open a temporary output buffer.
+	char *buf;
+	size_t buflen;
+	FILE *output_buf = open_memstream(&buf, &buflen);
 
-	codegen(prog, out);
-	// do not close if stdout
+	// Traverse the AST to emit assembly.
+	codegen(prog, output_buf);
+	fclose(output_buf);
+
+	// Write the assembly text to a file.
+	FILE *out = open_file(output_file);
+	fwrite(buf, buflen, 1, out);
+	fclose(out);
 }
 
 static void cleanup(void)
