@@ -132,22 +132,28 @@ static struct Type *struct_decl(struct Token **rest, struct Token *tok)
 	int bits = 0;
 	for (struct Member *mem = ty->members; mem; mem = mem->next) {
 		if (mem->is_bitfield) {
-			int sz = mem->ty->size;
+			if (mem->bit_width == 0) {
+				// Zero-width anonymous bitfield has a special meaning.
+				// It affects only alignment.
+				bits = align_to(bits, mem->ty->size * 8);
 
-			// `bits` corresponds to the lowest position of the member,
-			// while `(bits+ mem->bit_width - 1)` corresponds to the
-			// highest position of the member.
-			//
-			// If the two are not equal, it indicates that the
-			// remaining space of this type is not enough to save
-			// and new space needs to expand.
-			if (bits / (sz * 8) != (bits + mem->bit_width - 1) / (sz * 8))
-				bits = align_to(bits, sz * 8);
+			} else {
+				int sz = mem->ty->size;
 
-			mem->offset = align_down(bits / 8, sz);
-			mem->bit_offset = bits % (sz * 8);
-			bits += mem->bit_width;
+				// `bits` corresponds to the lowest position of the member,
+				// while `(bits+ mem->bit_width - 1)` corresponds to the
+				// highest position of the member.
+				//
+				// If the two are not equal, it indicates that the
+				// remaining space of this type is not enough to save
+				// and new space needs to expand.
+				if (bits / (sz * 8) != (bits + mem->bit_width - 1) / (sz * 8))
+					bits = align_to(bits, sz * 8);
 
+				mem->offset = align_down(bits / 8, sz);
+				mem->bit_offset = bits % (sz * 8);
+				bits += mem->bit_width;
+			}
 		} else {
 			bits = align_to(bits, mem->align * 8);
 			mem->offset = bits / 8;
