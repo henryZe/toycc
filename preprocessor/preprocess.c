@@ -901,11 +901,9 @@ static struct Token *preprocess(struct Token *tok)
 			if (tok->kind != TK_IDENT)
 				error_tok(tok, "macro name must be an identifier");
 
-			const char *name = strndup(tok->loc, tok->len);
+			undef_macro(strndup(tok->loc, tok->len));
 			tok = skip_line(tok->next);
 
-			struct Macro *m = add_macro(name, true, NULL);
-			m->deleted = true;
 			continue;
 		}
 

@@ -102,7 +102,19 @@ echo foo | $cc -Dfoo -E - | grep -q 1
 check -D
 
 # -D
+echo foo | $cc -D foo -E - | grep -q 1
+check -D
+
+# -D
 echo foo | $cc -Dfoo=bar -E - | grep -q bar
 check -D
+
+# -U
+echo foo | $cc -Dfoo=bar -Ufoo -E - | grep -q foo
+check -U
+
+# -U
+echo foo | $cc -Dfoo=bar -U foo -E - | grep -q foo
+check -U
 
 echo "${green}OK${reset}"
