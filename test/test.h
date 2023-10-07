@@ -6,5 +6,6 @@ int printf(char *fmt, ...);
 int sprintf(char *buf, char *fmt, ...);
 int vsprintf(char *buf, char *fmt, void *ap);
 int strcmp(char *p, char *q);
+long strlen(const char *s);
 int memcmp(const void *, const void *, long unsigned int);
 void exit(int n);
