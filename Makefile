@@ -23,6 +23,7 @@ HEADERFILES = \
 
 SRCFILES = \
 	utils.c \
+	unicode.c \
 	string.c \
 	tokenize.c \
 	type.c \
@@ -64,6 +65,7 @@ TEST_SRCS = \
 	stdhdr.c \
 	varargs.c \
 	bitfield.c \
+	unicode.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh

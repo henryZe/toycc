@@ -278,4 +278,7 @@ struct StringArray {
 const char *format(const char *fmt, ...);
 void strarray_push(struct StringArray *arr, const char *s);
 
+// unicode.c
+int encode_utf8(char *buf, uint32_t c);
+
 #endif
