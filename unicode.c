@@ -1,7 +1,7 @@
 #include "toycc.h"
 
 // Encode a given character in UTF-8.
-// universal character => utf-8 code
+// wide character => utf-8 code
 int encode_utf8(char *buf, uint32_t c)
 {
 	// for ASCII
@@ -50,7 +50,7 @@ int encode_utf8(char *buf, uint32_t c)
 // identical to ASCII. Non-ASCII characters are encoded using more
 // than one byte.
 //
-// utf-8 code => universal character
+// utf-8 code => wide character
 uint32_t decode_utf8(const char **new_pos, const char *p)
 {
 	// for ASCII

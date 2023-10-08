@@ -287,7 +287,9 @@ static void add_line_number(struct Token *tok)
 	} while (*p++);
 }
 
-static struct Token *read_char_literal(const char *start, const char *quote)
+static struct Token *read_char_literal(const char *start,
+					const char *quote,
+					struct Type *ty)
 {
 	const char *p = quote + 1;
 	if (*p == '\0')
@@ -306,7 +308,7 @@ static struct Token *read_char_literal(const char *start, const char *quote)
 	// skip '\''
 	struct Token *tok = new_token(TK_NUM, start, end + 1);
 	tok->val = c;
-	tok->ty = p_ty_int();
+	tok->ty = ty;
 	return tok;
 }
 
@@ -518,7 +520,7 @@ struct Token *tokenize(struct File *file)
 
 		// character literal
 		if (*p == '\'') {
-			cur->next = read_char_literal(p, p);
+			cur->next = read_char_literal(p, p, p_ty_int());
 			cur = cur->next;
 			// convert to single char
 			cur->val = (char)cur->val;
@@ -528,7 +530,15 @@ struct Token *tokenize(struct File *file)
 
 		// Wide character literal
 		if (startwith(p, "L'")) {
-			cur = cur->next = read_char_literal(p, p + 1);
+			cur = cur->next = read_char_literal(p, p + 1, p_ty_int());
+			p += cur->len;
+			continue;
+		}
+
+		// UTF-16 character literal
+		if (startwith(p, "u'")) {
+			cur = cur->next = read_char_literal(p, p + 1, p_ty_ushort());
+			cur->val &= 0xffff;
 			p += cur->len;
 			continue;
 		}
