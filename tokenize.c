@@ -247,6 +247,7 @@ static const char *string_literal_end(const char *start)
 	return p;
 }
 
+// utf-8 => wide-char string
 static struct Token *read_string_literal(const char *start,
 					const char *quote)
 {
@@ -262,11 +263,10 @@ static struct Token *read_string_literal(const char *start,
 			buf[len++] = *p++;
 	}
 	// terminated with '\0'
-	buf[len] = '\0';
+	buf[len++] = '\0';
 
 	struct Token *tok = new_token(TK_STR, start, end + 1);
-	// string + '\0'
-	tok->ty = array_of(p_ty_char(), len + 1);
+	tok->ty = array_of(p_ty_char(), len);
 	tok->str = buf;
 	return tok;
 }
@@ -278,6 +278,8 @@ static struct Token *read_string_literal(const char *start,
 // equal to or larger than that are encoded in 4 bytes. Each 2 bytes
 // in the 4 byte sequence is called "surrogate", and a 4 byte sequence
 // is called a "surrogate pair".
+//
+// utf-16 => wide-char string
 static struct Token *read_utf16_string_literal(const char *start,
 						const char *quote)
 {
@@ -305,7 +307,6 @@ static struct Token *read_utf16_string_literal(const char *start,
 			buf[len++] = 0xdc00 + (c & 0x3ff);
 		}
 	}
-
 	buf[len++] = 0;
 
 	struct Token *tok = new_token(TK_STR, start, end + 1);
@@ -318,6 +319,8 @@ static struct Token *read_utf16_string_literal(const char *start,
 //
 // UTF-32 is a fixed-width encoding for Unicode. Each code point is
 // encoded in 4 bytes.
+//
+// utf-32 => wide-char string
 static struct Token *read_utf32_string_literal(const char *start,
 						const char *quote,
 						struct Type *ty)
@@ -332,7 +335,6 @@ static struct Token *read_utf32_string_literal(const char *start,
 		else
 			buf[len++] = decode_utf8(&p, p);
 	}
-
 	buf[len++] = 0;
 
 	struct Token *tok = new_token(TK_STR, start, end + 1);
@@ -610,6 +612,13 @@ struct Token *tokenize(struct File *file)
 			continue;
 		}
 
+		// Wide string literal
+		if (startwith(p, "L\"")) {
+			cur = cur->next = read_utf32_string_literal(p, p + 1, p_ty_int());
+			p += cur->len;
+			continue;
+		}
+
 		// character literal
 		if (*p == '\'') {
 			cur->next = read_char_literal(p, p, p_ty_int());
@@ -628,14 +637,16 @@ struct Token *tokenize(struct File *file)
 		}
 
 		// UTF-16 character literal
+		// utf-16 => wide character
 		if (startwith(p, "u'")) {
 			cur = cur->next = read_char_literal(p, p + 1, p_ty_ushort());
-			cur->val &= 0xffff;
+			cur->val = (uint16_t)cur->val;
 			p += cur->len;
 			continue;
 		}
 
 		// UTF-32 character literal
+		// utf-32 => wide character
 		if (startwith(p, "U'")) {
 			cur = cur->next = read_char_literal(p, p + 1, p_ty_uint());
 			p += cur->len;
