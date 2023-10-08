@@ -133,6 +133,7 @@ SELFHOST_SRC := $(patsubst %.c, selfhost/src/%.c, $(SRCFILES))
 selfhost/$(TARGET): $(SELFHOST_SRC) output/$(TARGET) $(HEADERFILES)
 	@mkdir -p $(@D)
 	output/$(TARGET) $(INCLUDE) $(SELFHOST_SRC) -o $@
+	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 selfhost: selfhost/$(TARGET)
 

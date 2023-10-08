@@ -1,0 +1,9 @@
+TODO:
+
+    225: Accept multibyte character as wide character literal
+    make extra:
+        - fail to run toycc-compiled *.exe under qemu-riscv64
+
+    235: Allow multibyte UTF-8 character in identifier
+    make extra
+        - fail to run toycc compile *.c to *.s under qemu in read_ident()

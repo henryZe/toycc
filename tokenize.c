@@ -271,6 +271,49 @@ static struct Token *read_string_literal(const char *start,
 	return tok;
 }
 
+// Read a UTF-8-encoded string literal and transcode it in UTF-16.
+//
+// UTF-16 is yet another variable-width encoding for Unicode. Code
+// points smaller than U+10000 are encoded in 2 bytes. Code points
+// equal to or larger than that are encoded in 4 bytes. Each 2 bytes
+// in the 4 byte sequence is called "surrogate", and a 4 byte sequence
+// is called a "surrogate pair".
+static struct Token *read_utf16_string_literal(const char *start,
+						const char *quote)
+{
+	const char *end = string_literal_end(quote + 1);
+	// `sizeof(uint32_t)` is reserved for 4-byte wide char
+	uint16_t *buf = malloc(sizeof(uint32_t) * (end - quote));
+	int len = 0;
+
+	for (const char *p = quote + 1; p < end;) {
+		if (*p == '\\') {
+			buf[len++] = read_escaped_char(&p, p + 1);
+			continue;
+		}
+
+		uint32_t c = decode_utf8(&p, p);
+		if (c < 0x10000) {
+			// Encode a code point in 2 bytes.
+			buf[len++] = c;
+		} else {
+			// Encode a code point in 4 bytes.
+			c -= 0x10000;
+			// Leading Code Unit
+			buf[len++] = 0xd800 + ((c >> 10) & 0x3ff);
+			// Trailing Code Unit
+			buf[len++] = 0xdc00 + (c & 0x3ff);
+		}
+	}
+
+	buf[len++] = 0;
+
+	struct Token *tok = new_token(TK_STR, start, end + 1);
+	tok->ty = array_of(p_ty_ushort(), len);
+	tok->str = (char *)buf;
+	return tok;
+}
+
 // initialize line info for all tokens
 static void add_line_number(struct Token *tok)
 {
@@ -522,6 +565,13 @@ struct Token *tokenize(struct File *file)
 		// UTF-8 string literal
 		if (startwith(p, "u8\"")) {
 			cur = cur->next = read_string_literal(p, p + 2);
+			p += cur->len;
+			continue;
+		}
+
+		// UTF-16 string literal
+		if (startwith(p, "u\"")) {
+			cur = cur->next = read_utf16_string_literal(p, p + 1);
 			p += cur->len;
 			continue;
 		}
