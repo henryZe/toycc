@@ -314,6 +314,33 @@ static struct Token *read_utf16_string_literal(const char *start,
 	return tok;
 }
 
+// Read a UTF-8-encoded string literal and transcode it in UTF-32.
+//
+// UTF-32 is a fixed-width encoding for Unicode. Each code point is
+// encoded in 4 bytes.
+static struct Token *read_utf32_string_literal(const char *start,
+						const char *quote,
+						struct Type *ty)
+{
+	const char *end = string_literal_end(quote + 1);
+	uint32_t *buf = malloc(sizeof(uint32_t) * (end - quote));
+	int len = 0;
+
+	for (const char *p = quote + 1; p < end;) {
+		if (*p == '\\')
+			buf[len++] = read_escaped_char(&p, p + 1);
+		else
+			buf[len++] = decode_utf8(&p, p);
+	}
+
+	buf[len++] = 0;
+
+	struct Token *tok = new_token(TK_STR, start, end + 1);
+	tok->ty = array_of(ty, len);
+	tok->str = (char *)buf;
+	return tok;
+}
+
 // initialize line info for all tokens
 static void add_line_number(struct Token *tok)
 {
@@ -572,6 +599,13 @@ struct Token *tokenize(struct File *file)
 		// UTF-16 string literal
 		if (startwith(p, "u\"")) {
 			cur = cur->next = read_utf16_string_literal(p, p + 1);
+			p += cur->len;
+			continue;
+		}
+
+		// UTF-32 string literal
+		if (startwith(p, "U\"")) {
+			cur = cur->next = read_utf32_string_literal(p, p + 1, p_ty_uint());
 			p += cur->len;
 			continue;
 		}
