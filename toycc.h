@@ -70,6 +70,7 @@ struct File **get_input_files(void);
 struct Token *tokenize_file(const char *filename);
 struct Token *tokenize(struct File *file);
 struct File *new_file(const char *name, int file_no, const char *contents);
+void __attribute__((noreturn)) error_at(const char *loc, const char *fmt, ...);
 
 // type.c
 enum TypeKind {
@@ -280,5 +281,6 @@ void strarray_push(struct StringArray *arr, const char *s);
 
 // unicode.c
 int encode_utf8(char *buf, uint32_t c);
+uint32_t decode_utf8(const char **new_pos, const char *p);
 
 #endif

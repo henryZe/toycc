@@ -372,7 +372,7 @@ static int getTypeId(struct Type *ty)
 static const char *cast_matrix[CAST_MAX_TYPE][CAST_MAX_TYPE] = {
 	// to
 	// i8,    i16,    i32,    i64,    u8,    u16,    u32,    u64,    f32,    f64,       // from
-	{  NULL,  NULL,   NULL,   NULL,   NULL,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // i8
+	{  NULL,  NULL,   NULL,   NULL,   TOU8,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // i8
 	{  TOI8,  NULL,   NULL,   NULL,   TOU8,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // i16
 	{  TOI8,  TOI16,  NULL,   NULL,   TOU8,  TOU16,  NULL,   NULL,   I32F32, I32F64 },  // i32
 	{  TOI8,  TOI16,  TOI32,  NULL,   TOU8,  TOU16,  TOU32,  NULL,   I64F32, I64F64 },  // i64

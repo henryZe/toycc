@@ -10,7 +10,7 @@ static struct File **input_files;
 // True if the current position follows a space character
 static bool has_space;
 
-static void __attribute__((noreturn))
+void __attribute__((noreturn))
 error_at(const char *loc, const char *fmt, ...)
 {
 	// get a line number
@@ -293,11 +293,11 @@ static struct Token *read_char_literal(const char *start, const char *quote)
 	if (*p == '\0')
 		error_at(start, "unclosed char literal");
 
-	char c;
+	int c;
 	if (*p == '\\')
 		c = read_escaped_char(&p, p + 1);
 	else
-		c = *p++;
+		c = decode_utf8(&p, p);
 
 	const char *end = strchr(p, '\'');
 	if (!end)
@@ -520,6 +520,8 @@ struct Token *tokenize(struct File *file)
 		if (*p == '\'') {
 			cur->next = read_char_literal(p, p);
 			cur = cur->next;
+			// convert to single char
+			cur->val = (char)cur->val;
 			p += cur->len;
 			continue;
 		}
