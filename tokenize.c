@@ -247,14 +247,15 @@ static const char *string_literal_end(const char *start)
 	return p;
 }
 
-static struct Token *read_string_literal(const char *start)
+static struct Token *read_string_literal(const char *start,
+					const char *quote)
 {
-	const char *end = string_literal_end(start + 1);
-	char *buf = malloc(sizeof(char) * (end - start));
+	const char *end = string_literal_end(quote + 1);
+	char *buf = malloc(end - quote);
 	int len = 0;
 
 	// skip '"'
-	for (const char *p = start + 1; p < end;) {
+	for (const char *p = quote + 1; p < end;) {
 		if (*p == '\\')
 			buf[len++] = read_escaped_char(&p, p + 1);
 		else
@@ -512,8 +513,15 @@ struct Token *tokenize(struct File *file)
 
 		// string literal
 		if (*p == '"') {
-			cur->next = read_string_literal(p);
+			cur->next = read_string_literal(p, p);
 			cur = cur->next;
+			p += cur->len;
+			continue;
+		}
+
+		// UTF-8 string literal
+		if (startwith(p, "u8\"")) {
+			cur = cur->next = read_string_literal(p, p + 2);
 			p += cur->len;
 			continue;
 		}
