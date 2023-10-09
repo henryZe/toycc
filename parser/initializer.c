@@ -78,6 +78,12 @@ static void string_initializer(struct Token **rest, struct Token *tok,
 			init->children[i]->expr = new_num(str[i], tok);
 		break;
 	}
+	case 4: {
+		uint32_t *str = (uint32_t *)tok->str;
+		for (int i = 0; i < len; i++)
+			init->children[i]->expr = new_num(str[i], tok);
+		break;
+	}
 	default:
 		unreachable();
 	}
