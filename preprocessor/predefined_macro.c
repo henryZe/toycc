@@ -132,7 +132,12 @@ void init_macros(void)
 	define_macro("__SHRT_WIDTH__", "16");
 	define_macro("__FLT32_IS_IEC_60559__", "2");
 	define_macro("__LDBL_MIN__", "3.36210314311209350626267781732175260e-4932L");
+
+	// These predefined macros indicates that our u and U
+	// chars/strings are UTF-16 and UTF-32 encoded, respectively.
 	define_macro("__STDC_UTF_16__", "1");
+	define_macro("__STDC_UTF_32__", "1");
+
 	define_macro("__DBL_IS_IEC_60559__", "2");
 	define_macro("__FLT64X_DENORM_MIN__", "6.47517511943802511092443895822764655e-4966F64x");
 	define_macro("__FP_FAST_FMA", "1");
@@ -344,7 +349,6 @@ void init_macros(void)
 	define_macro("__FLT32_EPSILON__", "1.19209289550781250000000000000000000e-7F32");
 	define_macro("__FP_FAST_FMAF32x", "1");
 	define_macro("__DBL_DECIMAL_DIG__", "17");
-	define_macro("__STDC_UTF_32__", "1");
 	define_macro("__INT_FAST8_WIDTH__", "8");
 	define_macro("__FLT32X_MAX__", "1.79769313486231570814527423731704357e+308F32x");
 	define_macro("__DBL_NORM_MAX__", "((double)1.79769313486231570814527423731704357e+308L)");
