@@ -65,8 +65,22 @@ static void string_initializer(struct Token **rest, struct Token *tok,
 
 	int len = MIN(init->ty->array_len, tok->ty->array_len);
 
-	for (int i = 0; i < len; i++)
-		init->children[i]->expr = new_num(tok->str[i], tok);
+	switch (init->ty->base->size) {
+	case 1: {
+		const char *str = tok->str;
+		for (int i = 0; i < len; i++)
+			init->children[i]->expr = new_num(str[i], tok);
+		break;
+	}
+	case 2: {
+		uint16_t *str = (uint16_t *)tok->str;
+		for (int i = 0; i < len; i++)
+			init->children[i]->expr = new_num(str[i], tok);
+		break;
+	}
+	default:
+		unreachable();
+	}
 
 	*rest = tok->next;
 }
