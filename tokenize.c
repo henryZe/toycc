@@ -100,16 +100,22 @@ static int read_punct(const char *p)
 	return ispunct(*p) ? 1 : 0;
 }
 
-// Returns true if c is valid as the first character of an identifier.
-static bool is_ident1(char c)
+// Read an identifier and returns the length of it.
+// If p does not point to a valid identifier, 0 is returned.
+static int read_ident(const char *start)
 {
-	return isalpha(c) || c == '_';
-}
+	const char *p = start;
+	uint32_t c = decode_utf8(&p, p);
+	if (!is_ident1(c))
+		return 0;
 
-// Returns true if c is valid as a non-first character of an identifier.
-static bool is_ident2(char c)
-{
-	return is_ident1(c) || isdigit(c);
+	for (;;) {
+		const char *q;
+		c = decode_utf8(&q, p);
+		if (!is_ident2(c))
+			return p - start;
+		p = q;
+	}
 }
 
 static bool is_keyword(struct Token *tok)
@@ -654,13 +660,10 @@ struct Token *tokenize(struct File *file)
 		}
 
 		// Identifier or keyword
-		if (is_ident1(*p)) {
-			const char *start = p;
-			do {
-				p++;
-			} while (is_ident2(*p));
-			cur->next = new_token(TK_IDENT, start, p);
-			cur = cur->next;
+		int ident_len = read_ident(p);
+		if (ident_len) {
+			cur = cur->next = new_token(TK_IDENT, p, p + ident_len);
+			p += cur->len;
 			continue;
 		}
 

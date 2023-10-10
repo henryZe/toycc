@@ -78,7 +78,7 @@ output/%.o: %.c $(HEADERFILES)
 output/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
-	# $(OBJDUMP) -S $@ > $@.asm
+	$(OBJDUMP) -S $@ > $@.asm
 
 # test
 output/test/%.preprocess.c: test/%.c output/$(TARGET)
