@@ -115,6 +115,7 @@ bool is_ident1(uint32_t c)
 		'_', '_',
 		'a', 'z',
 		'A', 'Z',
+		'$', '$',
 		0x00A8, 0x00A8,
 		0x00AA, 0x00AA,
 		0x00AD, 0x00AD,
