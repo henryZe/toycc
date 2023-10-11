@@ -988,11 +988,84 @@ static struct Token *preprocess(struct Token *tok)
 	return head.next;
 }
 
+enum StringKind {
+	STR_NONE,
+	STR_UTF8,
+	STR_UTF16,
+	STR_UTF32,
+	STR_WIDE,
+};
+
+static enum StringKind getStringKind(struct Token *tok)
+{
+	if (!strcmp(tok->loc, "u8"))
+		return STR_UTF8;
+
+	switch (tok->loc[0]) {
+	case '"':
+		return STR_NONE;
+	case 'u':
+		return STR_UTF16;
+	case 'U':
+		return STR_UTF32;
+	case 'L':
+		return STR_WIDE;
+	}
+
+	unreachable();
+}
+
 // Concatenate adjacent string literals into a single string literal
 // as per the C spec.
-static void join_adjacent_string_literals(struct Token *tok1)
+static void join_adjacent_string_literals(struct Token *tok)
 {
-	while (tok1->kind != TK_EOF) {
+	// First pass: If regular string literals are adjacent to wide
+	// string literals, regular string literals are converted to a wide
+	// type before concatenation.
+	// In this pass, we do the conversion.
+	for (struct Token *tok1 = tok; tok1->kind != TK_EOF;) {
+		if (tok1->kind != TK_STR || tok1->next->kind != TK_STR) {
+			// whether two adjacent tokens are both strings
+			tok1 = tok1->next;
+			continue;
+		}
+
+		// set first token's type as base type
+		enum StringKind kind = getStringKind(tok1);
+		struct Type *basety = tok1->ty->base;
+
+		// traverse the second and subsequent strings
+		for (struct Token *t2 = tok1->next; t2->kind == TK_STR; t2 = t2->next) {
+			enum StringKind k2 = getStringKind(t2);
+
+			if (kind == STR_NONE) {
+				// if the string token is STR_NONE before,
+				// then set the second token's as base type.
+				kind = k2;
+				basety = t2->ty->base;
+
+			} else if (k2 != STR_NONE && kind != k2) {
+				// If its type is different with the current type
+				error_tok(t2, "unsupported non-standard concatenation of string literals");
+			}
+		}
+
+		// wide type string literal
+		if (basety->size > 1) {
+			for (struct Token *t = tok1; t->kind == TK_STR; t = t->next) {
+				if (t->ty->base->size == 1)
+					// regular string literals are converted to a wide type
+					*t = *tokenize_string_literal(t, basety);
+			}
+		}
+
+		// next loop
+		while (tok1->kind == TK_STR)
+			tok1 = tok1->next;
+	}
+
+	// Second pass: concatenate adjacent string literals.
+	for (struct Token *tok1 = tok; tok1->kind != TK_EOF;) {
 		if (tok1->kind != TK_STR || tok1->next->kind != TK_STR) {
 			tok1 = tok1->next;
 			continue;

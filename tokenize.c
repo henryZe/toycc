@@ -349,6 +349,19 @@ static struct Token *read_utf32_string_literal(const char *start,
 	return tok;
 }
 
+struct Token *tokenize_string_literal(struct Token *tok, struct Type *basety)
+{
+	struct Token *t;
+
+	if (basety->size == 2)
+		t = read_utf16_string_literal(tok->loc, tok->loc);
+	else
+		t = read_utf32_string_literal(tok->loc, tok->loc, basety);
+
+	t->next = tok->next;
+	return t;
+}
+
 // initialize line info for all tokens
 static void add_line_number(struct Token *tok)
 {

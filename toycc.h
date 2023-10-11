@@ -71,6 +71,7 @@ struct Token *tokenize_file(const char *filename);
 struct Token *tokenize(struct File *file);
 struct File *new_file(const char *name, int file_no, const char *contents);
 void __attribute__((noreturn)) error_at(const char *loc, const char *fmt, ...);
+struct Token *tokenize_string_literal(struct Token *tok, struct Type *basety);
 
 // type.c
 enum TypeKind {
