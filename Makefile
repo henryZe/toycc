@@ -111,7 +111,7 @@ output/test/%: test/%.c output/$(TARGET) test/common.c
 # test with qemu-riscv64
 test: $(TESTS)
 	for i in $^; do echo $$i; qemu-riscv64 $$i || exit 1; echo; done
-	@sh $(TEST_DRV) output/$(TARGET)
+	@bash $(TEST_DRV) output/$(TARGET)
 
 # self-host
 # todo: remove self.py

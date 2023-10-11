@@ -853,12 +853,25 @@ static void convert_universal_chars(char *p)
 	*q = '\0';
 }
 
+static char *ignore_bom_marker(char *p)
+{
+	// UTF-8 texts may start with a 3-byte "BOM" marker sequence.
+	// If exists, just skip them because they are useless bytes.
+	// (It is actually not recommended to add BOM markers to UTF-8
+	// texts, but it's not uncommon particularly on Windows.)
+	if (!memcmp(p, "\xef\xbb\xbf", 3))
+		p += 3;
+
+	return p;
+}
+
 struct Token *tokenize_file(const char *path)
 {
 	char *p = read_file(path);
 	if (!p)
 		return NULL;
 
+	p = ignore_bom_marker(p);
 	canonicalize_newline(p);
 	remove_backslash_newline(p);
 	convert_universal_chars(p);

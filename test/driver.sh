@@ -2,9 +2,10 @@
 cc=$1
 exec='qemu-riscv64'
 
-reset='\33[0m'
-red='\33[31m'
-green='\33[32m'
+# bash not support
+# reset='\33[0m'
+# red='\33[31m'
+# green='\33[32m'
 
 # Create a temporary directory
 tmp=`mktemp -d ./toycc-test-XXXXXX`
@@ -122,5 +123,9 @@ $cc -c -O -Wall -g -std=c11 -ffreestanding -fno-builtin \
          -fno-omit-frame-pointer -fno-stack-protector -fno-strict-aliasing \
          -m64 -mno-red-zone -w -o /dev/null $tmp/empty.c
 check 'ignored options'
+
+# BOM marker
+printf '\xef\xbb\xbfxyz\n' | $cc -E -o- - | grep -q '^xyz'
+check 'BOM marker'
 
 echo "${green}OK${reset}"
