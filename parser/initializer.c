@@ -149,17 +149,41 @@ static void designation(struct Token **rest, struct Token *tok, struct Initializ
 	initializer2(rest, tok, init);
 }
 
+// An array length can be omitted if an array has an initializer
+// (e.g. `int x[] = {1,2,3}`). If it's omitted, count the number
+// of initializer elements.
 static int count_array_init_elements(struct Token *tok, struct Type *ty)
 {
-	struct Initializer *dummy = new_initializer(ty->base, false);
-	int i;
+	bool first = true;
+	struct Initializer *dummy = new_initializer(ty->base, true);
+	int i = 0, max = 0;
 
-	for (i = 0; !consume_end(&tok, tok); i++) {
-		if (i > 0)
+	while (!consume_end(&tok, tok)) {
+		if (!first)
 			tok = skip(tok, ",");
-		initializer2(&tok, tok, dummy);
+		first = false;
+
+		if (equal(tok, "[")) {
+			i = const_expr(&tok, tok->next);
+
+			if (equal(tok, "..."))
+				// [start...end]
+				// i = end
+				i = const_expr(&tok, tok->next);
+
+			tok = skip(tok, "]");
+			designation(&tok, tok, dummy);
+
+		} else {
+			// just count forward
+			initializer2(&tok, tok, dummy);
+		}
+		i++;
+
+		// select max of all array-initializers
+		max = MAX(max, i);
 	}
-	return i;
+	return max;
 }
 
 static bool is_end(struct Token *tok)
