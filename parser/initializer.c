@@ -128,7 +128,7 @@ static void array_initializer2(struct Token **rest, struct Token *tok,
 				struct Initializer *init, int i);
 static void initializer2(struct Token **rest, struct Token *tok,
 			 struct Initializer *init);
-// designation = ("[" const-expr "]")* "=" initializer
+// designation = ("[" const-expr "]")* "="? initializer
 static void designation(struct Token **rest, struct Token *tok, struct Initializer *init)
 {
 	// nesting designation
@@ -144,7 +144,9 @@ static void designation(struct Token **rest, struct Token *tok, struct Initializ
 		return;
 	}
 
-	tok = skip(tok, "=");
+	if (equal(tok, "="))
+		tok = tok->next;
+
 	// init current index
 	initializer2(rest, tok, init);
 }
