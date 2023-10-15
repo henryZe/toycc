@@ -91,8 +91,64 @@ static void string_initializer(struct Token **rest, struct Token *tok,
 	*rest = tok->next;
 }
 
+// array-designator = "[" const-expr "]"
+//
+// C99 added the designated initializer to the language, which allows
+// programmers to move the "cursor" of an initializer to any element.
+// The syntax looks like this:
+//
+//   int x[10] = { 1, 2, [5]=3, 4, 5, 6, 7 };
+//
+// `[5]` moves the cursor to the 5th element, so the 5th element of x
+// is set to 3. Initialization then continues forward in order, so
+// 6th, 7th, 8th and 9th elements are initialized with 4, 5, 6 and 7,
+// respectively. Unspecified elements (in this case, 3rd and 4th
+// elements) are initialized with zero.
+//
+// Nesting is allowed, so the following initializer is valid:
+//
+//   int x[5][10] = { [5][8]=1, 2, 3 };
+//
+// It sets x[5][8], x[5][9] and x[6][0] to 1, 2 and 3, respectively.
+static int array_designator(struct Token **rest, struct Token *tok, struct Type *ty)
+{
+	struct Token *start = tok;
+	// get the index
+	int i = const_expr(&tok, tok->next);
+	if (i >= ty->array_len)
+		error_tok(start, "array designator index exceeds array bounds");
+
+	*rest = skip(tok, "]");
+
+	// return the index
+	return i;
+}
+
+static void array_initializer2(struct Token **rest, struct Token *tok,
+				struct Initializer *init, int i);
 static void initializer2(struct Token **rest, struct Token *tok,
 			 struct Initializer *init);
+// designation = ("[" const-expr "]")* "=" initializer
+static void designation(struct Token **rest, struct Token *tok, struct Initializer *init)
+{
+	// nesting designation
+	if (equal(tok, "[")) {
+		if (init->ty->kind != TY_ARRAY)
+			error_tok(tok, "array index in non-array initializer");
+
+		int i = array_designator(&tok, tok, init->ty);
+
+		designation(&tok, tok, init->children[i]);
+		// init following index
+		array_initializer2(rest, tok, init, i + 1);
+		return;
+	}
+
+	tok = skip(tok, "=");
+	// init current index
+	initializer2(rest, tok, init);
+}
+
 static int count_array_init_elements(struct Token *tok, struct Type *ty)
 {
 	struct Initializer *dummy = new_initializer(ty->base, false);
@@ -116,6 +172,7 @@ static void array_initializer1(struct Token **rest, struct Token *tok,
 				struct Initializer *init)
 {
 	tok = skip(tok, "{");
+	bool first = true;
 
 	if (init->is_flexible) {
 		int len = count_array_init_elements(tok, init->ty);
@@ -123,8 +180,16 @@ static void array_initializer1(struct Token **rest, struct Token *tok,
 	}
 
 	for (int i = 0; !consume_end(rest, tok); i++) {
-		if (i > 0)
+		if (!first)
 			tok = skip(tok, ",");
+		first = false;
+
+		// there is designator in the array
+		if (equal(tok, "[")) {
+			i = array_designator(&tok, tok, init->ty);
+			designation(&tok, tok, init->children[i]);
+			continue;
+		}
 
 		if (i < init->ty->array_len)
 			initializer2(&tok, tok, init->children[i]);
@@ -136,16 +201,26 @@ static void array_initializer1(struct Token **rest, struct Token *tok,
 
 // array-initializer2 = initializer ("," initializer)*
 static void array_initializer2(struct Token **rest, struct Token *tok,
-				struct Initializer *init)
+				struct Initializer *init, int i)
 {
 	if (init->is_flexible) {
 		int len = count_array_init_elements(tok, init->ty);
 		*init = *new_initializer(array_of(init->ty->base, len), false);
 	}
 
-	for (int i = 0; i < init->ty->array_len && !is_end(tok); i++) {
+	for (; i < init->ty->array_len && !is_end(tok); i++) {
+		struct Token *start = tok;
+
 		if (i > 0)
 			tok = skip(tok, ",");
+
+		// There is another designator here.
+		// no handle and just leave it to caller.
+		if (equal(tok, "[")) {
+			*rest = start;
+			return;
+		}
+
 		initializer2(&tok, tok, init->children[i]);
 	}
 
@@ -227,7 +302,7 @@ static void initializer2(struct Token **rest, struct Token *tok,
 		if (equal(tok, "{"))
 			array_initializer1(rest, tok, init);
 		else
-			array_initializer2(rest, tok, init);
+			array_initializer2(rest, tok, init, 0);
 		return;
 	}
 
