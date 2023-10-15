@@ -114,25 +114,9 @@ test: $(TESTS)
 	@bash $(TEST_DRV) output/$(TARGET)
 
 # self-host
-# todo: remove self.py
-selfhost/src/%.s: %.c output/$(TARGET) self.py
+selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
 	@mkdir -p $(@D)
-	python3 self.py $< > selfhost/src/$<
-	output/$(TARGET) $(INCLUDE) -c -S selfhost/src/$< -o $@
-	# output/$(TARGET) $(INCLUDE) -c -S $< -o $@
-
-SELFHOST_SRCASM := $(patsubst %.c, selfhost/src/%.s, $(SRCFILES))
-selfhost_build: $(SELFHOST_SRCASM)
-
-# todo: remove self.py
-selfhost/src/%.c: %.c self.py
-	@mkdir -p $(@D)
-	python3 self.py $< > selfhost/src/$<
-
-SELFHOST_SRC := $(patsubst %.c, selfhost/src/%.c, $(SRCFILES))
-selfhost/$(TARGET): $(SELFHOST_SRC) output/$(TARGET) $(HEADERFILES)
-	@mkdir -p $(@D)
-	output/$(TARGET) $(INCLUDE) $(SELFHOST_SRC) -o $@
+	output/$(TARGET) $(INCLUDE) $(SRCFILES) -o $@
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 selfhost: selfhost/$(TARGET)
@@ -167,4 +151,4 @@ extra: test_all selfhost_test
 clean:
 	rm -rf output selfhost
 
-.PHONY: clean test selfhost test_all extra test_prebuild test_build selfhost_build
+.PHONY: clean test selfhost test_all extra test_prebuild test_build

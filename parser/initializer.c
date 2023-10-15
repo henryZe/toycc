@@ -110,6 +110,12 @@ static void string_initializer(struct Token **rest, struct Token *tok,
 //   int x[5][10] = { [5][8]=1, 2, 3 };
 //
 // It sets x[5][8], x[5][9] and x[6][0] to 1, 2 and 3, respectively.
+//
+// Use `.field_name` to move the cursor for a struct initializer. E.g.
+//
+//   struct { int a, b, c; } x = { .c = 5 };
+//
+// The above initializer sets x.c to 5.
 static int array_designator(struct Token **rest, struct Token *tok, struct Type *ty)
 {
 	struct Token *start = tok;
@@ -124,11 +130,34 @@ static int array_designator(struct Token **rest, struct Token *tok, struct Type 
 	return i;
 }
 
+// struct-designator = "." ident
+static struct Member *struct_designator(struct Token **rest,
+					struct Token *tok,
+					struct Type *ty)
+{
+	tok = skip(tok, ".");
+
+	if (tok->kind != TK_IDENT)
+		error_tok(tok, "expected a field designator");
+
+	for (struct Member *mem = ty->members; mem; mem = mem->next) {
+		if (mem->name->len == tok->len &&
+		   !strncmp(mem->name->loc, tok->loc, tok->len)) {
+			*rest = tok->next;
+			return mem;
+		}
+	}
+
+	error_tok(tok, "struct has no such member");
+}
+
 static void array_initializer2(struct Token **rest, struct Token *tok,
 				struct Initializer *init, int i);
+static void struct_initializer2(struct Token **rest, struct Token *tok,
+				struct Initializer *init, struct Member *mem);
 static void initializer2(struct Token **rest, struct Token *tok,
 			 struct Initializer *init);
-// designation = ("[" const-expr "]")* "="? initializer
+// designation = ("[" const-expr "]" | "." ident)* "="? initializer
 static void designation(struct Token **rest, struct Token *tok, struct Initializer *init)
 {
 	// nesting designation
@@ -139,10 +168,25 @@ static void designation(struct Token **rest, struct Token *tok, struct Initializ
 		int i = array_designator(&tok, tok, init->ty);
 
 		designation(&tok, tok, init->children[i]);
+
 		// init following index
 		array_initializer2(rest, tok, init, i + 1);
 		return;
 	}
+
+	if (equal(tok, ".") && init->ty->kind == TY_STRUCT) {
+		struct Member *mem = struct_designator(&tok, tok, init->ty);
+
+		designation(&tok, tok, init->children[mem->idx]);
+		init->expr = NULL;
+
+		// init following member
+		struct_initializer2(rest, tok, init, mem->next);
+		return;
+	}
+
+	if (equal(tok, "."))
+		error_tok(tok, "field name not in struct or union initializer");
 
 	if (equal(tok, "="))
 		tok = tok->next;
@@ -242,7 +286,7 @@ static void array_initializer2(struct Token **rest, struct Token *tok,
 
 		// There is another designator here.
 		// no handle and just leave it to caller.
-		if (equal(tok, "[")) {
+		if (equal(tok, "[") || equal(tok, ".")) {
 			*rest = start;
 			return;
 		}
@@ -267,6 +311,13 @@ static void struct_initializer1(struct Token **rest, struct Token *tok,
 			tok = skip(tok, ",");
 		first = false;
 
+		if (equal(tok, ".")) {
+			mem = struct_designator(&tok, tok, init->ty);
+			designation(&tok, tok, init->children[mem->idx]);
+			mem = mem->next;
+			continue;
+		}
+
 		if (mem) {
 			initializer2(&tok, tok, init->children[mem->idx]);
 			mem = mem->next;
@@ -279,15 +330,24 @@ static void struct_initializer1(struct Token **rest, struct Token *tok,
 
 // struct-initializer2 = initializer ("," initializer)*
 static void struct_initializer2(struct Token **rest, struct Token *tok,
-				struct Initializer *init)
+				struct Initializer *init, struct Member *mem)
 {
 	bool first = true;
 
-	for (struct Member *mem = init->ty->members;
-		mem && !is_end(tok); mem = mem->next) {
+	for (; mem && !is_end(tok); mem = mem->next) {
+		struct Token *start = tok;
+
 		if (!first)
 			tok = skip(tok, ",");
 		first = false;
+
+		// There is another designator here.
+		// no handle and just leave it to caller.
+		if (equal(tok, "[") || equal(tok, ".")) {
+			*rest = start;
+			return;
+		}
+
 		initializer2(&tok, tok, init->children[mem->idx]);
 	}
 
@@ -348,7 +408,7 @@ static void initializer2(struct Token **rest, struct Token *tok,
 			return;
 		}
 
-		struct_initializer2(rest, tok, init);
+		struct_initializer2(rest, tok, init, init->ty->members);
 		return;
 	}
 
