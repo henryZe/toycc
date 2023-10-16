@@ -135,12 +135,25 @@ static struct Member *struct_designator(struct Token **rest,
 					struct Token *tok,
 					struct Type *ty)
 {
+	struct Token *start = tok;
 	tok = skip(tok, ".");
 
 	if (tok->kind != TK_IDENT)
 		error_tok(tok, "expected a field designator");
 
 	for (struct Member *mem = ty->members; mem; mem = mem->next) {
+		// Anonymous struct member
+		if (mem->ty->kind == TY_STRUCT && !mem->name) {
+			// search the member's children
+			if (get_struct_member(mem->ty, tok)) {
+				*rest = start;
+				return mem;
+			}
+			// continue to search next member
+			continue;
+		}
+
+		// Regular struct member
 		if (mem->name->len == tok->len &&
 		   !strncmp(mem->name->loc, tok->loc, tok->len)) {
 			*rest = tok->next;
@@ -373,11 +386,13 @@ static void union_initializer(struct Token **rest, struct Token *tok,
 	if (parentheses && equal(tok->next, ".")) {
 		struct Member *mem = struct_designator(&tok, tok->next, init->ty);
 		init->mem = mem;
+
 		designation(&tok, tok, init->children[mem->idx]);
 		*rest = skip(tok, "}");
 		return;
 	}
 
+	// set initializer's first member in default
 	init->mem = init->ty->members;
 
 	if (parentheses)
@@ -543,6 +558,7 @@ static struct Node *create_lvar_init(struct Initializer *init, struct Type *ty,
 	}
 
 	if (ty->kind == TY_UNION) {
+		// set initializer's first member in default
 		struct Member *mem = init->mem ? init->mem : ty->members;
 		struct InitDesg desg2 = { desg, 0, mem, NULL };
 		return create_lvar_init(init->children[mem->idx], mem->ty, &desg2, tok);
@@ -650,6 +666,7 @@ static struct Relocation *write_gvar_data(struct Relocation *cur,
 	}
 
 	if (ty->kind == TY_UNION) {
+		// no handle and just leave it to caller
 		if (!init->mem)
 			return cur;
 		return write_gvar_data(cur, init->children[init->mem->idx],

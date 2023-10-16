@@ -40,5 +40,6 @@ void gvar_initializer(struct Token **rest, struct Token *tok,
 			     struct Obj *var);
 struct Node *lvar_initializer(struct Token **rest, struct Token *tok,
 				     struct Obj *var);
+struct Member *get_struct_member(struct Type *ty, struct Token *tok);
 
 #endif

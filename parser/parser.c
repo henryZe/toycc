@@ -189,7 +189,7 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 }
 
 // Find a struct member by name.
-static struct Member *get_struct_member(struct Type *ty, struct Token *tok)
+struct Member *get_struct_member(struct Type *ty, struct Token *tok)
 {
 	for (struct Member *mem = ty->members; mem; mem = mem->next) {
 		// Anonymous struct member
