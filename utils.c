@@ -1,5 +1,7 @@
 #include <toycc.h>
 
+#define INDENT_WIDTH 8
+
 void warn_tok(struct Token *tok, const char *fmt, ...)
 {
 	va_list ap;
@@ -55,7 +57,7 @@ void verror_at(const char *filename, const char *input, int line_no,
 	fprintf(stderr, "%.*s\n", len, line);
 
 	// show the error message
-	int pos = loc - line + indent * (8 - 1);
+	int pos = display_width(line, loc - line) + indent * (INDENT_WIDTH - 1);
 
 	fprintf(stderr, "%*s", pos, "");	// print pos spaces
 	fprintf(stderr, "^ ");
