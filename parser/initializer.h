@@ -20,6 +20,10 @@ struct Initializer {
 	// If it's an initializer for an aggregate type (e.g. array or struct),
 	// `children` has initializers for its children.
 	struct Initializer **children;
+
+	// Only one member can be initialized for a union.
+	// `mem` is used to clarify which member is initialized.
+	struct Member *mem;
 };
 
 // For local variable initializer.

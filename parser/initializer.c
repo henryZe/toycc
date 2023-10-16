@@ -185,6 +185,14 @@ static void designation(struct Token **rest, struct Token *tok, struct Initializ
 		return;
 	}
 
+	if (equal(tok, ".") && init->ty->kind == TY_UNION) {
+		struct Member *mem = struct_designator(&tok, tok, init->ty);
+		init->mem = mem;
+
+		designation(rest, tok, init->children[mem->idx]);
+		return;
+	}
+
 	if (equal(tok, "."))
 		error_tok(tok, "field name not in struct or union initializer");
 
@@ -354,15 +362,27 @@ static void struct_initializer2(struct Token **rest, struct Token *tok,
 	*rest = tok;
 }
 
+// Unlike structs, union initializers take *only one* initializer,
+// and that initializes the first union member by default.
+// You can initialize other member using a designated initializer.
 static void union_initializer(struct Token **rest, struct Token *tok,
 			      struct Initializer *init)
 {
 	bool parentheses = equal(tok, "{");
+
+	if (parentheses && equal(tok->next, ".")) {
+		struct Member *mem = struct_designator(&tok, tok->next, init->ty);
+		init->mem = mem;
+		designation(&tok, tok, init->children[mem->idx]);
+		*rest = skip(tok, "}");
+		return;
+	}
+
+	init->mem = init->ty->members;
+
 	if (parentheses)
 		tok = tok->next;
 
-	// Unlike structs, union initializers take *only one* initializer,
-	// and that initializes the *first* union member.
 	initializer2(&tok, tok, init->children[0]);
 
 	if (parentheses) {
@@ -523,8 +543,9 @@ static struct Node *create_lvar_init(struct Initializer *init, struct Type *ty,
 	}
 
 	if (ty->kind == TY_UNION) {
-		struct InitDesg desg2 = { desg, 0, ty->members, NULL };
-		return create_lvar_init(init->children[0], ty->members->ty, &desg2, tok);
+		struct Member *mem = init->mem ? init->mem : ty->members;
+		struct InitDesg desg2 = { desg, 0, mem, NULL };
+		return create_lvar_init(init->children[mem->idx], mem->ty, &desg2, tok);
 	}
 
 	if (!init->expr)
@@ -628,9 +649,12 @@ static struct Relocation *write_gvar_data(struct Relocation *cur,
 		return cur;
 	}
 
-	if (ty->kind == TY_UNION)
-		return write_gvar_data(cur, init->children[0],
-					ty->members->ty, buf, offset);
+	if (ty->kind == TY_UNION) {
+		if (!init->mem)
+			return cur;
+		return write_gvar_data(cur, init->children[init->mem->idx],
+					init->mem->ty, buf, offset);
+	}
 
 	if (!init->expr)
 		return cur;
