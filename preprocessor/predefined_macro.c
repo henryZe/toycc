@@ -25,14 +25,16 @@ static struct Token *file_macro(struct Token *tmpl)
 {
 	while (tmpl->origin)
 		tmpl = tmpl->origin;
-	return new_str_token(tmpl->file->name, tmpl);
+	return new_str_token(tmpl->file->display_name, tmpl);
 }
 
 static struct Token *line_macro(struct Token *tmpl)
 {
 	while (tmpl->origin)
 		tmpl = tmpl->origin;
-	return new_num_token(tmpl->line_no, tmpl);
+
+	int i = tmpl->line_no + tmpl->file->line_delta;
+	return new_num_token(i, tmpl);
 }
 
 // __COUNTER__ is expanded to serial values starting from 0.

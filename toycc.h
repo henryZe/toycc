@@ -51,7 +51,9 @@ struct Token {
 	struct Type *ty;	// used if TK_NUM or TK_STR
 	const char *str;	// string literal contents including terminating '\0'
 	struct File *file;	// source location
+	const char *filename;	// Filename
 	int line_no;		// line number
+	int line_delta;
 	bool at_bol;		// True if this token is at beginning of line
 	bool has_space;		// True if this token follows a space character
 	struct Hideset *hideset;// for macro expansion
@@ -62,6 +64,10 @@ struct File {
 	const char *name;
 	int file_no;
 	const char *contents;
+
+	// For #line directive
+	const char *display_name;
+	int line_delta;
 };
 
 bool consume(struct Token **rest, struct Token *tok, const char *str);

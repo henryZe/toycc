@@ -165,14 +165,14 @@ static struct Token *read_const_expr(struct Token **rest,
 	return head.next;
 }
 
-static struct Token *preprocess(struct Token *tok);
+static struct Token *preprocess2(struct Token *tok);
 // Read and evaluate a constant expression.
 static long eval_const_expr(struct Token **rest, struct Token *tok)
 {
 	struct Token *start = tok;
 	struct Token *expr = read_const_expr(rest, tok->next);
 
-	expr = preprocess(expr);
+	expr = preprocess2(expr);
 
 	if (expr->kind == TK_EOF)
 		error_tok(start, "no expression");
@@ -603,7 +603,7 @@ static struct Token *subst(struct Token *tok, struct MacroArg *args)
 		// before they are substituted into a macro body.
 		if (arg) {
 			// expand the macro
-			struct Token *t = preprocess(arg->tok);
+			struct Token *t = preprocess2(arg->tok);
 			t->at_bol = tok->at_bol;
 			t->has_space = tok->has_space;
 
@@ -809,7 +809,7 @@ static const char *read_include_filename(struct Token **rest, struct Token *tok,
 	// In this case FOO must be macro-expanded to either
 	// a single string token or a sequence of "<" ... ">".
 	if (tok->kind == TK_IDENT) {
-		struct Token *tok2 = preprocess(copy_line(rest, tok));
+		struct Token *tok2 = preprocess2(copy_line(rest, tok));
 		return read_include_filename(&tok2, tok2, is_dquote);
 	}
 
@@ -848,9 +848,30 @@ static const char *search_include_paths(const char *filename)
 	return NULL;
 }
 
+// Read #line arguments
+static void read_line_marker(struct Token **rest, struct Token *tok)
+{
+	struct Token *start = tok;
+	tok = preprocessor(copy_line(rest, tok));
+
+	if (tok->kind != TK_NUM || tok->ty->kind != TY_INT)
+		error_tok(tok, "invalid line marker");
+
+	start->file->line_delta = tok->val - start->line_no;
+
+	tok = tok->next;
+	if (tok->kind == TK_EOF)
+		return;
+
+	if (tok->kind != TK_STR)
+		error_tok(tok, "filename expected");
+
+	start->file->display_name = tok->str;
+}
+
 // Visit all tokens in `tok` while evaluating
 // preprocessing macros and directives.
-static struct Token *preprocess(struct Token *tok)
+static struct Token *preprocess2(struct Token *tok)
 {
 	struct Token head = {};
 	struct Token *cur = &head;
@@ -862,6 +883,9 @@ static struct Token *preprocess(struct Token *tok)
 
 		// Pass through if it is not a "#".
 		if (!is_hash(tok)) {
+			tok->line_delta = tok->file->line_delta;
+			tok->filename = tok->file->display_name;
+
 			cur->next = tok;
 			cur = cur->next;
 
@@ -971,6 +995,11 @@ static struct Token *preprocess(struct Token *tok)
 			// pop
 			cond_incl = cond_incl->next;
 			tok = skip_line(tok->next);
+			continue;
+		}
+
+		if (equal(tok, "line")) {
+			read_line_marker(&tok, tok->next);
 			continue;
 		}
 
@@ -1099,11 +1128,22 @@ static void join_adjacent_string_literals(struct Token *tok)
 // Entry point function of the preprocessor
 struct Token *preprocessor(struct Token *tok)
 {
-	tok = preprocess(tok);
+	tok = preprocess2(tok);
 	if (cond_incl)
 		error_tok(cond_incl->tok, "unterminated conditional directive");
 
+	// pp-number:
+	// After all replacements due to macro expansion and
+	// the defined unary operator have been performed,
+	// all remaining identifiers (including those lexically
+	// identical to keywords, equals to undefined macro)
+	// are replaced with the pp-number 0, and then
+	// each preprocessing token is converted into a token.
 	convert_pp_tokens(tok);
 	join_adjacent_string_literals(tok);
+
+	for (struct Token *t = tok; t; t = t->next)
+		t->line_no += t->line_delta;
+
 	return tok;
 };

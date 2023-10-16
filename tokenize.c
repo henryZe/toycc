@@ -50,6 +50,7 @@ static struct Token *new_token(enum TokenKind kind,
 	tok->loc = start;
 	tok->len = end - start;
 	tok->file = current_file;
+	tok->filename = current_file->display_name;
 	tok->at_bol = at_bol;
 	tok->has_space = has_space;
 
@@ -585,6 +586,17 @@ struct Token *tokenize(struct File *file)
 			continue;
 		}
 
+		// pp-number:
+		// digit
+		// . digit
+		// pp-number digit
+		// pp-number identifier-nondigit
+		// pp-number e sign
+		// pp-number E sign
+		// pp-number p sign
+		// pp-number P sign
+		// pp-number .
+		//
 		// Numeric literal
 		if (isdigit(*p) || (*p == '.' && isdigit(p[1]))) {
 			const char *q = p++;
@@ -748,6 +760,7 @@ struct File *new_file(const char *name, int file_no, const char *contents)
 	struct File *file = calloc(1, sizeof(struct File));
 
 	file->name = name;
+	file->display_name = name;
 	file->file_no = file_no;
 	file->contents = contents;
 	return file;
