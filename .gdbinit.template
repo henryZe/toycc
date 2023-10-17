@@ -1,0 +1,2 @@
+set follow-fork-mode child
+# set args -Iinclude -Itest -c -S test/line.c -o output/test/line.s

@@ -482,7 +482,6 @@ int main(int argc, const char **argv)
 		if (!endswith(input, ".c") && strcmp(input, "-"))
 			error("unknown file extension: %s", input);
 
-
 		// just preprocess
 		if (opt_E) {
 			run_cc1(argc, argv, input, NULL);
