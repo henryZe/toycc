@@ -1,6 +1,7 @@
 #include <toycc.h>
 #include <time.h>
 #include <preprocessor.h>
+#include <sys/stat.h>
 
 void define_macro(const char *name, const char *buf)
 {
@@ -42,6 +43,22 @@ static struct Token *counter_macro(struct Token *tmpl)
 {
 	static int i = 0;
 	return new_num_token(i++, tmpl);
+}
+
+// __TIMESTAMP__ is expanded to a string describing the last
+// modification time of the current file. E.g.
+// "Wed Oct 18 03:34:54 2023"
+static struct Token *timestamp_macro(struct Token *tmpl)
+{
+	struct stat st;
+	if (stat(tmpl->file->name, &st) != 0)
+		return new_str_token("??? ??? ?? ??:??:?? ????", tmpl);
+
+	char buf[30];
+	ctime_r(&st.st_mtime, buf);
+	buf[24] = '\0';
+
+	return new_str_token(buf, tmpl);
 }
 
 // __DATE__ is expanded to the current date, e.g. "May 17 2020".
@@ -408,6 +425,7 @@ void init_macros(void)
 	add_builtin("__LINE__", line_macro);
 
 	add_builtin("__COUNTER__", counter_macro);
+	add_builtin("__TIMESTAMP__", timestamp_macro);
 
 	time_t now = time(NULL);
 	struct tm *tm = localtime(&now);
