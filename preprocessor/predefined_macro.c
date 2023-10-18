@@ -61,6 +61,11 @@ static struct Token *timestamp_macro(struct Token *tmpl)
 	return new_str_token(buf, tmpl);
 }
 
+static struct Token *base_file_macro(struct Token *tmpl)
+{
+	return new_str_token(base_file, tmpl);
+}
+
 // __DATE__ is expanded to the current date, e.g. "May 17 2020".
 static const char *format_date(struct tm *tm)
 {
@@ -426,6 +431,7 @@ void init_macros(void)
 
 	add_builtin("__COUNTER__", counter_macro);
 	add_builtin("__TIMESTAMP__", timestamp_macro);
+	add_builtin("__BASE_FILE__", base_file_macro);
 
 	time_t now = time(NULL);
 	struct tm *tm = localtime(&now);

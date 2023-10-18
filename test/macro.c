@@ -379,6 +379,8 @@ int main()
 
 	ASSERT(24, strlen(__TIMESTAMP__));
 
+	ASSERT(0, strcmp(__BASE_FILE__, "test/macro.c"));
+
 	pass();
 	return 0;
 }
