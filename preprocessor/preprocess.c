@@ -553,6 +553,27 @@ static struct Token *subst(struct Token *tok, struct MacroArg *args)
 			continue;
 		}
 
+		// [GNU] If __VA_ARG__ is empty, `,##__VA_ARGS__` is expanded
+		// to the empty token list.
+		// Otherwise, it's expanded to `,` and __VA_ARGS__.
+		if (equal(tok, ",") && equal(tok->next, "##")) {
+			struct MacroArg *arg = find_arg(args, tok->next->next);
+
+			if (arg && !strcmp(arg->name, "__VA_ARGS__")) {
+				// macro's arguments
+				if (arg->tok->kind == TK_EOF) {
+					// just ignore
+					tok = tok->next->next->next;
+
+				} else {
+					// point to __VA_ARGS__
+					cur = cur->next = copy_token(tok);
+					tok = tok->next->next;
+				}
+				continue;
+			}
+		}
+
 		if (equal(tok, "##")) {
 			if (cur == &head)
 				error_tok(tok, "'##' cannot appear at start of macro expansion");
