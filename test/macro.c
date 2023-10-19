@@ -394,6 +394,8 @@ int main()
 #define M31(x, y) (1, ##x y)
 	ASSERT(3, M31(, 3));
 
+#pragma
+
 	pass();
 	return 0;
 }
