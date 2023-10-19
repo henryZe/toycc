@@ -336,6 +336,7 @@ static struct Hideset *hideset_intersection(struct Hideset *hs1,
 	return head.next;
 }
 
+// read one argument of the macro
 static struct MacroArg *read_macro_arg_one(struct Token **rest,
 					   struct Token *tok,
 					   bool read_rest)
@@ -521,6 +522,18 @@ static struct Token *paste(struct Token *lhs, struct Token *rhs)
 	return tok;
 }
 
+// check macro's arguments for __VA_ARGS__
+static bool has_varargs(struct MacroArg *args)
+{
+	for (struct MacroArg *ap = args; ap; ap = ap->next) {
+		if (!strcmp(ap->name, "__VA_ARGS__")) {
+			// check the first argument
+			return ap->tok->kind != TK_EOF;
+		}
+	}
+	return false;
+}
+
 // Replace func-like macro parameters with given arguments.
 static struct Token *subst(struct Token *tok, struct MacroArg *args)
 {
@@ -595,6 +608,22 @@ static struct Token *subst(struct Token *tok, struct MacroArg *args)
 			tok = tok->next;
 			// Just link the arg's tokens,
 			// leave the rest job to forward code
+			continue;
+		}
+
+		// If __VA_ARG__ is empty, __VA_OPT__(x) is expanded to the
+		// empty token list. Otherwise, __VA_OPT__(x) is expanded to x.
+		if (equal(tok, "__VA_OPT__") && equal(tok->next, "(")) {
+			// read x argument
+			struct MacroArg *arg_x = read_macro_arg_one(&tok, tok->next->next, true);
+
+			// check macro's arguments for __VA_ARGS__
+			if (has_varargs(args))
+				// expand and insert into token list
+				for (struct Token *t = arg_x->tok; t->kind != TK_EOF; t = t->next)
+					cur = cur->next = t;
+
+			tok = skip(tok, ")");
 			continue;
 		}
 
