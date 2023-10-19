@@ -37,6 +37,7 @@ struct MacroParam {
 struct MacroArg {
 	struct MacroArg *next;
 	const char *name;	// the name points to parameter's name
+	bool is_va_args;
 	struct Token *tok;
 };
 
@@ -379,7 +380,7 @@ static struct MacroArg *read_macro_arg_one(struct Token **rest,
 
 static struct MacroArg *read_macro_args(struct Token **rest, struct Token *tok,
 					struct MacroParam *params,
-					bool is_variadic)
+					const char *va_args_name)
 {
 	// the macro self
 	struct Token *start = tok;
@@ -401,7 +402,7 @@ static struct MacroArg *read_macro_args(struct Token **rest, struct Token *tok,
 		cur->name = pp->name;
 	}
 
-	if (is_variadic) {
+	if (va_args_name) {
 		struct MacroArg *arg;
 
 		if (equal(tok, ")")) {
@@ -415,7 +416,8 @@ static struct MacroArg *read_macro_args(struct Token **rest, struct Token *tok,
 			arg = read_macro_arg_one(&tok, tok, true);
 		}
 
-		arg->name = "__VA_ARGS__";
+		arg->name = va_args_name;
+		arg->is_va_args = true;
 		cur = cur->next = arg;
 
 	} else if (pp) {
@@ -559,7 +561,7 @@ static struct Token *subst(struct Token *tok, struct MacroArg *args)
 		if (equal(tok, ",") && equal(tok->next, "##")) {
 			struct MacroArg *arg = find_arg(args, tok->next->next);
 
-			if (arg && !strcmp(arg->name, "__VA_ARGS__")) {
+			if (arg && arg->is_va_args) {
 				// macro's arguments
 				if (arg->tok->kind == TK_EOF) {
 					// just ignore
@@ -722,7 +724,7 @@ static bool expand_macro(struct Token **rest, struct Token *tok)
 
 	// Function-like macro application
 	struct Token *macro_token = tok;
-	struct MacroArg *args = read_macro_args(&tok, tok, m->params, m->is_variadic);
+	struct MacroArg *args = read_macro_args(&tok, tok, m->params, m->va_args_name);
 	// right-parentheses
 	struct Token *rparen = tok;
 
@@ -766,7 +768,7 @@ struct Macro *add_macro(const char *name, bool is_objlike, struct Token *body)
 
 static struct MacroParam *read_macro_params(struct Token **rest,
 					    struct Token *tok,
-					    bool *is_variadic)
+					    const char **va_args_name)
 {
 	struct MacroParam head = {};
 	struct MacroParam *cur = &head;
@@ -776,13 +778,19 @@ static struct MacroParam *read_macro_params(struct Token **rest,
 			tok = skip(tok, ",");
 
 		if (equal(tok, "...")) {
-			*is_variadic = true;
+			*va_args_name = "__VA_ARGS__";
 			*rest = skip(tok->next, ")");
 			return head.next;
 		}
 
 		if (tok->kind != TK_IDENT)
 			error_tok(tok, "expected an identifier");
+
+		if (equal(tok->next, "...")) {
+			*va_args_name = strndup(tok->loc, tok->len);
+			*rest = skip(tok->next->next, ")");
+			return head.next;
+		}
 
 		struct MacroParam *m = calloc(1, sizeof(struct MacroParam));
 		m->name = strndup(tok->loc, tok->len);
@@ -808,12 +816,12 @@ static void read_macro_definition(struct Token **rest, struct Token *tok)
 
 	if (!tok->has_space && equal(tok, "(")) {
 		// function-like macro
-		bool is_variadic = false;
-		struct MacroParam *params = read_macro_params(&tok, tok->next, &is_variadic);
+		const char *va_args_name = NULL;
+		struct MacroParam *params = read_macro_params(&tok, tok->next, &va_args_name);
 
 		struct Macro *m = add_macro(name, false, copy_line(rest, tok));
 		m->params = params;
-		m->is_variadic = is_variadic;
+		m->va_args_name = va_args_name;
 
 	} else {
 		// object-like macro
