@@ -70,6 +70,7 @@ TEST_SRCS = \
 	unicode.c \
 	line.c \
 	typeof.c \
+	builtin.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh

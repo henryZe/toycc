@@ -94,6 +94,7 @@ static struct Node *unary(struct Token **rest, struct Token *tok);
 // 	| "sizeof" unary
 //	| "_Alignof" "(" type-name ")"
 //	| "_Alignof" unary
+//	| "__builtin_types_compatible_p" "(" type-name, type-name, ")"
 // 	| ident
 // 	| str
 // 	| num
@@ -144,6 +145,18 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		add_type(node);
 
 		return new_ulong(node->ty->align, tok);
+	}
+
+	if (equal(tok, "__builtin_types_compatible_p")) {
+		tok = skip(tok->next, "(");
+
+		struct Type *t1 = typename(&tok, tok);
+		tok = skip(tok, ",");
+
+		struct Type *t2 = typename(&tok, tok);
+		*rest = skip(tok, ")");
+
+		return new_num(is_compatible(t1, t2), start);
 	}
 
 	if (tok->kind == TK_IDENT) {

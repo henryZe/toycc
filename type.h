@@ -6,6 +6,7 @@ struct Type {
 	int size;		// sizeof() value
 	int align;		// alignment
 	bool is_unsigned;	// unsigned or signed
+	struct Type *origin;	// for type compatibility check
 
 	// pointer-to or array-of type.
 	// We intentionally use the same member to
@@ -47,6 +48,7 @@ bool is_integer(struct Type *ty);
 bool is_float(struct Type *ty);
 bool is_struct_union(struct Type *ty);
 bool is_numeric(struct Type *ty);
+bool is_compatible(struct Type *t1, struct Type *t2);
 struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);
