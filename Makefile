@@ -69,6 +69,7 @@ TEST_SRCS = \
 	bitfield.c \
 	unicode.c \
 	line.c \
+	typeof.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh

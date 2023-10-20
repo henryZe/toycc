@@ -347,6 +347,7 @@ bool is_typename(struct Token *tok)
 		"_Noreturn",
 		"float",
 		"double",
+		"typeof",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -356,10 +357,30 @@ bool is_typename(struct Token *tok)
 	return find_typedef(tok);
 }
 
+// typeof-specifier = "(" (expr | typename) ")"
+static struct Type *typeof_specifier(struct Token **rest, struct Token *tok)
+{
+	tok = skip(tok, "(");
+
+	struct Type *ty;
+	if (is_typename(tok)) {
+		ty = typename(&tok, tok);
+	} else {
+		struct Node *node = expr(&tok, tok);
+		add_type(node);
+		ty = node->ty;
+	}
+
+	*rest = skip(tok, ")");
+	return ty;
+}
+
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long" |
 //		"typedef" | "static" | "extern" |
 //		"signed" | "unsigned" |
-//		struct-decl | union-decl | typedef-name | enum-specifier |
+//		struct-decl | union-decl |
+//		typedef-name |
+//		enum-specifier | typeof-specifier |
 //		"const" | "volatile" | "auto" | "register" |
 //		"restrict" | "__restrict" | "__restrict__" |
 //		"_Noreturn")+
@@ -449,8 +470,10 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 
 		// Handle user-defined types.
 		struct Type *ty2 = find_typedef(tok);
-		if (equal(tok, "struct") || equal(tok, "union") ||
-		    equal(tok, "enum") || ty2) {
+		if (equal(tok, "struct") ||
+		    equal(tok, "union") ||
+		    equal(tok, "enum") ||
+		    equal(tok, "typeof") || ty2) {
 			if (counter)
 				break;
 
@@ -462,6 +485,9 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 
 			} else if (equal(tok, "enum")) {
 				ty = enum_specifier(&tok, tok->next);
+
+			} else if (equal(tok, "typeof")) {
+				ty = typeof_specifier(&tok, tok->next);
 
 			} else {
 				ty = ty2;

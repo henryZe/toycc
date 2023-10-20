@@ -161,6 +161,7 @@ static bool is_keyword(struct Token *tok)
 		"_Noreturn",
 		"float",
 		"double",
+		"typeof",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

@@ -86,7 +86,6 @@ static struct Node *funcall(struct Token **rest, struct Token *tok, struct Node 
 // expr:
 // 	tok: current tok pointer
 // 	rest: return current tok pointer
-static struct Node *expr(struct Token **rest, struct Token *tok);
 static struct Node *compound_stmt(struct Token **rest, struct Token *tok);
 static struct Node *unary(struct Token **rest, struct Token *tok);
 // primary = "(" "{" stmt+ "}" ")"
@@ -811,7 +810,7 @@ struct Node *assign(struct Token **rest, struct Token *tok)
 }
 
 // expr = assign ("," expr)?
-static struct Node *expr(struct Token **rest, struct Token *tok)
+struct Node *expr(struct Token **rest, struct Token *tok)
 {
 	struct Node *n = assign(&tok, tok);
 
