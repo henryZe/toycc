@@ -238,9 +238,9 @@ struct Type *pointer_to(struct Type *base)
 
 struct Type *func_type(struct Type *return_ty)
 {
-	struct Type *ty = calloc(1, sizeof(struct Type));
-
-	ty->kind = TY_FUNC;
+	// The C spec disallows sizeof(<function type>), but
+	// GCC allows that and the expression is evaluated to 1.
+	struct Type *ty = new_type(TY_FUNC, 1, 1);
 	ty->return_ty = return_ty;
 	return ty;
 }
