@@ -1511,6 +1511,11 @@ static void emit_text(struct Obj *prog)
 		if (!fn->is_function || !fn->is_definition)
 			continue;
 
+		// No code is emitted for "static inline" functions
+		// if no one is referencing them.
+		if (!fn->is_live)
+			continue;
+
 		println(".text");
 		if (fn->is_static)
 			println(".local %s", fn->name);

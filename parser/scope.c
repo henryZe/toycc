@@ -58,6 +58,21 @@ struct Type *find_tag(struct Token *tok)
 	return NULL;
 }
 
+struct Obj *find_func(const char *name)
+{
+	struct Scope *sc = scope;
+
+	// search function in the outermost of file scope
+	while (sc->next)
+		sc = sc->next;
+
+	for (struct VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next)
+		if (sc2->var && sc2->var->is_function && !strcmp(sc2->name, name))
+			return sc2->var;
+
+	return NULL;
+}
+
 struct Type *overwrite_tag(struct Token *tag, struct Type *ty)
 {
 	for (struct TagScope *sc = scope->tags; sc; sc = sc->next) {

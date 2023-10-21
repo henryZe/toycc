@@ -38,6 +38,8 @@ void enter_scope(void);
 void leave_scope(void);
 
 struct Type *find_tag(struct Token *tok);
+struct Obj *find_func(const char *name);
+
 void push_tag_scope(struct Token *tok, struct Type *ty);
 struct VarScope *push_scope(const char *name);
 struct Type *overwrite_tag(struct Token *tok, struct Type *ty);

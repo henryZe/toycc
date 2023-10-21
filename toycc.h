@@ -79,6 +79,16 @@ struct File *new_file(const char *name, int file_no, const char *contents);
 void __attribute__((noreturn)) error_at(const char *loc, const char *fmt, ...);
 struct Token *tokenize_string_literal(struct Token *tok, struct Type *basety);
 
+// string.c
+struct StringArray {
+	const char **data;
+	int capacity;
+	int len;
+};
+
+const char *format(const char *fmt, ...);
+void strarray_push(struct StringArray *arr, const char *s);
+
 // type.c
 enum TypeKind {
 	TY_VOID,
@@ -261,6 +271,11 @@ struct Obj {
 	struct Obj *locals;
 	struct Obj *va_area;
 	int stack_size;
+
+	// for static inline function
+	bool is_live;		// referenced function
+	bool is_root;		// !(static && inline)
+	struct StringArray refs;// referencing functions
 };
 
 struct Node *new_cast(struct Node *expr, struct Type *ty);
@@ -280,16 +295,6 @@ void verror_at(const char *filename, const char *input, int line_no,
 void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
 void warn_tok(struct Token *tok, const char *fmt, ...);
 int llog2(int num);
-
-// string.c
-struct StringArray {
-	const char **data;
-	int capacity;
-	int len;
-};
-
-const char *format(const char *fmt, ...);
-void strarray_push(struct StringArray *arr, const char *s);
 
 // unicode.c
 int encode_utf8(char *buf, uint32_t c);

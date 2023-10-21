@@ -214,6 +214,14 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		struct VarScope *sc = find_var(tok);
 		*rest = tok->next;
 
+		// For "static inline" function
+		if (sc && sc->var && sc->var->is_function) {
+			if (current_fn)
+				strarray_push(&current_fn->refs, sc->var->name);
+			else
+				sc->var->is_root = true;
+		}
+
 		if (sc) {
 			if (sc->var)
 				// variable
@@ -1242,6 +1250,20 @@ static void resolve_goto_labels(void)
 	gotos = labels = NULL;
 }
 
+static void mark_live(struct Obj *var)
+{
+	if (!var->is_function || var->is_live)
+		return;
+
+	var->is_live = true;
+
+	for (int i = 0; i < var->refs.len; i++) {
+		struct Obj *fn = find_func(var->refs.data[i]);
+		if (fn)
+			mark_live(fn);
+	}
+}
+
 static struct Token *function(struct Token *tok, struct Type *basety,
 			      const struct VarAttr *attr)
 {
@@ -1254,6 +1276,7 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	fn->is_definition = !consume(&tok, tok, ";");
 	fn->is_static = attr->is_static || (attr->is_inline && !attr->is_extern);
 	fn->is_inline = attr->is_inline;
+	fn->is_root = !(fn->is_static && fn->is_inline);
 
 	if (!fn->is_definition)
 		return tok;
@@ -1390,6 +1413,10 @@ struct Obj *parser(struct Token *tok)
 			tok = global_variable(tok, basety, &attr);
 		}
 	}
+
+	for (struct Obj *var = ret_globals(); var; var = var->next)
+		if (var->is_root)
+			mark_live(var);
 
 	return ret_globals();
 }
