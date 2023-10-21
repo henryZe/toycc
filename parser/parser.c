@@ -79,6 +79,52 @@ static struct Node *funcall(struct Token **rest, struct Token *tok, struct Node 
 	return node;
 }
 
+// generic-selection = "(" assign "," generic-assoc ("," generic-assoc)* ")"
+//
+// generic-assoc = type-name ":" assign
+//               | "default" ":" assign
+static struct Node *generic_selection(struct Token **rest, struct Token *tok)
+{
+	struct Token *start = tok;
+	tok = skip(tok, "(");
+
+	struct Node *ctrl = assign(&tok, tok);
+	add_type(ctrl);
+
+	struct Type *t1 = ctrl->ty;
+	if (t1->kind == TY_FUNC)
+		t1 = pointer_to(t1);
+
+	else if (t1->kind == TY_ARRAY)
+		t1 = pointer_to(t1->base);
+
+	struct Node *ret = NULL;
+
+	while (!consume(rest, tok, ")")) {
+		tok = skip(tok, ",");
+
+		if (equal(tok, "default")) {
+			tok = skip(tok->next, ":");
+			struct Node *node = assign(&tok, tok);
+			if (!ret)
+				ret = node;
+			continue;
+		}
+
+		struct Type *t2 = typename(&tok, tok);
+		tok = skip(tok, ":");
+
+		struct Node *node = assign(&tok, tok);
+		if (is_compatible(t1, t2))
+			ret = node;
+	}
+
+	if (!ret)
+		error_tok(start, "controlling expression type not compatible "
+				 "with any generic association type");
+	return ret;
+}
+
 // parse AST(abstract syntax tree)
 // expr -> assign -> equality -> relational -> add -> mul ->
 // unary -> postfix -> primary(num -> identifier -> bracket) ->
@@ -94,6 +140,7 @@ static struct Node *unary(struct Token **rest, struct Token *tok);
 // 	| "sizeof" unary
 //	| "_Alignof" "(" type-name ")"
 //	| "_Alignof" unary
+//	| "_Generic" generic-selection
 //	| "__builtin_types_compatible_p" "(" type-name, type-name, ")"
 // 	| ident
 // 	| str
@@ -146,6 +193,9 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 
 		return new_ulong(node->ty->align, tok);
 	}
+
+	if (equal(tok, "_Generic"))
+		return generic_selection(rest, tok->next);
 
 	if (equal(tok, "__builtin_types_compatible_p")) {
 		tok = skip(tok->next, "(");
