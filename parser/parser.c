@@ -803,7 +803,7 @@ static struct Node *logor(struct Token **rest, struct Token *tok)
 	return node;
 }
 
-// conditional = logor ("?" expr ":" conditional)?
+// conditional = logor ("?" expr? ":" conditional)?
 static struct Node *conditional(struct Token **rest, struct Token *tok)
 {
 	struct Node *cond = logor(&tok, tok);
@@ -811,6 +811,27 @@ static struct Node *conditional(struct Token **rest, struct Token *tok)
 	if (!equal(tok, "?")) {
 		*rest = tok;
 		return cond;
+	}
+
+	if (equal(tok->next, ":")) {
+		// [GNU] Compile `a ?: b` as `tmp = a, tmp ? tmp : b`.
+		add_type(cond);
+
+		// tmp
+		struct Obj *var = new_lvar("", cond->ty);
+		// tmp = a
+		struct Node *lhs = new_binary(ND_ASSIGN, new_var_node(var, tok), cond, tok);
+
+		// ?
+		struct Node *rhs = new_node(ND_COND, tok);
+
+		// tmp ? tmp : b
+		rhs->cond = new_var_node(var, tok);
+		rhs->then = new_var_node(var, tok);
+		rhs->els = conditional(rest, tok->next->next);
+
+		// connect
+		return new_binary(ND_COMMA, lhs, rhs, tok);
 	}
 
 	struct Node *node = new_node(ND_COND, tok);
