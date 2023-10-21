@@ -941,6 +941,26 @@ static const char *cont_label;
 // a switch statement. Otherwise, NULL.
 static struct Node *current_switch;
 
+// asm-stmt = "asm" ("volatile" | "inline")* "(" string-literal ")"
+static struct Node *asm_stmt(struct Token **rest, struct Token *tok)
+{
+	struct Node *node = new_node(ND_ASM, tok);
+	tok = tok->next;
+
+	while (equal(tok, "volatile") || equal(tok, "inline"))
+		tok = tok->next;
+
+	tok = skip(tok, "(");
+
+	if (tok->kind != TK_STR || tok->ty->base->kind != TY_CHAR)
+		error_tok(tok, "expected string literal");
+
+	node->asm_str = tok->str;
+
+	*rest = skip(tok->next, ")");
+	return node;
+}
+
 // stmt = "return" expr? ";"
 // 	| "if" "(" expr ")" stmt ("else" stmt)?
 //	| "switch" "(" expr ")" stmt
@@ -949,6 +969,7 @@ static struct Node *current_switch;
 // 	| "for" "(" expr-stmt expr? ";" expr? ")" stmt
 // 	| "while" "(" expr ")" stmt
 // 	| "do" stmt "while" "(" expr ")" ";"
+//	| "asm" asm-stmt
 // 	| "goto" ident ";"
 // 	| "break" ";"
 // 	| "continue" ";"
@@ -1123,6 +1144,9 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 
 		return node;
 	}
+
+	if (equal(tok, "asm"))
+		return asm_stmt(rest, tok);
 
 	if (equal(tok, "goto")) {
 		struct Node *node = new_node(ND_GOTO, tok);

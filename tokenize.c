@@ -162,6 +162,7 @@ static bool is_keyword(struct Token *tok)
 		"float",
 		"double",
 		"typeof",
+		"asm",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

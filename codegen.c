@@ -1308,6 +1308,10 @@ static void gen_stmt(struct Node *node)
 		gen_expr(node->lhs);
 		return;
 
+	case ND_ASM:
+		println("\t%s\n", node->asm_str);
+		return;
+
 	default:
 		break;
 	}
