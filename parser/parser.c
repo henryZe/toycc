@@ -1252,7 +1252,8 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	struct Obj *fn = new_gvar(get_ident(ty->name), ty);
 	fn->is_function = true;
 	fn->is_definition = !consume(&tok, tok, ";");
-	fn->is_static = attr->is_static;
+	fn->is_static = attr->is_static || (attr->is_inline && !attr->is_extern);
+	fn->is_inline = attr->is_inline;
 
 	if (!fn->is_definition)
 		return tok;

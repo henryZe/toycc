@@ -255,6 +255,7 @@ struct Obj {
 	struct Relocation *rel;
 
 	// function
+	bool is_inline;
 	struct Obj *params;
 	struct Node *body;
 	struct Obj *locals;
