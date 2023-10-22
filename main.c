@@ -22,6 +22,16 @@ static struct StringArray opt_include;
 
 static bool opt_fcommon = true;
 
+enum FileType {
+	FILE_NONE,
+	FILE_C,
+	FILE_ASM,
+	FILE_OBJ,
+};
+
+// FILE_NONE as default
+static enum FileType opt_x;
+
 const char *get_base_file(void)
 {
 	return base_file;
@@ -45,7 +55,13 @@ static void usage(int status)
 
 static bool take_arg(const char *arg)
 {
-	const char *x[] = { "-o", "-I", "-idirafter", "-include" };
+	const char *x[] = {
+		"-o",
+		"-I",
+		"-idirafter",
+		"-include",
+		"-x",
+	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(x); i++)
 		if (!strcmp(arg, x[i]))
@@ -62,6 +78,20 @@ static void define(const char *str)
 		define_macro(strndup(str, eq - str), eq + 1);
 	else
 		define_macro(str, "1");
+}
+
+static enum FileType parse_opt_x(const char *s)
+{
+	if (!strcmp(s, "c"))
+		return FILE_C;
+
+	if (!strcmp(s, "assembler"))
+		return FILE_ASM;
+
+	if (!strcmp(s, "none"))
+		return FILE_NONE;
+
+	error("<command line>: unknown argument for -x: %s", s);
 }
 
 static void parse_args(int argc, const char **argv)
@@ -153,6 +183,18 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-include")) {
 			strarray_push(&opt_include, argv[++i]);
+			continue;
+		}
+
+		// -x c
+		if (!strcmp(argv[i], "-x")) {
+			opt_x = parse_opt_x(argv[++i]);
+			continue;
+		}
+
+		// -xc
+		if (!strncmp(argv[i], "-x", 2)) {
+			opt_x = parse_opt_x(argv[i] + 2);
 			continue;
 		}
 
@@ -523,6 +565,23 @@ static void add_default_include_paths(const char *argv0)
 	strarray_push(&include_paths, "/usr/include");
 }
 
+static enum FileType get_file_type(const char *filename)
+{
+	if (endswith(filename, ".o"))
+		return FILE_OBJ;
+
+	if (opt_x != FILE_NONE)
+		return opt_x;
+
+	if (endswith(filename, ".c"))
+		return FILE_C;
+
+	if (endswith(filename, ".s"))
+		return FILE_ASM;
+
+	error("<command line>: unknown file extension: %s", filename);
+}
+
 int main(int argc, const char **argv)
 {
 	const char *input, *output;
@@ -551,23 +610,24 @@ int main(int argc, const char **argv)
 		else
 			output = replace_extn(input, ".o");
 
+		enum FileType type = get_file_type(input);
+
 		// handle .o
-		if (endswith(input, ".o")) {
+		if (type == FILE_OBJ) {
 			// link files .o -> binary
 			strarray_push(&ld_args, input);
 			continue;
 		}
 
 		// handle .s
-		if (endswith(input, ".s")) {
+		if (type == FILE_ASM) {
 			if (!opt_S)
 				// .s -> .o
 				assemble(input, output);
 			continue;
 		}
 
-		if (!endswith(input, ".c") && strcmp(input, "-"))
-			error("unknown file extension: %s", input);
+		assert(type == FILE_C);
 
 		// just preprocess
 		if (opt_E) {

@@ -32,7 +32,7 @@ $cc --help 2>&1 | grep -q toycc
 check --help
 
 # -S
-echo 'int main() {}' | $cc -c -S -o - - | grep -q 'main:'
+echo 'int main() {}' | $cc -c -S -o - -xc - | grep -q 'main:'
 check -S
 
 # Default output file
@@ -63,7 +63,7 @@ check 'multiple input files: -S'
 
 # Run linker
 rm -f $tmp/foo
-echo 'int main() { return 0; }' | $cc -o $tmp/foo -
+echo 'int main() { return 0; }' | $cc -o $tmp/foo -xc -
 $exec $tmp/foo
 check linker
 
@@ -84,38 +84,38 @@ check a.out
 
 # -E
 echo foo > $tmp/out
-echo "#include \"$tmp/out\"" | $cc -E - | grep -q foo
+echo "#include \"$tmp/out\"" | $cc -E -xc - | grep -q foo
 check -E
 
 echo foo > $tmp/out1
-echo "#include \"$tmp/out1\"" | $cc -E -o $tmp/out2 -
+echo "#include \"$tmp/out1\"" | $cc -E -o $tmp/out2 -xc -
 cat $tmp/out2 | grep -q foo
 check '-E and -o'
 
 # -I
 mkdir $tmp/dir
 echo foo > $tmp/dir/i-option-test
-echo "#include \"i-option-test\"" | $cc -I$tmp/dir -E - | grep -q foo
+echo "#include \"i-option-test\"" | $cc -I$tmp/dir -E -xc - | grep -q foo
 check -I
 
 # -D
-echo foo | $cc -Dfoo -E - | grep -q 1
+echo foo | $cc -Dfoo -E -xc - | grep -q 1
 check -D
 
 # -D
-echo foo | $cc -D foo -E - | grep -q 1
+echo foo | $cc -D foo -E -xc - | grep -q 1
 check -D
 
 # -D
-echo foo | $cc -Dfoo=bar -E - | grep -q bar
+echo foo | $cc -Dfoo=bar -E -xc - | grep -q bar
 check -D
 
 # -U
-echo foo | $cc -Dfoo=bar -Ufoo -E - | grep -q foo
+echo foo | $cc -Dfoo=bar -Ufoo -E -xc - | grep -q foo
 check -U
 
 # -U
-echo foo | $cc -Dfoo=bar -U foo -E - | grep -q foo
+echo foo | $cc -Dfoo=bar -U foo -E -xc - | grep -q foo
 check -U
 
 # ignored options
@@ -125,7 +125,7 @@ $cc -c -O -Wall -g -std=c11 -ffreestanding -fno-builtin \
 check 'ignored options'
 
 # BOM marker
-printf '\xef\xbb\xbfxyz\n' | $cc -E -o- - | grep -q '^xyz'
+printf '\xef\xbb\xbfxyz\n' | $cc -E -o- -xc - | grep -q '^xyz'
 check 'BOM marker'
 
 # Inline functions
@@ -140,67 +140,77 @@ echo 'int foo(); int main() { foo(); }' > $tmp/inline2.c
 $cc -o /dev/null $tmp/inline1.c $tmp/inline2.c
 check inline
 
-echo 'static inline void f1() {}' | $cc -o- -S - | grep -v -q f1:
+echo 'static inline void f1() {}' | $cc -o- -S -xc - | grep -v -q f1:
 check inline
 
-echo 'static inline void f1() {} void foo() { f1(); }' | $cc -o- -S - | grep -q f1:
+echo 'static inline void f1() {} void foo() { f1(); }' | $cc -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S - | grep -q f1:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S - | grep -v -q f2:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S -xc - | grep -v -q f2:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S - | grep -q f1:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S - | grep -q f2:
+echo 'static inline void f1() {} static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S -xc - | grep -q f2:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $cc -o- -S - | grep -v -q f1:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $cc -o- -S -xc - | grep -v -q f1:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $cc -o- -S - | grep -v -q f2:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() {}' | $cc -o- -S -xc - | grep -v -q f2:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S - | grep -q f1:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S - | grep -q f2:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f1(); }' | $cc -o- -S -xc - | grep -q f2:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S - | grep -q f1:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S -xc - | grep -q f1:
 check inline
 
-echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S - | grep -q f2:
+echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S -xc - | grep -q f2:
 check inline
 
 # -idirafter
 mkdir -p $tmp/dir1 $tmp/dir2
 echo foo > $tmp/dir1/idirafter
 echo bar > $tmp/dir2/idirafter
-echo "#include \"idirafter\"" | $cc -I$tmp/dir1 -I$tmp/dir2 -E - | grep -q foo
+echo "#include \"idirafter\"" | $cc -I$tmp/dir1 -I$tmp/dir2 -E -xc - | grep -q foo
 check -idirafter
-echo "#include \"idirafter\"" | $cc -idirafter $tmp/dir1 -I$tmp/dir2 -E - | grep -q bar
+echo "#include \"idirafter\"" | $cc -idirafter $tmp/dir1 -I$tmp/dir2 -E -xc - | grep -q bar
 check -idirafter
 
 # -fcommon
-echo 'int foo;' | $cc -S -o- - | grep -q '\.comm foo'
+echo 'int foo;' | $cc -S -o- -xc - | grep -q '\.comm foo'
 check '-fcommon (default)'
 
-echo 'int foo;' | $cc -fcommon -S -o- - | grep -q '\.comm foo'
+echo 'int foo;' | $cc -fcommon -S -o- -xc - | grep -q '\.comm foo'
 check '-fcommon'
 
 # -fno-common
-echo 'int foo;' | $cc -fno-common -S -o- - | grep -q '^foo:'
+echo 'int foo;' | $cc -fno-common -S -o- -xc - | grep -q '^foo:'
 check '-fno-common'
 
 # -include
 echo foo > $tmp/out.h
-echo bar | $cc -include $tmp/out.h -E -o- - | grep -q -z 'foo.*bar'
+echo bar | $cc -include $tmp/out.h -E -o- -xc - | grep -q -z 'foo.*bar'
 check -include
-echo NULL | $cc -Iinclude -include stdio.h -E -o- - | grep -q 0
+echo NULL | $cc -Iinclude -include stdio.h -E -o- -xc - | grep -q 0
 check -include
+
+# -x
+echo 'int x;' | $cc -c -xc -o $tmp/foo.o -
+check -xc
+echo 'x:' | $cc -c -x assembler -o $tmp/foo.o -
+check '-x assembler'
+
+echo 'int x;' > $tmp/foo.c
+$cc -c -x assembler -x none -o $tmp/foo.o $tmp/foo.c
+check '-x none'
 
 echo "${green}OK${reset}"
