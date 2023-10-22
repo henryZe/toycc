@@ -1418,7 +1418,7 @@ static void emit_data(struct Obj *prog)
 
 		println(".align %d", llog2(var->align));
 
-		if (var->is_tentative) {
+		if (get_opt_fcommon() && var->is_tentative) {
 			// .comm segment
 			println(".comm %s, %d, %d",
 				var->name, var->ty->size, var->align);

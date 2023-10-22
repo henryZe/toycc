@@ -2,8 +2,8 @@ CROSS_COMPILE = riscv64-linux-gnu-
 CC = gcc
 OBJDUMP = objdump
 
-CFLAGS = -std=c2x -g -O0
-CFLAGS += -fno-common -Wall -Wextra -Werror
+CFLAGS = -std=c2x -g -O0 -fno-common
+CFLAGS += -Wall -Wextra -Werror
 CFLAGS += -DDEBUG
 
 CROSS_CFLAGS = -march=rv64g -static

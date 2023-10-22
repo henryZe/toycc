@@ -19,14 +19,21 @@ static struct StringArray input_paths;
 static struct StringArray tmpfiles;
 static struct StringArray include_paths;
 
+static bool opt_fcommon = true;
+
 const char *get_base_file(void)
 {
 	return base_file;
 }
 
-struct StringArray *get_include_paths(void)
+const struct StringArray *get_include_paths(void)
 {
 	return &include_paths;
+}
+
+bool get_opt_fcommon(void)
+{
+	return opt_fcommon;
 }
 
 static void usage(int status)
@@ -95,6 +102,16 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-S")) {
 			opt_S = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-fcommon")) {
+			opt_fcommon = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-fno-common")) {
+			opt_fcommon = false;
 			continue;
 		}
 

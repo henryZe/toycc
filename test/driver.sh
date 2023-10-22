@@ -185,4 +185,15 @@ check -idirafter
 echo "#include \"idirafter\"" | $cc -idirafter $tmp/dir1 -I$tmp/dir2 -E - | grep -q bar
 check -idirafter
 
+# -fcommon
+echo 'int foo;' | $cc -S -o- - | grep -q '\.comm foo'
+check '-fcommon (default)'
+
+echo 'int foo;' | $cc -fcommon -S -o- - | grep -q '\.comm foo'
+check '-fcommon'
+
+# -fno-common
+echo 'int foo;' | $cc -fno-common -S -o- - | grep -q '^foo:'
+check '-fno-common'
+
 echo "${green}OK${reset}"

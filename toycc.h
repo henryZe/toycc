@@ -26,8 +26,9 @@
 #endif
 
 // main.c
-const char *get_base_file();
-struct StringArray *get_include_paths();
+const char *get_base_file(void);
+const struct StringArray *get_include_paths(void);
+bool get_opt_fcommon(void);
 
 // tokenize.c
 enum TokenKind {
