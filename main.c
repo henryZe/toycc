@@ -240,6 +240,10 @@ static void parse_args(int argc, const char **argv)
 
 	if (input_paths.len == 0)
 		error("no input files");
+
+	// -E implies that the input is the C macro language.
+	if (opt_E)
+		opt_x = FILE_C;
 }
 
 static FILE *open_file(const char *path)
