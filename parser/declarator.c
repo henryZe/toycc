@@ -349,6 +349,8 @@ bool is_typename(struct Token *tok)
 		"double",
 		"typeof",
 		"inline",
+		"_Thread_local",
+		"__thread",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
@@ -378,6 +380,7 @@ static struct Type *typeof_specifier(struct Token **rest, struct Token *tok)
 
 // declspec = ("void" | "_Bool" | "char" | "short" | "int" | "long" |
 //		"typedef" | "static" | "extern" | "inline" |
+//		"_Thread_local" | "__thread" |
 //		"signed" | "unsigned" |
 //		struct-decl | union-decl |
 //		typedef-name |
@@ -425,7 +428,8 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 	while (is_typename(tok)) {
 		// handle "typedef" keyword or handle storage class specifiers
 		if (equal(tok, "typedef") || equal(tok, "static") ||
-		    equal(tok, "extern") || equal(tok, "inline")) {
+		    equal(tok, "extern") || equal(tok, "inline") ||
+		    equal(tok, "_Thread_local") || equal(tok, "__thread")) {
 			if (!attr)
 				error_tok(tok, "storage class specifier is not allowed in this context");
 
@@ -435,11 +439,15 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 				attr->is_static = true;
 			else if (equal(tok, "extern"))
 				attr->is_extern = true;
-			else
+			else if (equal(tok, "inline"))
 				attr->is_inline = true;
+			else
+				attr->is_tls = true;
 
-			if (attr->is_typedef && attr->is_static + attr->is_extern + attr->is_inline > 1)
-				error_tok(tok, "typedef may not be used together with static, extern or inline");
+			if (attr->is_typedef &&
+			    attr->is_static + attr->is_extern + attr->is_inline + attr->is_tls > 1)
+				error_tok(tok, "typedef may not be used together with "
+					       "static, extern, inline, __thread or _Thread_local");
 
 			tok = tok->next;
 			continue;

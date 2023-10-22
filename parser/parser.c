@@ -1335,8 +1335,9 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety,
 
 		struct Obj *var = new_gvar(get_ident(ty->name), ty);
 
-		var->is_static = attr->is_static;
 		var->is_definition = !attr->is_extern;
+		var->is_static = attr->is_static;
+		var->is_tls = attr->is_tls;
 
 		if (attr->align)
 			var->align = attr->align;
@@ -1344,7 +1345,7 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety,
 		if (equal(tok, "="))
 			gvar_initializer(&tok, tok->next, var);
 
-		else if (!attr->is_extern)
+		else if (!attr->is_extern && !attr->is_tls)
 			var->is_tentative = true;
 	}
 	return tok;

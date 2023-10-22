@@ -268,6 +268,7 @@ struct Obj {
 
 	// global variable
 	bool is_tentative;
+	bool is_tls;
 	const char *init_data;
 	struct Relocation *rel;
 

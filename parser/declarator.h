@@ -7,6 +7,7 @@ struct VarAttr {
 	bool is_static;
 	bool is_extern;
 	bool is_inline;
+	bool is_tls;
 	int align;
 };
 

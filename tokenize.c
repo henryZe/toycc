@@ -163,6 +163,8 @@ static bool is_keyword(struct Token *tok)
 		"double",
 		"typeof",
 		"asm",
+		"_Thread_local",
+		"__thread",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)

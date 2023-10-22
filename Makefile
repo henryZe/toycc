@@ -6,7 +6,7 @@ CFLAGS = -std=c2x -g -O0 -fno-common
 CFLAGS += -Wall -Wextra -Werror
 CFLAGS += -DDEBUG
 
-CROSS_CFLAGS = -march=rv64g -static
+CROSS_CFLAGS = -march=rv64g -static -pthread
 
 TARGET = toycc
 
@@ -75,6 +75,7 @@ TEST_SRCS = \
 	asm.c \
 	offsetof.c \
 	commonsym.c \
+	tls.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
@@ -111,6 +112,8 @@ test_build: $(TEST_ASM)
 # test/lin.c is designed for lib function invocation test
 output/test/%: test/%.c output/$(TARGET) test/lib.c
 	@mkdir -p $(@D)
+	# output/$(TARGET) $(TEST_INCLUDE) -c -E $< -o $@.c
+	output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@.s
 	output/$(TARGET) $(TEST_INCLUDE) -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.o test/lib.c -o $@
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
