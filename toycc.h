@@ -21,6 +21,10 @@
 #define unreachable() \
 	error("internal error at %s:%d", __FILE__, __LINE__)
 
+#ifndef __GNUC__
+#define __attribute__(x)
+#endif
+
 // main.c
 extern const char *base_file;
 extern struct StringArray include_paths;
@@ -76,7 +80,8 @@ struct File **get_input_files(void);
 struct Token *tokenize_file(const char *filename);
 struct Token *tokenize(struct File *file);
 struct File *new_file(const char *name, int file_no, const char *contents);
-void __attribute__((noreturn)) error_at(const char *loc, const char *fmt, ...);
+void __attribute__((noreturn))
+error_at(const char *loc, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 struct Token *tokenize_string_literal(struct Token *tok, struct Type *basety);
 
 // string.c
@@ -86,7 +91,7 @@ struct StringArray {
 	int len;
 };
 
-const char *format(const char *fmt, ...);
+const char *format(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void strarray_push(struct StringArray *arr, const char *s);
 
 // type.c
@@ -289,11 +294,13 @@ int align_to(int n, int align);
 // utils.c
 bool equal(struct Token *tok, const char *op);
 struct Token *skip(struct Token *tok, const char *s);
-void __attribute__((noreturn)) error(const char *fmt, ...);
+void __attribute__((noreturn))
+error(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 void verror_at(const char *filename, const char *input, int line_no,
 	       const char *loc, const char *fmt, va_list ap);
-void __attribute__((noreturn)) error_tok(struct Token *tok, const char *fmt, ...);
-void warn_tok(struct Token *tok, const char *fmt, ...);
+void __attribute__((noreturn))
+error_tok(struct Token *tok, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
+void warn_tok(struct Token *tok, const char *fmt, ...) __attribute__((format(printf, 2, 3)));
 int llog2(int num);
 
 // unicode.c

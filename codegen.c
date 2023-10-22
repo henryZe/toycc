@@ -9,6 +9,7 @@
 
 static FILE *output_file;
 
+__attribute__((format(printf, 1, 2)))
 static void println(const char *fmt, ...)
 {
 	va_list ap;
@@ -438,7 +439,7 @@ static void push_struct(struct Type *ty)
 	// transmission by registers
 	if (n <= 2) {
 		while (n--) {
-			println("\tld t0, %d(a0)", n * sizeof(long));
+			println("\tld t0, %ld(a0)", n * sizeof(long));
 			push("t0");
 		}
 		return;
@@ -449,8 +450,8 @@ static void push_struct(struct Type *ty)
 
 	for (i = 0; i < n; i++) {
 		// push struct content into stack
-		println("\tld t0, %d(a0)", i * sizeof(long));
-		println("\tsd t0, %d(t1)", i * sizeof(long));
+		println("\tld t0, %ld(a0)", i * sizeof(long));
+		println("\tsd t0, %ld(t1)", i * sizeof(long));
 	}
 	depth += n;
 
@@ -635,7 +636,7 @@ static size_t push_args(struct Node *node)
 
 	// expand space for struct or union in stack
 	println("\tmv t1, sp");
-	println("\tadd sp, sp, -%d", struct_stack * sizeof(long));
+	println("\tadd sp, sp, -%ld", struct_stack * sizeof(long));
 
 	// push stack arguments
 	push_args2(node->args, true);
@@ -920,7 +921,7 @@ static void gen_expr(struct Node *node)
 		for (struct Node *arg = node->args; arg; arg = arg->next) {
 			debug("%sarg %.*s",
 			      node->func_ty->is_variadic ? "variadic " : "",
-			      arg->tok->len, arg->tok->loc);
+			      (int)arg->tok->len, arg->tok->loc);
 
 			// transfer args to variadic function with generic registers
 			if (node->func_ty->is_variadic && cur_params == NULL) {
@@ -956,7 +957,7 @@ static void gen_expr(struct Node *node)
 		println("\tjalr t0");
 
 		if (stack_args) {
-			println("\taddi sp, sp, %d", stack_args * sizeof(long));
+			println("\taddi sp, sp, %ld", stack_args * sizeof(long));
 			depth -= stack_args;
 		}
 
@@ -1257,7 +1258,7 @@ static void gen_stmt(struct Node *node)
 		gen_expr(node->cond);
 
 		for (struct Node *n = node->case_next; n; n = n->case_next) {
-			println("\tli a1, %d", n->val);
+			println("\tli a1, %ld", n->val);
 			println("\tbeq a0, a1, %s", n->label);
 		}
 

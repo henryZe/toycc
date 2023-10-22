@@ -149,4 +149,4 @@ extra: test_all selfhost_test
 clean:
 	rm -rf output
 
-.PHONY: clean test selfhost test_all extra test_prebuild test_build
+.PHONY: clean test selfhost test_all selfhost_test extra test_prebuild test_build

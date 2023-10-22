@@ -513,8 +513,8 @@ static struct Token *paste(struct Token *lhs, struct Token *rhs)
 {
 	// Paste the two tokens.
 	const char *buf = format("%.*s%.*s",
-				lhs->len, lhs->loc,
-				rhs->len, rhs->loc);
+				(int)lhs->len, lhs->loc,
+				(int)rhs->len, rhs->loc);
 
 	// Tokenize the resulting string.
 	struct Token *tok = tokenize(new_file(lhs->file->name, lhs->file->file_no, buf));
