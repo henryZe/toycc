@@ -73,6 +73,7 @@ TEST_SRCS = \
 	builtin.c \
 	generic.c \
 	asm.c \
+	offsetof.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
