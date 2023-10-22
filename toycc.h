@@ -134,6 +134,8 @@ void init_macros(void);
 void define_macro(const char *name, const char *buf);
 void undef_macro(const char *name);
 struct Token *preprocessor(struct Token *tok);
+bool file_exists(const char *path);
+const char *search_include_paths(const char *filename);
 
 // parser.c
 // AST(abstract syntax tree) node type

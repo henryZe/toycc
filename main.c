@@ -18,6 +18,7 @@ static const char *base_file;
 static struct StringArray input_paths;
 static struct StringArray tmpfiles;
 static struct StringArray include_paths;
+static struct StringArray opt_include;
 
 static bool opt_fcommon = true;
 
@@ -44,7 +45,7 @@ static void usage(int status)
 
 static bool take_arg(const char *arg)
 {
-	const char *x[] = { "-o", "-I", "-idirafter" };
+	const char *x[] = { "-o", "-I", "-idirafter", "-include" };
 
 	for (size_t i = 0; i < ARRAY_SIZE(x); i++)
 		if (!strcmp(arg, x[i]))
@@ -147,6 +148,11 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strncmp(argv[i], "-U", 2)) {
 			undef_macro(argv[i] + 2);
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-include")) {
+			strarray_push(&opt_include, argv[++i]);
 			continue;
 		}
 
@@ -276,12 +282,56 @@ static void print_tokens(struct Token *tok)
 	fprintf(out, "\n");
 }
 
+static struct Token *must_tokenize_file(const char *path)
+{
+	struct Token *tok = tokenize_file(path);
+	if (!tok)
+		error("%s: %s", path, strerror(errno));
+	return tok;
+}
+
+static struct Token *append_tokens(struct Token *tok1, struct Token *tok2)
+{
+	if (!tok1 || tok1->kind == TK_EOF)
+		return tok2;
+
+	struct Token *t = tok1;
+	// find the last one
+	while (t->next->kind != TK_EOF)
+		t = t->next;
+
+	t->next = tok2;
+	return tok1;
+}
+
 static void cc1(void)
 {
-	// Tokenize and parse
-	struct Token *tok = tokenize_file(base_file);
-	if (!tok)
-		error("%s: %s", base_file, strerror(errno));
+	struct Token *tok = NULL;
+
+	// Process -include option
+	for (int i = 0; i < opt_include.len; i++) {
+		const char *incl = opt_include.data[i];
+
+		const char *path;
+		// current directory
+		if (file_exists(incl)) {
+			path = incl;
+
+		} else {
+			// -I, include directory
+			path = search_include_paths(incl);
+			if (!path)
+				error("-include: %s: %s", incl, strerror(errno));
+		}
+
+		struct Token *tok2 = must_tokenize_file(path);
+		tok = append_tokens(tok, tok2);
+	}
+
+	// Tokenize and parse.
+	// current C source file
+	struct Token *tok2 = must_tokenize_file(base_file);
+	tok = append_tokens(tok, tok2);
 
 	tok = preprocessor(tok);
 

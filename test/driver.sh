@@ -196,4 +196,11 @@ check '-fcommon'
 echo 'int foo;' | $cc -fno-common -S -o- - | grep -q '^foo:'
 check '-fno-common'
 
+# -include
+echo foo > $tmp/out.h
+echo bar | $cc -include $tmp/out.h -E -o- - | grep -q -z 'foo.*bar'
+check -include
+echo NULL | $cc -Iinclude -include stdio.h -E -o- - | grep -q 0
+check -include
+
 echo "${green}OK${reset}"

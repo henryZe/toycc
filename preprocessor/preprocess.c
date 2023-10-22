@@ -875,7 +875,7 @@ static const char *read_include_filename(struct Token **rest, struct Token *tok,
 }
 
 // Returns true if a given file exists.
-static bool file_exists(const char *path)
+bool file_exists(const char *path)
 {
 	struct stat st;
 	return !stat(path, &st);
@@ -892,12 +892,10 @@ static struct Token *include_file(struct Token *tok, const char *path,
 	return append(tok_header, tok);
 }
 
-static const char *search_include_paths(const char *filename)
+const char *search_include_paths(const char *filename)
 {
 	if (filename[0] == '/')
 		return filename;
-
-
 
 	// Search a file from the include paths.
 	for (int i = 0; i < get_include_paths()->len; i++) {

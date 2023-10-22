@@ -1,8 +1,8 @@
 #include "test.h"
 #include <stddef.h>
 
+// <pthread.h>
 typedef unsigned long pthread_t;
-
 int pthread_create(pthread_t *thread, void *attr,
 		   void *start_routine, void *arg);
 int pthread_join(pthread_t thread, void **retval);
