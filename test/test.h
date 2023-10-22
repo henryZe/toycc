@@ -7,5 +7,6 @@ int sprintf(char *buf, char *fmt, ...);
 int vsprintf(char *buf, char *fmt, void *ap);
 int strcmp(char *p, char *q);
 long strlen(const char *s);
-int memcmp(const void *, const void *, long unsigned int);
+int memcmp(const void *dest, const void *src, long unsigned int);
 void exit(int n);
+void *memcpy(const void *dest, const void *src, long n);

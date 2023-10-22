@@ -1295,9 +1295,12 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 		new_lvar("", pointer_to(rty));
 
 	fn->params = ret_locals();
+
 	if (ty->is_variadic)
-		fn->va_area =
-			new_lvar("__va_area__", array_of(p_ty_char(), 0));
+		fn->va_area = new_lvar("__va_area__", array_of(p_ty_char(), 0));
+
+	// define __alloca_size__ variable at alloca_bottom position of stack
+	fn->alloca_bottom = new_lvar("__alloca_size__", pointer_to(p_ty_char()));
 
 	tok = skip(tok, "{");
 
@@ -1396,9 +1399,23 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	return node;
 }
 
+static void declare_builtin_functions(void)
+{
+	// declare: void *alloca(int a)
+	struct Type *ty = func_type(pointer_to(p_ty_void()));
+	ty->params = copy_type(p_ty_int());
+
+	struct Obj *builtin = new_gvar("alloca", ty);
+	builtin->is_definition = false;
+}
+
 // program = (typedef | function-definition | global-variable)*
 struct Obj *parser(struct Token *tok)
 {
+	declare_builtin_functions();
+
+	init_globals();
+
 	while (tok->kind != TK_EOF) {
 		struct VarAttr attr = {};
 		struct Type *basety = declspec(&tok, tok, &attr);

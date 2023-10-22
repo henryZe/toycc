@@ -31,6 +31,7 @@ struct Scope {
 };
 
 void init_locals(void);
+void init_globals(void);
 struct Obj *ret_locals(void);
 struct Obj *ret_globals(void);
 

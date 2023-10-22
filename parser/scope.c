@@ -20,6 +20,11 @@ struct Obj *ret_locals(void)
 // Likewise, global variables are accumulated to this list.
 static struct Obj *globals;
 
+void init_globals(void)
+{
+	globals = NULL;
+}
+
 struct Obj *ret_globals(void)
 {
 	return globals;

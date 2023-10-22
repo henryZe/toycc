@@ -280,6 +280,7 @@ struct Obj {
 	struct Node *body;
 	struct Obj *locals;
 	struct Obj *va_area;
+	struct Obj *alloca_bottom;
 	int stack_size;
 
 	// for static inline function

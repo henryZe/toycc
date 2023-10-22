@@ -683,6 +683,51 @@ static void copy_ret_buffer(struct Obj *var)
 	debug("copy_ret_buffer end");
 }
 
+static void builtin_alloca(void)
+{
+	// move size to t0 reg
+	println("\tmv t0, a0");
+	// Align size to 8 bytes.
+	println("\tadd t0, t0, 7");
+	println("\tand t0, t0, -8");
+
+	// ============================= alloca_bottom, t1
+	//      allocate t0 size
+	// ----------------------------- new alloca_bottom, return a0 as ptr
+	//
+	//             ....              memmove size t4 (t1 - t2)
+	//
+	// ============================= current sp, t2
+	//           - t0 size
+	// ============================= new sp, t3
+
+	// t2 = current sp
+	println("\tmv t2, sp");
+	// t3 = new sp
+	println("\tsub sp, sp, t0");
+	println("\tmv t3, sp");
+
+	// Shift the temporary area
+	// t4 = old_sp - new_sp, size of local variables
+	println("\tld t1, %d(fp)", current_fn->alloca_bottom->offset);
+	println("\tsub t4, t1, t2");
+
+	// memmove alloca-area from t2 to t3, size is t4
+	println("1:");
+	println("\tbeqz t4, 2f");
+	println("\tlb a0, 0(t2)");
+	println("\tsb a0, 0(t3)");
+	println("\taddi t2, t2, 1");
+	println("\taddi t3, t3, 1");
+	println("\taddi t4, t4, -1");
+	println("\tj 1b");
+	println("2:");
+
+	// Move alloca_bottom pointer.
+	println("\tsub a0, t1, t0");
+	println("\tsd a0, %d(fp)", current_fn->alloca_bottom->offset);
+}
+
 // Generate code for a given node.
 static void gen_expr(struct Node *node)
 {
@@ -908,6 +953,14 @@ static void gen_expr(struct Node *node)
 
 	case ND_FUNCALL:
 		debug("ND_FUNCALL");
+
+		if (node->lhs->kind == ND_VAR &&
+		   !strcmp(node->lhs->var->name, "alloca")) {
+			// size
+			gen_expr(node->args);
+			builtin_alloca();
+			return;
+		}
 
 		// push arguments into stack first
 		int stack_args = push_args(node);
@@ -1648,6 +1701,11 @@ static void emit_text(struct Obj *prog)
 		}
 
 		debug("'%s' save args end", fn->name);
+
+		// record the bottom of alloca area
+		println("\tli t0, %d", fn->alloca_bottom->offset);
+		println("\tadd t0, t0, fp");
+		println("\tsd sp, (t0)");
 
 		int pre_depth = depth;
 		// Emit code

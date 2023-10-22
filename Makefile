@@ -76,6 +76,7 @@ TEST_SRCS = \
 	offsetof.c \
 	commonsym.c \
 	tls.c \
+	alloca.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
