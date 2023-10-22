@@ -176,4 +176,13 @@ check inline
 echo 'static inline void f2(); static inline void f1() { f2(); } static inline void f2() { f1(); } void foo() { f2(); }' | $cc -o- -S - | grep -q f2:
 check inline
 
+# -idirafter
+mkdir -p $tmp/dir1 $tmp/dir2
+echo foo > $tmp/dir1/idirafter
+echo bar > $tmp/dir2/idirafter
+echo "#include \"idirafter\"" | $cc -I$tmp/dir1 -I$tmp/dir2 -E - | grep -q foo
+check -idirafter
+echo "#include \"idirafter\"" | $cc -idirafter $tmp/dir1 -I$tmp/dir2 -E - | grep -q bar
+check -idirafter
+
 echo "${green}OK${reset}"
