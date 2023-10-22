@@ -74,6 +74,7 @@ TEST_SRCS = \
 	generic.c \
 	asm.c \
 	offsetof.c \
+	commonsym.c \
 
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
@@ -107,11 +108,11 @@ test_build: $(TEST_ASM)
 # -E: preprocess C files
 # -xc: compile following files as C language
 # -o-: set output as stdout
-# test/common.c is designed for lib function invocation test
-output/test/%: test/%.c output/$(TARGET) test/common.c
+# test/lin.c is designed for lib function invocation test
+output/test/%: test/%.c output/$(TARGET) test/lib.c
 	@mkdir -p $(@D)
 	output/$(TARGET) $(TEST_INCLUDE) -c $< -o $@.o
-	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.o test/common.c -o $@
+	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.o test/lib.c -o $@
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
@@ -136,7 +137,7 @@ selfhost_test_asm:
 	touch $(SELFHOST_ASM)
 	@sh $(TEST_QEMU) .
 
-output/selfhost/test/%: test/common.c selfhost_test_asm
+output/selfhost/test/%: test/lib.c selfhost_test_asm
 	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.s $< -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 

@@ -159,3 +159,34 @@ bool is_global_scope(void)
 	// the last scope is the global scope
 	return scope->next == NULL;
 }
+
+// Remove redundant tentative definitions.
+void scan_globals(void)
+{
+	struct Obj head;
+	struct Obj *cur = &head;
+
+	for (struct Obj *var = globals; var; var = var->next) {
+		if (!var->is_tentative) {
+			cur = cur->next = var;
+			continue;
+		}
+
+		// Find another definition of the same identifier.
+		struct Obj *var2 = globals;
+		for (; var2; var2 = var2->next)
+			if (var != var2 && var2->is_definition &&
+			   !strcmp(var->name, var2->name))
+				break;
+
+		// If there's another definition, the tentative definition
+		// is redundant
+		if (!var2)
+			cur = cur->next = var;
+
+		// pass var definition
+	}
+
+	cur->next = NULL;
+	globals = head.next;
+}

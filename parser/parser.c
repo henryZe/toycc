@@ -1343,6 +1343,9 @@ static struct Token *global_variable(struct Token *tok, struct Type *basety,
 
 		if (equal(tok, "="))
 			gvar_initializer(&tok, tok->next, var);
+
+		else if (!attr->is_extern)
+			var->is_tentative = true;
 	}
 	return tok;
 }
@@ -1417,6 +1420,9 @@ struct Obj *parser(struct Token *tok)
 	for (struct Obj *var = ret_globals(); var; var = var->next)
 		if (var->is_root)
 			mark_live(var);
+
+	// Remove redundant tentative definitions.
+	scan_globals();
 
 	return ret_globals();
 }

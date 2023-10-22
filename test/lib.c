@@ -28,6 +28,8 @@ int *ext2 = &ext1;
 int ext3 = 7;
 int ext_fn1(int x) { return x; }
 int ext_fn2(int x) { return x; }
+int common_ext2 = 3;
+static int common_local = 1;
 
 int true_fn() { return 513; }
 int false_fn() { return 512; }

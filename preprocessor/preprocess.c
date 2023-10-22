@@ -897,9 +897,11 @@ static const char *search_include_paths(const char *filename)
 	if (filename[0] == '/')
 		return filename;
 
+
+
 	// Search a file from the include paths.
-	for (int i = 0; i < include_paths.len; i++) {
-		const char *path = format("%s/%s", include_paths.data[i], filename);
+	for (int i = 0; i < get_include_paths()->len; i++) {
+		const char *path = format("%s/%s", get_include_paths()->data[i], filename);
 		if (file_exists(path))
 			return path;
 	}

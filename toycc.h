@@ -26,8 +26,8 @@
 #endif
 
 // main.c
-extern const char *base_file;
-extern struct StringArray include_paths;
+const char *get_base_file();
+struct StringArray *get_include_paths();
 
 // tokenize.c
 enum TokenKind {
@@ -266,6 +266,7 @@ struct Obj {
 	bool is_static;
 
 	// global variable
+	bool is_tentative;
 	const char *init_data;
 	struct Relocation *rel;
 

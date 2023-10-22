@@ -1418,34 +1418,43 @@ static void emit_data(struct Obj *prog)
 
 		println(".align %d", llog2(var->align));
 
-		if (!var->init_data) {
-			println(".bss");
-			println("%s:", var->name);
-			println("\t.zero %d", var->ty->size);
+		if (var->is_tentative) {
+			// .comm segment
+			println(".comm %s, %d, %d",
+				var->name, var->ty->size, var->align);
 			continue;
 		}
 
-		struct Relocation *rel = var->rel;
-		int pos = 0;
+		if (var->init_data) {
+			// .data segment
+			println(".data");
+			println("%s:", var->name);
 
-		println(".data");
-		println("%s:", var->name);
+			struct Relocation *rel = var->rel;
+			int pos = 0;
 
-		while (pos < var->ty->size) {
-			if (rel && rel->offset == pos) {
-				// declare as a pointer
-				println("\t.quad %s+%ld", rel->label, rel->addend);
-				rel = rel->next;
-				pos += sizeof(long);
-			} else {
-				char c = var->init_data[pos++];
+			while (pos < var->ty->size) {
+				if (rel && rel->offset == pos) {
+					// declare as a pointer
+					println("\t.quad %s+%ld", rel->label, rel->addend);
+					rel = rel->next;
+					pos += sizeof(long);
+				} else {
+					char c = var->init_data[pos++];
 
-				if (' ' <= c && c <= '~')
-					println("\t.byte %d\t# '%c'", c, c);
-				else
-					println("\t.byte %d", c);
+					if (' ' <= c && c <= '~')
+						println("\t.byte %d\t# '%c'", c, c);
+					else
+						println("\t.byte %d", c);
+				}
 			}
+			continue;
 		}
+
+		// .bss segment
+		println(".bss");
+		println("%s:", var->name);
+		println("\t.zero %d", var->ty->size);
 	}
 }
 

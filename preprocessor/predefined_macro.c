@@ -63,7 +63,7 @@ static struct Token *timestamp_macro(struct Token *tmpl)
 
 static struct Token *base_file_macro(struct Token *tmpl)
 {
-	return new_str_token(base_file, tmpl);
+	return new_str_token(get_base_file(), tmpl);
 }
 
 // __DATE__ is expanded to the current date, e.g. "May 17 2020".

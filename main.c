@@ -13,11 +13,21 @@ static bool opt_hash_hash_hash;
 
 static const char *opt_o;
 static const char *output_file;
-const char *base_file;
+static const char *base_file;
 
 static struct StringArray input_paths;
 static struct StringArray tmpfiles;
-struct StringArray include_paths;
+static struct StringArray include_paths;
+
+const char *get_base_file(void)
+{
+	return base_file;
+}
+
+struct StringArray *get_include_paths(void)
+{
+	return &include_paths;
+}
 
 static void usage(int status)
 {

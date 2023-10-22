@@ -50,5 +50,6 @@ struct Obj *new_anon_gvar(struct Type *ty);
 struct Obj *new_string_literal(const char *p, struct Type *ty);
 
 bool is_global_scope(void);
+void scan_globals(void);
 
 #endif
