@@ -17,5 +17,6 @@ struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
 struct Node *declaration(struct Token **rest, struct Token *tok,
 			 struct Type *basety, struct VarAttr *attr);
 struct Token *parse_typedef(struct Token *tok, struct Type *basety);
+void declare_builtin_functions(void);
 
 #endif

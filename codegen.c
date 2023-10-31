@@ -708,8 +708,11 @@ static void builtin_alloca(void)
 	println("\tmv t3, sp");
 
 	// Shift the temporary area
+	println("\tli t5, %d", current_fn->alloca_bottom->offset);
+	println("\tadd t5, t5, fp");
+	println("\tld t1, (t5)");
+
 	// t4 = old_sp - new_sp, size of local variables
-	println("\tld t1, %d(fp)", current_fn->alloca_bottom->offset);
 	println("\tsub t4, t1, t2");
 
 	// memmove alloca-area from t2 to t3, size is t4
@@ -725,7 +728,7 @@ static void builtin_alloca(void)
 
 	// Move alloca_bottom pointer.
 	println("\tsub a0, t1, t0");
-	println("\tsd a0, %d(fp)", current_fn->alloca_bottom->offset);
+	println("\tsd a0, (t5)");
 }
 
 // Generate code for a given node.

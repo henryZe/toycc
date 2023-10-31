@@ -34,5 +34,6 @@ struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok);
 struct Node *assign(struct Token **rest, struct Token *tok);
 const char *get_ident(struct Token *tok);
 struct Node *expr(struct Token **rest, struct Token *tok);
+struct Node *conditional(struct Token **rest, struct Token *tok);
 
 #endif

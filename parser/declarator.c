@@ -656,6 +656,53 @@ static struct Type *func_params(struct Token **rest, struct Token *tok, struct T
 	return ty;
 }
 
+static bool is_const_expr(struct Node *node)
+{
+	add_type(node);
+
+	switch (node->kind) {
+	case ND_ADD:
+	case ND_SUB:
+	case ND_MUL:
+	case ND_DIV:
+	case ND_BITAND:
+	case ND_BITOR:
+	case ND_BITXOR:
+	case ND_SHL:
+	case ND_SHR:
+	case ND_EQ:
+	case ND_NE:
+	case ND_LT:
+	case ND_LE:
+	case ND_LOGAND:
+	case ND_LOGOR:
+		return is_const_expr(node->lhs) && is_const_expr(node->rhs);
+
+	case ND_COND:
+		if (!is_const_expr(node->cond))
+			return false;
+
+		return is_const_expr(eval(node->cond) ? node->then : node->els);
+
+	case ND_COMMA:
+		return is_const_expr(node->rhs);
+
+	case ND_NEG:
+	case ND_NOT:
+	case ND_BITNOT:
+	case ND_CAST:
+		return is_const_expr(node->lhs);
+
+	case ND_NUM:
+		return true;
+
+	default:
+		break;
+	}
+
+	return false;
+}
+
 // array-dimension = ("static" | "restrict")* const-expr? "]" type-suffix
 static struct Type *array_dimension(struct Token **rest, struct Token *tok,
 				    struct Type *ty)
@@ -669,11 +716,17 @@ static struct Type *array_dimension(struct Token **rest, struct Token *tok,
 		return array_of(ty, -1);
 	}
 
-	int sz = const_expr(&tok, tok);
+	// allows conditional expression
+	struct Node *expr = conditional(&tok, tok);
+
 	// skip "]"
 	tok = skip(tok, "]");
 	ty = type_suffix(rest, tok, ty);
-	return array_of(ty, sz);
+
+	if (ty->kind == TY_VLA || !is_const_expr(expr))
+		return vla_of(ty, expr);
+
+	return array_of(ty, eval(expr));
 }
 
 // type-suffix = "(" func-params
@@ -729,6 +782,45 @@ struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
 	return ty;
 }
 
+static struct Obj *builtin_alloca;
+
+// Generate code for computing a VLA size.
+static struct Node *compute_vla_size(struct Type *ty, struct Token *tok)
+{
+	struct Node *node = new_node(ND_NULL_EXPR, tok);
+	if (ty->base)
+		node = new_binary(ND_COMMA, node,
+				compute_vla_size(ty->base, tok), tok);
+
+	if (ty->kind != TY_VLA)
+		return node;
+
+	struct Node *base_sz;
+	if (ty->base->kind == TY_VLA)
+		base_sz = new_var_node(ty->base->vla_size, tok);
+	else
+		base_sz = new_num(ty->base->size, tok);
+
+	ty->vla_size = new_lvar("", p_ty_ulong());
+	struct Node *expr = new_binary(ND_ASSIGN,
+					new_var_node(ty->vla_size, tok),
+					new_binary(ND_MUL, ty->vla_len, base_sz, tok),
+					tok);
+	return new_binary(ND_COMMA, node, expr, tok);
+}
+
+static struct Node *new_alloca(struct Node *sz)
+{
+	struct Node *node = new_unary(ND_FUNCALL,
+				      new_var_node(builtin_alloca, sz->tok),
+				      sz->tok);
+	node->func_ty = builtin_alloca->ty;
+	node->ty = builtin_alloca->ty->return_ty;
+	node->args = sz;
+	add_type(sz);
+	return node;
+}
+
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
 struct Node *declaration(struct Token **rest, struct Token *tok,
 			 struct Type *basety, struct VarAttr *attr)
@@ -756,6 +848,31 @@ struct Node *declaration(struct Token **rest, struct Token *tok,
 
 			if (equal(tok, "="))
 				gvar_initializer(&tok, tok->next, var);
+			continue;
+		}
+
+		// Generate code for computing a VLA size.
+		// We need to do this even if ty is not VLA
+		// because ty may be a pointer to VLA.
+		// (e.g. int (*foo)[n][m] where n and m are variables.)
+		cur = cur->next =
+			new_unary(ND_EXPR_STMT, compute_vla_size(ty, tok), tok);
+
+		if (ty->kind == TY_VLA) {
+			if (equal(tok, "="))
+				error_tok(tok, "variable-sized object may not be initialized");
+
+			// Variable length arrays (VLAs) are translated to alloca() calls.
+			// For example, `int x[n+2]` is translated to
+			// `tmp = n + 2, x = alloca(tmp)`.
+			struct Obj *var = new_lvar(get_ident(ty->name), ty);
+			struct Token *tok = ty->name;
+			// x = alloca(n + 2)
+			struct Node *expr = new_binary(ND_ASSIGN, new_var_node(var, tok),
+							new_alloca(new_var_node(ty->vla_size, tok)),
+							tok);
+
+			cur = cur->next = new_unary(ND_EXPR_STMT, expr, tok);
 			continue;
 		}
 
@@ -801,4 +918,14 @@ struct Token *parse_typedef(struct Token *tok, struct Type *basety)
 	}
 
 	return tok;
+}
+
+void declare_builtin_functions(void)
+{
+	// declare: void *alloca(int a)
+	struct Type *ty = func_type(pointer_to(p_ty_void()));
+	ty->params = copy_type(p_ty_int());
+
+	builtin_alloca = new_gvar("alloca", ty);
+	builtin_alloca->is_definition = false;
 }

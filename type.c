@@ -253,6 +253,14 @@ struct Type *array_of(struct Type *base, int len)
 	return ty;
 }
 
+struct Type *vla_of(struct Type *base, struct Node *len)
+{
+	struct Type *ty = new_type(TY_VLA, 8, 8);
+	ty->base = base;
+	ty->vla_len = len;
+	return ty;
+}
+
 struct Type *enum_type(void)
 {
 	return new_type(TY_ENUM, 4, 4);
@@ -367,7 +375,7 @@ void add_type(struct Node *node)
 		break;
 
 	case ND_FUNCALL:
-		node->ty = p_ty_long();
+		node->ty = node->func_ty->return_ty;
 		break;
 
 	case ND_NOT:

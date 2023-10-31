@@ -20,6 +20,10 @@ struct Type {
 	// Array
 	int array_len;
 
+	// Variable-length array
+	struct Node *vla_len; // # of elements
+	struct Obj *vla_size; // sizeof() value
+
 	// struct
 	struct Member *members;
 	bool is_flexible;
@@ -53,6 +57,7 @@ struct Type *copy_type(struct Type *ty);
 struct Type *pointer_to(struct Type *base);
 struct Type *func_type(struct Type *return_ty);
 struct Type *array_of(struct Type *base, int size);
+struct Type *vla_of(struct Type *base, struct Node *expr);
 struct Type *enum_type(void);
 struct Type *struct_type(void);
 

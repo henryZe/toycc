@@ -109,6 +109,7 @@ enum TypeKind {
 	TY_PTR,
 	TY_FUNC,
 	TY_ARRAY,
+	TY_VLA,		// variable-length array
 	TY_STRUCT,
 	TY_UNION,
 };

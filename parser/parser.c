@@ -168,6 +168,11 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		struct Type *ty = typename(&tok, tok->next->next);
 		// update rest
 		*rest = skip(tok, ")");
+
+		// replace by variable
+		if (ty->kind == TY_VLA)
+			return new_var_node(ty->vla_size, tok);
+
 		return new_ulong(ty->size, start);
 	}
 
@@ -176,6 +181,11 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		struct Node *node = unary(rest, tok->next);
 
 		add_type(node);
+
+		// replace by variable
+		if (node->ty->kind == TY_VLA)
+			return new_var_node(node->ty->vla_size, tok);
+
 		return new_ulong(node->ty->size, tok);
 	}
 
@@ -812,7 +822,7 @@ static struct Node *logor(struct Token **rest, struct Token *tok)
 }
 
 // conditional = logor ("?" expr? ":" conditional)?
-static struct Node *conditional(struct Token **rest, struct Token *tok)
+struct Node *conditional(struct Token **rest, struct Token *tok)
 {
 	struct Node *cond = logor(&tok, tok);
 
@@ -1397,16 +1407,6 @@ static struct Node *compound_stmt(struct Token **rest, struct Token *tok)
 	// skip "}"
 	*rest = tok->next;
 	return node;
-}
-
-static void declare_builtin_functions(void)
-{
-	// declare: void *alloca(int a)
-	struct Type *ty = func_type(pointer_to(p_ty_void()));
-	ty->params = copy_type(p_ty_int());
-
-	struct Obj *builtin = new_gvar("alloca", ty);
-	builtin->is_definition = false;
 }
 
 // program = (typedef | function-definition | global-variable)*
