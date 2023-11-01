@@ -821,6 +821,13 @@ static struct Node *new_alloca(struct Node *sz)
 	return node;
 }
 
+static struct Node *new_vla_ptr(struct Obj *var, struct Token *tok)
+{
+	struct Node *node = new_node(ND_VLA_PTR, tok);
+	node->var = var;
+	return node;
+}
+
 // declaration = declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
 struct Node *declaration(struct Token **rest, struct Token *tok,
 			 struct Type *basety, struct VarAttr *attr)
@@ -868,7 +875,7 @@ struct Node *declaration(struct Token **rest, struct Token *tok,
 			struct Obj *var = new_lvar(get_ident(ty->name), ty);
 			struct Token *tok = ty->name;
 			// x = alloca(n + 2)
-			struct Node *expr = new_binary(ND_ASSIGN, new_var_node(var, tok),
+			struct Node *expr = new_binary(ND_ASSIGN, new_vla_ptr(var, tok),
 							new_alloca(new_var_node(ty->vla_size, tok)),
 							tok);
 

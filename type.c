@@ -391,6 +391,7 @@ void add_type(struct Node *node)
 		break;
 
 	case ND_VAR:
+	case ND_VLA_PTR:
 		node->ty = node->var->ty;
 		break;
 

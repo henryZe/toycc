@@ -568,6 +568,14 @@ struct Node *new_add(struct Node *lhs, struct Node *rhs, struct Token *tok)
 		rhs = tmp;
 	}
 
+	// VLA + num
+	if (lhs->ty->base->kind == TY_VLA) {
+		rhs = new_binary(ND_MUL, rhs,
+				 new_var_node(lhs->ty->base->vla_size, tok),
+				 tok);
+		return new_binary(ND_ADD, lhs, rhs, tok);
+	}
+
 	// ptr + num
 	rhs = new_binary(ND_MUL, rhs, new_long(lhs->ty->base->size, tok), tok);
 	return new_binary(ND_ADD, lhs, rhs, tok);
@@ -587,6 +595,17 @@ static struct Node *new_sub(struct Node *lhs, struct Node *rhs, struct Token *to
 		struct Node *node = new_binary(ND_SUB, lhs, rhs, tok);
 		node->ty = p_ty_long();
 		return new_binary(ND_DIV, node, new_num(lhs->ty->base->size, tok), tok);
+	}
+
+	// VLA - num
+	if (lhs->ty->base->kind == TY_VLA) {
+		rhs = new_binary(ND_MUL, rhs,
+				 new_var_node(lhs->ty->base->vla_size, tok),
+				 tok);
+		add_type(rhs);
+		struct Node *node = new_binary(ND_SUB, lhs, rhs, tok);
+		node->ty = lhs->ty;
+		return node;
 	}
 
 	// ptr - num

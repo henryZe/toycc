@@ -140,6 +140,14 @@ static void gen_addr(struct Node *node)
 {
 	switch (node->kind) {
 	case ND_VAR:
+		// Variable-length array, which is always local.
+		if (node->var->ty->kind == TY_VLA) {
+			println("\tli a0, %d", node->var->offset);
+			println("\tadd a0, a0, fp");
+			println("\tld a0, (a0)");
+			return;
+		}
+
 		// local variable
 		if (node->var->is_local) {
 			if (beyond_instruction_offset(node->var->offset)) {
@@ -226,6 +234,11 @@ static void gen_addr(struct Node *node)
 			gen_expr(node);
 		break;
 
+	case ND_VLA_PTR:
+		println("\tli a0, %d", node->var->offset);
+		println("\tadd a0, a0, fp");
+		break;
+
 	default:
 		error_tok(node->tok, "not a lvalue");
 		break;
@@ -250,6 +263,7 @@ static void load(struct Type *ty)
 	case TY_STRUCT:
 	case TY_UNION:
 	case TY_FUNC:
+	case TY_VLA:
 		return;
 
 	case TY_FLOAT:

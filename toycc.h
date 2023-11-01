@@ -180,6 +180,7 @@ enum NodeKind {
 	ND_EXPR_STMT,	// Expression statement
 	ND_STMT_EXPR,	// Statement expression
 	ND_VAR,		// Variable
+	ND_VLA_PTR,	// VLA designator
 	ND_NUM,		// Integer
 	ND_CAST,	// Type cast
 	ND_MEMZERO,	// Zero-clear a stack variable
