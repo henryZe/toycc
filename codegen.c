@@ -1495,8 +1495,6 @@ static void emit_data(struct Obj *prog)
 		else
 			println(".global %s", var->name);
 
-		println(".align %d", llog2(var->align));
-
 		if (get_opt_fcommon() && var->is_tentative) {
 			// common symbol
 			println(".comm %s, %d, %d",
@@ -1510,6 +1508,10 @@ static void emit_data(struct Obj *prog)
 				println(".section .tdata,\"awT\",@progbits");
 			else
 				println(".data");
+
+			println(".type %s, @object", var->name);
+			println(".size %s, %d", var->name, var->ty->size);
+			println(".align %d", llog2(var->align));
 			println("%s:", var->name);
 
 			struct Relocation *rel = var->rel;
@@ -1538,6 +1540,8 @@ static void emit_data(struct Obj *prog)
 			println(".section .tbss,\"awT\",@nobits");
 		else
 			println(".bss");
+
+		println(".align %d", llog2(var->align));
 		println("%s:", var->name);
 		println("\t.zero %d", var->ty->size);
 	}
@@ -1612,6 +1616,7 @@ static void emit_text(struct Obj *prog)
 			continue;
 
 		println(".text");
+		println(".type %s, @function", fn->name);
 		if (fn->is_static)
 			println(".local %s", fn->name);
 		else
