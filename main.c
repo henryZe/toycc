@@ -198,6 +198,11 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
+		if (!strncmp(argv[i], "-l", 2)) {
+			strarray_push(&input_paths, argv[i]);
+			continue;
+		}
+
 		if (!strcmp(argv[i], "-cc1-input")) {
 			base_file = argv[++i];
 			continue;
@@ -606,6 +611,11 @@ int main(int argc, const char **argv)
 
 	for (int i = 0; i < input_paths.len; i++) {
 		input = input_paths.data[i];
+
+		if (!strncmp(input, "-l", 2)) {
+			strarray_push(&ld_args, input);
+			continue;
+		}
 
 		if (opt_o)
 			output = opt_o;
