@@ -164,14 +164,23 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		return node;
 	}
 
-	if (equal(tok, "sizeof") && equal(tok->next, "(") && is_typename(tok->next->next)) {
+	if (equal(tok, "sizeof") && equal(tok->next, "(") &&
+	    is_typename(tok->next->next)) {
 		struct Type *ty = typename(&tok, tok->next->next);
 		// update rest
 		*rest = skip(tok, ")");
 
-		// replace by variable
-		if (ty->kind == TY_VLA)
-			return new_var_node(ty->vla_size, tok);
+		if (ty->kind == TY_VLA) {
+			if (ty->vla_size)
+				// replace by variable
+				return new_var_node(ty->vla_size, tok);
+
+			// calculate vla_size first
+			struct Node *lhs = compute_vla_size(ty, tok);
+			// then replace by vla_size variable
+			struct Node *rhs = new_var_node(ty->vla_size, tok);
+			return new_binary(ND_COMMA, lhs, rhs, tok);
+		}
 
 		return new_ulong(ty->size, start);
 	}

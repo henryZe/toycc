@@ -18,5 +18,6 @@ struct Node *declaration(struct Token **rest, struct Token *tok,
 			 struct Type *basety, struct VarAttr *attr);
 struct Token *parse_typedef(struct Token *tok, struct Type *basety);
 void declare_builtin_functions(void);
+struct Node *compute_vla_size(struct Type *ty, struct Token *tok);
 
 #endif

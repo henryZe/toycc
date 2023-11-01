@@ -785,7 +785,7 @@ struct Type *declarator(struct Token **rest, struct Token *tok, struct Type *ty)
 static struct Obj *builtin_alloca;
 
 // Generate code for computing a VLA size.
-static struct Node *compute_vla_size(struct Type *ty, struct Token *tok)
+struct Node *compute_vla_size(struct Type *ty, struct Token *tok)
 {
 	struct Node *node = new_node(ND_NULL_EXPR, tok);
 	if (ty->base)
