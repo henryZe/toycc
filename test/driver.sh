@@ -1,6 +1,8 @@
 #!/bin/bash
 cc=$1
 exec='qemu-riscv64'
+libopt='-L /usr/riscv64-linux-gnu/'
+cross_toolchain='riscv64-linux-gnu-'
 
 # bash not support
 # reset='\33[0m'
@@ -64,14 +66,14 @@ check 'multiple input files: -S'
 # Run linker
 rm -f $tmp/foo
 echo 'int main() { return 0; }' | $cc -o $tmp/foo -xc -
-$exec $tmp/foo
+$exec $libopt $tmp/foo
 check linker
 
 rm -f $tmp/foo
 echo 'int bar(); int main() { return bar(); }' > $tmp/foo.c
 echo 'int bar() { return 42; }' > $tmp/bar.c
 $cc -o $tmp/foo $tmp/foo.c $tmp/bar.c
-$exec $tmp/foo
+$exec $libopt $tmp/foo
 [ "$?" = 42 ]
 check linker
 
@@ -216,5 +218,21 @@ check '-x none'
 # -E
 echo foo | $cc -E - | grep -q foo
 check -E
+
+# .a file
+echo 'void foo() {}' | $cc -c -xc -o $tmp/foo.o -
+echo 'void bar() {}' | $cc -c -xc -o $tmp/bar.o -
+$cross_toolchain'ar' rcs $tmp/foo.a $tmp/foo.o $tmp/bar.o
+echo 'void foo(); void bar(); int main() { foo(); bar(); }' > $tmp/main.c
+$cc -o $tmp/foo $tmp/main.c $tmp/foo.a
+check '.a'
+
+# .so file
+echo 'void foo() {}' | $cross_toolchain'gcc' -fPIC -c -xc -o $tmp/foo.o -
+echo 'void bar() {}' | $cross_toolchain'gcc' -fPIC -c -xc -o $tmp/bar.o -
+$cross_toolchain'gcc' -shared -o $tmp/foo.so $tmp/foo.o $tmp/bar.o
+echo 'void foo(); void bar(); int main() { foo(); bar(); }' > $tmp/main.c
+$cc -o $tmp/foo $tmp/main.c $tmp/foo.so
+check '.so'
 
 echo "${green}OK${reset}"

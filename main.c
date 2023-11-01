@@ -28,6 +28,8 @@ enum FileType {
 	FILE_C,
 	FILE_ASM,
 	FILE_OBJ,
+	FILE_AR,
+	FILE_DSO,
 };
 
 // FILE_NONE as default
@@ -487,8 +489,8 @@ static char *find_file(const char *pattern)
 static const char *find_libpath(void)
 {
 	const char *paths[] = {
-		"/usr/lib/gcc-cross/riscv64-linux-gnu/*/crt1.o",
 		"/usr/riscv64-linux-gnu/lib/crt1.o",
+		"/usr/lib/gcc-cross/riscv64-linux-gnu/*/crt1.o",
 	};
 
 	for (uint32_t i = 0; i < ARRAY_SIZE(paths); i++) {
@@ -504,7 +506,6 @@ static const char *find_gcc_libpath(void)
 {
 	const char *paths[] = {
 		"/usr/lib/gcc-cross/riscv64-linux-gnu/*/crtbegin.o",
-		"/lib/gcc-cross/aarch64-linux-gnu/*/crtbegin.o",
 	};
 
 	for (uint32_t i = 0; i < ARRAY_SIZE(paths); i++) {
@@ -532,9 +533,10 @@ static void run_linker(struct StringArray *inputs, const char *output)
 	const char *gcc_libpath = find_gcc_libpath();
 
 	// static link
-	strarray_push(&arr, "-static");
-	// strarray_push(&arr, "-dynamic-linker");
-	// strarray_push(&arr, format("%s/ld-linux-riscv64-lp64d.so.1", libpath));
+	// strarray_push(&arr, "-static");
+	// dynamic link
+	strarray_push(&arr, "-dynamic-linker");
+	strarray_push(&arr, format("%s/ld-linux-riscv64-lp64d.so.1", libpath));
 
 	// boot code of C language
 	strarray_push(&arr, format("%s/crt1.o", libpath));
@@ -585,11 +587,17 @@ static void add_default_include_paths(const char *argv0)
 
 static enum FileType get_file_type(const char *filename)
 {
-	if (endswith(filename, ".o"))
-		return FILE_OBJ;
-
 	if (opt_x != FILE_NONE)
 		return opt_x;
+
+	if (endswith(filename, ".a"))
+		return FILE_AR;
+
+	if (endswith(filename, ".so"))
+		return FILE_DSO;
+
+	if (endswith(filename, ".o"))
+		return FILE_OBJ;
 
 	if (endswith(filename, ".c"))
 		return FILE_C;
@@ -635,9 +643,11 @@ int main(int argc, const char **argv)
 
 		enum FileType type = get_file_type(input);
 
-		// handle .o
-		if (type == FILE_OBJ) {
-			// link files .o -> binary
+		// Handle .o or .a or .so
+		if (type == FILE_OBJ ||
+		    type == FILE_AR ||
+		    type == FILE_DSO) {
+			// link files .o/.a/.so -> binary
 			strarray_push(&ld_args, input);
 			continue;
 		}
