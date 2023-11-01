@@ -19,6 +19,7 @@ static struct StringArray input_paths;
 static struct StringArray tmpfiles;
 static struct StringArray include_paths;
 static struct StringArray opt_include;
+static struct StringArray ld_extra_args;
 
 static bool opt_fcommon = true;
 
@@ -200,6 +201,11 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strncmp(argv[i], "-l", 2)) {
 			strarray_push(&input_paths, argv[i]);
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-s")) {
+			strarray_push(&ld_extra_args, "-s");
 			continue;
 		}
 
@@ -538,6 +544,9 @@ static void run_linker(struct StringArray *inputs, const char *output)
 	// specify the lib paths
 	strarray_push(&arr, format("-L%s", gcc_libpath));
 	strarray_push(&arr, format("-L%s", libpath));
+
+	for (int i = 0; i < ld_extra_args.len; i++)
+		strarray_push(&arr, ld_extra_args.data[i]);
 
 	for (int i = 0; i < inputs->len; i++)
 		strarray_push(&arr, inputs->data[i]);
