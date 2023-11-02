@@ -92,21 +92,6 @@ output/$(TARGET): $(SRC_OBJFILES)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
 	$(OBJDUMP) -S $@ > $@.asm
 
-# build test
-output/test/%.preprocess.c: test/%.c output/$(TARGET)
-	@mkdir -p $(@D)
-	output/$(TARGET) $(TEST_INCLUDE) -c -E $< -o $@
-
-TEST_PRE := $(patsubst %.c, output/test/%.preprocess.c, $(TEST_SRCS))
-test_prebuild: $(TEST_PRE)
-
-output/test/%.s: test/%.c output/$(TARGET)
-	@mkdir -p $(@D)
-	output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@
-
-TEST_ASM := $(patsubst %.c, output/test/%.s, $(TEST_SRCS))
-test_build: $(TEST_ASM)
-
 # test
 # -E: preprocess C files
 # -xc: compile following files as C language
@@ -133,11 +118,10 @@ output/selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 selfhost: output/selfhost/$(TARGET)
-test_all: test selfhost
 
 # selfhost test-cases
 SELFHOST_ASM := $(patsubst output/test/%, output/selfhost/test/%.s, $(TESTS))
-selfhost_test_asm:
+selfhost_test_asm: selfhost
 	@mkdir -p output/selfhost/test
 	touch $(SELFHOST_ASM)
 	@sh $(TEST_QEMU) .
@@ -151,9 +135,9 @@ SELFHOST_TESTS = $(patsubst output/test/%, output/selfhost/test/%, $(TESTS))
 selfhost_test: $(SELFHOST_TESTS)
 	for i in $^; do echo $$i; qemu-riscv64 $$i || exit 1; echo; done
 
-extra: test_all selfhost_test
+all: test selfhost_test
 
 clean:
 	rm -rf output
 
-.PHONY: clean test selfhost test_all selfhost_test extra test_prebuild test_build
+.PHONY: clean test selfhost selfhost_test all

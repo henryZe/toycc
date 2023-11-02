@@ -13,9 +13,19 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: build env
+      run: sudo apt install gcc-riscv64-linux-gnu;
+           sudo apt install qemu-user;
+
+    - name: make clean
+      run: make clean
+
     - name: make
       run: make
-    - name: make test_prebuild
-      run: make test_prebuild
-    - name: make test_build
-      run: make test_build
+
+    - name: make test
+      run: make test
+
+    - name: make selfhost
+      run: make selfhost
