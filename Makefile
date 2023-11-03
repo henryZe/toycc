@@ -6,7 +6,10 @@ CFLAGS = -std=c2x -g -O0 -fno-common
 CFLAGS += -Wall -Wextra -Werror
 CFLAGS += -DDEBUG
 
-CROSS_CFLAGS = -march=rv64g -static -pthread
+CROSS_CFLAGS = -march=rv64g -pthread
+
+QEMU_USER = qemu-riscv64
+QEMU_LIBOPT = -L /usr/riscv64-linux-gnu/
 
 TARGET = toycc
 
@@ -106,15 +109,14 @@ output/test/%: test/%.c output/$(TARGET) test/lib.c
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
-# test with qemu-riscv64
 test: $(TESTS)
-	for i in $^; do echo $$i; qemu-riscv64 $$i || exit 1; echo; done
+	for i in $^; do echo $$i; $(QEMU_USER) $(QEMU_LIBOPT) $$i || exit 1; echo; done
 	@bash $(TEST_DRV) output/$(TARGET)
 
 # self-host
 output/selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
 	@mkdir -p $(@D)
-	output/$(TARGET) $(SELFHOST_INCLUDE) $(SRCFILES) -o $@
+	output/$(TARGET) -static $(SELFHOST_INCLUDE) $(SRCFILES) -o $@
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 selfhost: output/selfhost/$(TARGET)
@@ -131,9 +133,8 @@ output/selfhost/test/%: test/lib.c selfhost_test_asm
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 SELFHOST_TESTS = $(patsubst output/test/%, output/selfhost/test/%, $(TESTS))
-# test with qemu-riscv64
 selfhost_test: $(SELFHOST_TESTS)
-	for i in $^; do echo $$i; qemu-riscv64 $$i || exit 1; echo; done
+	for i in $^; do echo $$i; $(QEMU_USER) $(QEMU_LIBOPT) $$i || exit 1; echo; done
 
 all: test selfhost_test
 

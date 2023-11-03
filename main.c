@@ -211,6 +211,11 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
+		if (!strcmp(argv[i], "-static")) {
+			strarray_push(&ld_extra_args, "-static");
+			continue;
+		}
+
 		if (!strcmp(argv[i], "-cc1-input")) {
 			base_file = argv[++i];
 			continue;
@@ -534,7 +539,7 @@ static void run_linker(struct StringArray *inputs, const char *output)
 
 	// static link
 	// strarray_push(&arr, "-static");
-	// dynamic link
+	// dynamic link as default
 	strarray_push(&arr, "-dynamic-linker");
 	strarray_push(&arr, format("%s/ld-linux-riscv64-lp64d.so.1", libpath));
 
@@ -576,8 +581,8 @@ static void add_default_include_paths(const char *argv0)
 {
 	// We expect that toycc-specific include files
 	// are installed to ./include relative to argv[0].
-	strarray_push(&include_paths, format("%s/include",
-		      dirname(strdup(argv0))));
+	strarray_push(&include_paths,
+		      format("%s/include", dirname(strdup(argv0))));
 
 	// Add standard include paths.
 	strarray_push(&include_paths, "/usr/local/include");
