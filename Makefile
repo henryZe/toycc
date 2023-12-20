@@ -7,6 +7,7 @@ CFLAGS += -Wall -Wextra -Werror
 CFLAGS += -DDEBUG
 
 CROSS_CFLAGS = -march=rv64g -pthread
+# CROSS_CFLAGS = -march=rv64g -pthread -static
 
 QEMU_USER = qemu-riscv64
 QEMU_LIBOPT = -L /usr/riscv64-linux-gnu/

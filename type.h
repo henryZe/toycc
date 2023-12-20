@@ -47,9 +47,11 @@ struct Type *p_ty_uint(void);
 struct Type *p_ty_ulong(void);
 struct Type *p_ty_float(void);
 struct Type *p_ty_double(void);
+struct Type *p_ty_ldouble(void);
 
 bool is_integer(struct Type *ty);
 bool is_float(struct Type *ty);
+bool is_float_arg(struct Type *ty);
 bool is_struct_union(struct Type *ty);
 bool is_numeric(struct Type *ty);
 bool is_compatible(struct Type *t1, struct Type *t2);

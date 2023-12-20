@@ -7,6 +7,13 @@
 #define debug(...)
 #endif
 
+// #define LDSP_DEBUG
+#ifdef LDSP_DEBUG
+#define ldsp_debug printf
+#else
+#define ldsp_debug(...)
+#endif
+
 static FILE *output_file;
 
 __attribute__((format(printf, 1, 2)))
@@ -51,8 +58,20 @@ static const char * const argflt[] = {
 	"fa7",
 };
 
+#define push(x) do {				\
+	__push(x);				\
+	ldsp_debug("push depth %d at %s:%d\n",	\
+		depth, __FILE__, __LINE__);	\
+} while (0)
+
+#define pop(x) do {				\
+	__pop(x);				\
+	ldsp_debug("pop depth %d at %s:%d\n",	\
+		depth, __FILE__, __LINE__);	\
+} while (0)
+
 // push reg into 0(sp)
-static void push(const char *reg)
+static void __push(const char *reg)
 {
 	const char *prefix;
 
@@ -67,7 +86,7 @@ static void push(const char *reg)
 }
 
 // pop 0(sp) to reg
-static void pop(const char *reg)
+static void __pop(const char *reg)
 {
 	const char *prefix;
 
@@ -79,6 +98,73 @@ static void pop(const char *reg)
 	println("\t%sld %s, 0(sp)", prefix, reg);
 	println("\taddi sp, sp, %ld", sizeof(long));
 	depth--;
+}
+
+// let the (fs0-fs11) registers be the stack for long double
+static int ld_sp;
+
+#define push_ld() do {				\
+	__push_ld();				\
+	ldsp_debug("push_ld ld_sp %d at %s:%d\n",	\
+		ld_sp, __FILE__, __LINE__);	\
+} while (0)
+
+#define pop_ld() do {				\
+	__pop_ld();				\
+	ldsp_debug("pop_ld ld_sp %d at %s:%d\n",	\
+		ld_sp, __FILE__, __LINE__);	\
+} while (0)
+
+static void __push_ld(void)
+{
+	println("\tfmv.d.x fs%d, a0", ld_sp);
+	println("\tfmv.d.x fs%d, a1", ld_sp + 1);
+	ld_sp += 2;
+
+	if (ld_sp >= 12)
+		error("ld_sp can't be larger than 12");
+}
+
+static void __pop_ld(void)
+{
+	if (ld_sp < 2)
+		error("ld_sp can't be less than 2");
+
+	println("\tfmv.x.d a%d, fs%d", ld_sp - 1, ld_sp - 1);
+	println("\tfmv.x.d a%d, fs%d", ld_sp - 2, ld_sp - 2);
+	ld_sp -= 2;
+}
+
+#define load_ld() do {				\
+	__load_ld();				\
+	ldsp_debug("load_ld ld_sp %d at %s:%d\n",	\
+		ld_sp, __FILE__, __LINE__);	\
+} while (0)
+
+#define store_ld(x) do {			\
+	__store_ld(x);				\
+	ldsp_debug("store_ld ld_sp %d at %s:%d\n",	\
+		ld_sp, __FILE__, __LINE__);	\
+} while (0)
+
+static void __load_ld(void)
+{
+	println("\tfld fs%d, 0(a0)", ld_sp);
+	println("\tfld fs%d, 8(a0)", ld_sp + 1);
+	ld_sp += 2;
+
+	if (ld_sp >= 12)
+		error("ld_sp can't be larger than 12");
+}
+
+static void __store_ld(void)
+{
+	if (ld_sp < 2)
+		error("ld_sp can't be less than 2");
+
+	println("\tfsd fs%d, 8(a1)", ld_sp - 1);
+	println("\tfsd fs%d, 0(a1)", ld_sp - 2);
+	ld_sp -= 2;
 }
 
 // Round up `n` to the nearest multiple of `align`. For instance,
@@ -272,6 +358,9 @@ static void load(struct Type *ty)
 	case TY_DOUBLE:
 		println("\tfld fa0, (a0)");
 		return;
+	case TY_LDOUBLE:
+		load_ld();
+		return;
 
 	default:
 		break;
@@ -317,6 +406,10 @@ static void store(struct Type *ty)
 		println("\tfsd fa0, (a1)");
 		return;
 
+	case TY_LDOUBLE:
+		store_ld();
+		return;
+
 	default:
 		break;
 	}
@@ -331,7 +424,12 @@ static void store(struct Type *ty)
 		println("\tsd a0, (a1)");
 }
 
-enum { I8, I16, I32, I64, U8, U16, U32, U64, F32, F64, CAST_MAX_TYPE };
+enum {
+	I8, I16, I32, I64,
+	U8, U16, U32, U64,
+	F32, F64, F128,
+	CAST_MAX_TYPE,
+};
 
 static int getTypeId(struct Type *ty)
 {
@@ -348,6 +446,8 @@ static int getTypeId(struct Type *ty)
 		return F32;
 	case TY_DOUBLE:
 		return F64;
+	case TY_LDOUBLE:
+		return F128;
 	default:
 		return U64;
 	}
@@ -365,47 +465,76 @@ static int getTypeId(struct Type *ty)
 #define TOU16  "\tslli a0, a0, 48\n\tsrli a0, a0, 48"
 #define TOU32  "\tslli a0, a0, 32\n\tsrli a0, a0, 32"
 
-#define I32F32 "\tfcvt.s.w fa0, a0"
-#define I32F64 "\tfcvt.d.w fa0, a0"
-#define I64F32 "\tfcvt.s.l fa0, a0"
-#define I64F64 "\tfcvt.d.l fa0, a0"
-#define U32F32 "\tfcvt.s.wu fa0, a0"
-#define U32F64 "\tfcvt.d.wu fa0, a0"
-#define U64F32 "\tfcvt.s.lu fa0, a0"
-#define U64F64 "\tfcvt.d.lu fa0, a0"
+#define I32F32  "\tfcvt.s.w fa0, a0"
+#define I32F64  "\tfcvt.d.w fa0, a0"
+#define I32F128 "\tcall __floatsitf@plt"
+
+#define I64F32  "\tfcvt.s.l fa0, a0"
+#define I64F64  "\tfcvt.d.l fa0, a0"
+#define I64F128 "\tcall __floatditf@plt"
+
+#define U32F32  "\tfcvt.s.wu fa0, a0"
+#define U32F64  "\tfcvt.d.wu fa0, a0"
+#define U32F128 "\tcall __floatunsitf@plt"
+
+#define U64F32  "\tfcvt.s.lu fa0, a0"
+#define U64F64  "\tfcvt.d.lu fa0, a0"
+#define U64F128 "\tcall __floatunditf@plt"
+
 #define F32I32 "\tfcvt.w.s a0, fa0, rtz"
 #define F32I8  combine(F32I32, TOI8)
 #define F32I16 combine(F32I32, TOI16)
 #define F32I64 "\tfcvt.l.s a0, fa0, rtz"
+
 #define F32U32 "\tfcvt.wu.s a0, fa0, rtz"
 #define F32U8  combine(F32U32, TOU8)
 #define F32U16 combine(F32U32, TOU16)
 #define F32U64 "\tfcvt.lu.s a0, fa0, rtz"
-#define F32F64 "\tfcvt.d.s fa0, fa0"
+
 #define F64I32 "\tfcvt.w.d a0, fa0, rtz"
 #define F64I8  combine(F64I32, TOI8)
 #define F64I16 combine(F64I32, TOI16)
 #define F64I64 "\tfcvt.l.d a0, fa0, rtz"
+
 #define F64U32 "\tfcvt.wu.d a0, fa0, rtz"
 #define F64U8  combine(F64U32, TOU8)
 #define F64U16 combine(F64U32, TOU16)
 #define F64U64 "\tfcvt.lu.d a0, fa0, rtz"
-#define F64F32 "\tfcvt.s.d fa0, fa0"
+
+#define F128I8  combine("\tcall __fixtfsi@plt", TOI8)
+#define F128I16 combine("\tcall __fixtfsi@plt", TOI16)
+#define F128I32 combine("\tcall __fixtfsi@plt", TOI32)
+#define F128I64 "\tcall __fixtfdi@plt"
+
+#define F128U8  combine("\tcall __fixunstfsi@plt", TOU8)
+#define F128U16 combine("\tcall __fixunstfsi@plt", TOU16)
+#define F128U32 combine("\tcall __fixunstfsi@plt", TOU32)
+#define F128U64 "\tcall __fixunstfdi@plt"
+
+#define F32F64  "\tfcvt.d.s fa0, fa0"
+#define F32F128 "\tcall __extendsftf2@plt"
+
+#define F64F32  "\tfcvt.s.d fa0, fa0"
+#define F64F128 "\tcall __extenddftf2@plt"
+
+#define F128F32 "\tcall __trunctfsf2@plt"
+#define F128F64 "\tcall __trunctfdf2@plt"
 
 // cast_matrix[from][to]
 static const char *cast_matrix[CAST_MAX_TYPE][CAST_MAX_TYPE] = {
 	// to
-	// i8,    i16,    i32,    i64,    u8,    u16,    u32,    u64,    f32,    f64,       // from
-	{  NULL,  NULL,   NULL,   NULL,   TOU8,  TOU16,  TOU32,  NULL,   I32F32, I32F64 },  // i8
-	{  TOI8,  NULL,   NULL,   NULL,   TOU8,  TOU16,  TOU32,  NULL,   I32F32, I32F64 },  // i16
-	{  TOI8,  TOI16,  NULL,   NULL,   TOU8,  TOU16,  TOU32,  NULL,   I32F32, I32F64 },  // i32
-	{  TOI8,  TOI16,  TOI32,  NULL,   TOU8,  TOU16,  TOU32,  NULL,   I64F32, I64F64 },  // i64
-	{  NULL,  NULL,   NULL,   NULL,   NULL,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // u8
-	{  TOI8,  NULL,   NULL,   NULL,   TOU8,  NULL,   NULL,   NULL,   I32F32, I32F64 },  // u16
-	{  TOI8,  TOI16,  NULL,   NULL,   TOU8,  TOU16,  NULL,   NULL,   U32F32, U32F64 },  // u32
-	{  TOI8,  TOI16,  TOI32,  NULL,   TOU8,  TOU16,  TOU32,  NULL,   U64F32, U64F64 },  // u64
-	{  F32I8, F32I16, F32I32, F32I64, F32U8, F32U16, F32U32, F32U64, NULL,   F32F64 },  // f32
-	{  F64I8, F64I16, F64I32, F64I64, F64U8, F64U16, F64U32, F64U64, F64F32, NULL   },  // f64
+	// i8      i16      i32      i64      u8      u16      u32      u64      f32      f64      f128            from
+	{  NULL,   NULL,    NULL,    NULL,    TOU8,   TOU16,   TOU32,   NULL,    I32F32,  I32F64,  I32F128, },  // i8
+	{  TOI8,   NULL,    NULL,    NULL,    TOU8,   TOU16,   TOU32,   NULL,    I32F32,  I32F64,  I32F128, },  // i16
+	{  TOI8,   TOI16,   NULL,    NULL,    TOU8,   TOU16,   TOU32,   NULL,    I32F32,  I32F64,  I32F128, },  // i32
+	{  TOI8,   TOI16,   TOI32,   NULL,    TOU8,   TOU16,   TOU32,   NULL,    I64F32,  I64F64,  I64F128, },  // i64
+	{  NULL,   NULL,    NULL,    NULL,    NULL,   NULL,    NULL,    NULL,    U32F32,  U32F64,  U32F128, },  // u8
+	{  TOI8,   NULL,    NULL,    NULL,    TOU8,   NULL,    NULL,    NULL,    U32F32,  U32F64,  U32F128, },  // u16
+	{  TOI8,   TOI16,   NULL,    NULL,    TOU8,   TOU16,   NULL,    NULL,    U32F32,  U32F64,  U32F128, },  // u32
+	{  TOI8,   TOI16,   TOI32,   NULL,    TOU8,   TOU16,   TOU32,   NULL,    U64F32,  U64F64,  U64F128, },  // u64
+	{  F32I8,  F32I16,  F32I32,  F32I64,  F32U8,  F32U16,  F32U32,  F32U64,  NULL,    F32F64,  F32F128, },  // f32
+	{  F64I8,  F64I16,  F64I32,  F64I64,  F64U8,  F64U16,  F64U32,  F64U64,  F64F32,  NULL,    F64F128, },  // f64
+	{  F128I8, F128I16, F128I32, F128I64, F128U8, F128U16, F128U32, F128U64, F128F32, F128F64, NULL,    },  // f128
 };
 
 static void cast(struct Type *from, struct Type *to)
@@ -423,7 +552,12 @@ static void cast(struct Type *from, struct Type *to)
 
 	if (cast_matrix[t1][t2]) {
 		debug("cast t1 %d t2 %d", t1, t2);
+		if (t1 == F128)
+			pop_ld();
 		println("%s", cast_matrix[t1][t2]);
+		if (t2 == F128)
+			push_ld();
+
 		debug("end cast");
 	}
 }
@@ -439,6 +573,14 @@ static void cmp_zero(struct Type *ty)
 	case TY_DOUBLE:
 		println("\tfmv.d.x fa1, zero");
 		println("\tfeq.d a0, fa0, fa1");
+		break;
+
+	case TY_LDOUBLE:
+		pop_ld();
+		println("\tli a2, 0");
+		println("\tli a3, 0");
+		println("\tcall __netf2@plt");
+		println("\tseqz a0, a0");
 		break;
 
 	default:
@@ -506,6 +648,16 @@ static void push_args2(struct Node *args, bool first_pass)
 		push("fa0");
 		break;
 
+	case TY_LDOUBLE:
+		println("\taddi sp, sp, -16");
+		println("\tfsd fs%d, 8(sp)", ld_sp - 1);
+		println("\tfsd fs%d, 0(sp)", ld_sp - 2);
+		depth += 2;
+		ld_sp -= 2;
+		ldsp_debug("pop_ld_stack ld_sp %d depth %d at %s:%d\n",
+			ld_sp, depth, __FILE__, __LINE__);
+		break;
+
 	default:
 		push("a0");
 		break;
@@ -530,7 +682,7 @@ static void check_struct_mixed(struct Type *ty, int *mixed, int *idx)
 		return;
 	}
 
-	if (is_float(ty)) {
+	if (is_float_arg(ty)) {
 		*mixed |= USED_FLOAT_REG;
 		(*idx)++;
 		return;
@@ -645,8 +797,16 @@ static size_t push_args(struct Node *node)
 			continue;
 		}
 
-		if (is_float(arg->ty) && (f_arg < MAX_ARG_REGS)) {
+		if (is_float_arg(arg->ty) && (f_arg < MAX_ARG_REGS)) {
 			f_arg++;
+
+		} else if (arg->ty->kind == TY_LDOUBLE) {
+			for (int i = 1; i <= 2; i++) {
+				if (g_arg < MAX_ARG_REGS)
+					g_arg++;
+				else
+					stack++;
+			}
 
 		} else if (g_arg < MAX_ARG_REGS) {
 			g_arg++;
@@ -655,6 +815,12 @@ static size_t push_args(struct Node *node)
 			arg->pass_by_stack = true;
 			stack++;
 		}
+	}
+
+	if ((depth + stack) % 2 == 1) {
+		println("\taddi sp, sp, -8");
+		depth++;
+		stack++;
 	}
 
 	// expand space for struct or union in stack
@@ -751,10 +917,18 @@ static void gen_expr(struct Node *node)
 	int c;
 	union {
 		float f32;
-		double f64;
 		uint32_t u32;
+
+		double f64;
 		uint64_t u64;
+
+		// Notion: With x86_64's cross-compiler toolchain,
+		// there is a loss of accuracy (128 to 80 bits) here.
+		long double ld;
+		uint64_t u64x2[2];
 	} u;
+
+	memset(&u, 0, sizeof(u));
 
 	// .loc $file-index $line-number
 	println("\t.loc %d %d", node->tok->file->file_no,
@@ -778,6 +952,14 @@ static void gen_expr(struct Node *node)
 			println("\tfmv.d.x fa0, a0\t");
 			return;
 
+		case TY_LDOUBLE:
+			u.ld = node->fval;
+			println("\tli a0, 0x%016lx  # long double %Lf",
+				u.u64x2[0], u.ld);
+			println("\tli a1, 0x%016lx", u.u64x2[1]);
+			push_ld();
+			return;
+
 		default:
 			println("\tli a0, %ld", node->val);
 			return;
@@ -794,6 +976,13 @@ static void gen_expr(struct Node *node)
 		case TY_DOUBLE:
 			println("\tfneg.d fa0, fa0");
 			break;
+
+		case TY_LDOUBLE:
+			println("\tli t0, -1");
+			println("\tslli t0, t0, 63");
+			debug("negative the value of the long double stack top");
+			println("\txor a%d, a%d, t0", ld_sp + 1, ld_sp + 1);
+			return;
 
 		default:
 			if (node->ty->size == sizeof(long))
@@ -1004,8 +1193,23 @@ static void gen_expr(struct Node *node)
 
 			// transfer args to variadic function with generic registers
 			if (node->func_ty->is_variadic && cur_params == NULL) {
-				if (g_arg < MAX_ARG_REGS)
-					pop(argreg[g_arg++]);
+				if (g_arg < MAX_ARG_REGS) {
+					if (arg->ty->kind == TY_LDOUBLE) {
+						// In the context of variadic arguments,
+						// ld's first register must be even index,
+						// like a0, a2, a4, a6.
+						if (g_arg % 2 == 1)
+							g_arg++;
+
+						for (int i = 0; i < 2; i++) {
+							if (g_arg < MAX_ARG_REGS)
+								pop(argreg[g_arg++]);
+						}
+					} else {
+						pop(argreg[g_arg++]);
+					}
+
+				}
 				continue;
 			}
 
@@ -1025,15 +1229,24 @@ static void gen_expr(struct Node *node)
 				}
 			}
 
-			if (is_float(arg->ty) && (f_arg < MAX_ARG_REGS))
+			if (is_float_arg(arg->ty) && (f_arg < MAX_ARG_REGS))
 				pop(argflt[f_arg++]);
 
-			else if (g_arg < MAX_ARG_REGS)
+			else if (arg->ty->kind == TY_LDOUBLE) {
+				for (int i = 0; i < 2; i++) {
+					if (g_arg < MAX_ARG_REGS)
+						pop(argreg[g_arg++]);
+				}
+
+			} else if (g_arg < MAX_ARG_REGS)
 				pop(argreg[g_arg++]);
 		}
 
 		// call function
 		println("\tjalr t0");
+
+		if (node->ty->kind == TY_LDOUBLE)
+			push_ld();
 
 		if (stack_args) {
 			println("\taddi sp, sp, %ld", stack_args * sizeof(long));
@@ -1080,7 +1293,7 @@ static void gen_expr(struct Node *node)
 		break;
 	}
 
-	if (is_float(node->lhs->ty)) {
+	if (is_float_arg(node->lhs->ty)) {
 		gen_expr(node->rhs);
 		push("fa0");
 		gen_expr(node->lhs);
@@ -1122,6 +1335,54 @@ static void gen_expr(struct Node *node)
 			println("\tfle.%s a0, fa0, fa1", sz);
 			break;
 
+		default:
+			error_tok(node->tok, "invalid expression");
+			break;
+		}
+		return;
+
+	} else if (node->lhs->ty->kind == TY_LDOUBLE) {
+		gen_expr(node->lhs);
+		gen_expr(node->rhs);
+		// Cautions:
+		// Save long double results in fsx registers,
+		// in case ax registers are corrupted.
+		pop_ld();
+		pop_ld();
+
+		switch (node->kind) {
+		case ND_ADD:
+			println("\tcall __addtf3@plt");
+			push_ld();
+			break;
+		case ND_SUB:
+			println("\tcall __subtf3@plt");
+			push_ld();
+			break;
+		case ND_MUL:
+			println("\tcall __multf3@plt");
+			push_ld();
+			break;
+		case ND_DIV:
+			println("\tcall __divtf3@plt");
+			push_ld();
+			break;
+		case ND_EQ:
+			println("\tcall __eqtf2@plt");
+			println("\tseqz a0, a0");
+			break;
+		case ND_NE:
+			println("\tcall __netf2@plt");
+			println("\tsnez a0, a0");
+			break;
+		case ND_LT:
+			println("\tcall __lttf2@plt");
+			println("\tslti a0, a0, 0");
+			break;
+		case ND_LE:
+			println("\tcall __letf2@plt");
+			println("\tslti a0, a0, 1");
+			break;
 		default:
 			error_tok(node->tok, "invalid expression");
 			break;
@@ -1379,6 +1640,9 @@ static void gen_stmt(struct Node *node)
 					copy_struct_reg();
 				else
 					copy_struct_mem();
+
+			} else if (ty->kind == TY_LDOUBLE) {
+				pop_ld();
 			}
 		}
 		println("\tj return.%s", current_fn->name);
@@ -1440,7 +1704,7 @@ static void assign_lvar_offsets(struct Obj *prog)
 					if (g_arg < MAX_ARG_REGS)
 						g_arg++;
 				}
-			} else if (is_float(var->ty)) {
+			} else if (is_float_arg(var->ty)) {
 				if (f_arg < MAX_ARG_REGS) {
 					f_arg++;
 					continue;
@@ -1448,6 +1712,13 @@ static void assign_lvar_offsets(struct Obj *prog)
 				} else if (g_arg < MAX_ARG_REGS) {
 					g_arg++;
 					continue;
+				}
+			} else if (var->ty->kind == TY_LDOUBLE) {
+				if (g_arg + 2 <= MAX_ARG_REGS) {
+					g_arg += 2;
+					continue;
+				} else if (g_arg + 1 == MAX_ARG_REGS) {
+					error_tok(var->ty->name_pos, "Not support transmit half of long double by stack");
 				}
 			} else {
 				if (g_arg < MAX_ARG_REGS) {
@@ -1665,6 +1936,11 @@ static void emit_text(struct Obj *prog)
 		push("ra");
 		push("fp");
 		println("\tmv fp, sp");
+
+		debug("save all fs0~fs11 registers");
+		for (int i = 0; i < 12; i++)
+			println("\tfsgnj.d ft%d, fs%d, fs%d", i, i, i);
+
 		debug("Prologue end");
 
 		// Save passed-by-register arguments to the stack
@@ -1689,8 +1965,14 @@ static void emit_text(struct Obj *prog)
 					store_args(g_arg++, var->offset + sizeof(long),
 							    var->ty->size - sizeof(long));
 
-			} else if (is_float(var->ty) && (f_arg < MAX_ARG_REGS)) {
+			} else if (is_float_arg(var->ty) && (f_arg < MAX_ARG_REGS)) {
 				store_fltargs(f_arg++, var->offset, var->ty->size);
+
+			} else if (var->ty->kind == TY_LDOUBLE) {
+				if ((g_arg + 1) < MAX_ARG_REGS) {
+					store_args(g_arg++, var->offset, 8);
+					store_args(g_arg++, var->offset + 8, 8);
+				}
 
 			} else if (g_arg < MAX_ARG_REGS) {
 				store_args(g_arg++, var->offset, var->ty->size);
@@ -1730,13 +2012,15 @@ static void emit_text(struct Obj *prog)
 		println("\tsd sp, (t0)");
 
 		int pre_depth = depth;
+
 		// Emit code
 		gen_stmt(fn->body);
-		if (depth != pre_depth) {
+
+		if (depth != pre_depth)
 			printf("pre_depth: %d != depth: %d\n",
 				pre_depth, depth);
-			assert(depth == pre_depth);
-		}
+
+		assert(depth == pre_depth && ld_sp == 0);
 
 		// [https://www.sigbus.info/n1570#5.1.2.2.3p1]
 		// The C spec defines a special rule for the main function.
@@ -1749,6 +2033,11 @@ static void emit_text(struct Obj *prog)
 		// epilogue
 		debug("epilogue");
 		println("return.%s:", fn->name);
+
+		debug("restore all fs0~fs11 registers");
+		for (int i = 0; i < 12; i++)
+			println("\tfsgnj.d fs%d, ft%d, ft%d", i, i, i);
+
 		// restore sp register
 		println("\tmv sp, fp");
 		// restore fp register

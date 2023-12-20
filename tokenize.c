@@ -509,7 +509,7 @@ static void convert_pp_number(struct Token *tok)
 
 	// If it's not an integer, it must be a floating point constant
 	char *end;
-	double val = strtod(tok->loc, &end);
+	long double val = strtold(tok->loc, &end);
 
 	struct Type *ty;
 	if (*end == 'f' || *end == 'F') {
@@ -517,7 +517,7 @@ static void convert_pp_number(struct Token *tok)
 		end++;
 
 	} else if (*end == 'l' || *end == 'L') {
-		ty = p_ty_double();
+		ty = p_ty_ldouble();
 		end++;
 
 	} else {

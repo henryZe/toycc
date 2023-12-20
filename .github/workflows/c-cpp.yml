@@ -8,15 +8,13 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
     - uses: actions/checkout@v3
 
     - name: build env
-      run: sudo apt install gcc-riscv64-linux-gnu;
-           sudo apt install qemu-user;
+      run: sudo apt-get update; sudo apt-get install gcc-riscv64-linux-gnu qemu-user
 
     - name: make clean
       run: make clean

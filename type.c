@@ -67,6 +67,11 @@ static struct Type *ty_double = &(struct Type){
 				.size = sizeof(double),
 				.align = sizeof(double),
 };
+static struct Type *ty_ldouble = &(struct Type){
+				.kind = TY_LDOUBLE,
+				.size = sizeof(long double),
+				.align = sizeof(long double),
+};
 
 struct Type *p_ty_void(void)
 {
@@ -128,6 +133,11 @@ struct Type *p_ty_double(void)
 	return ty_double;
 }
 
+struct Type *p_ty_ldouble(void)
+{
+	return ty_ldouble;
+}
+
 static struct Type *new_type(enum TypeKind kind, int size, int align)
 {
 	struct Type *ty = calloc(1, sizeof(struct Type));
@@ -149,7 +159,15 @@ bool is_integer(struct Type *ty)
 
 bool is_float(struct Type *ty)
 {
-	return ty->kind == TY_FLOAT || ty->kind == TY_DOUBLE;
+	return ty->kind == TY_FLOAT ||
+		ty->kind == TY_DOUBLE ||
+		ty->kind == TY_LDOUBLE;
+}
+
+bool is_float_arg(struct Type *ty)
+{
+	return ty->kind == TY_FLOAT ||
+		ty->kind == TY_DOUBLE;
 }
 
 bool is_struct_union(struct Type *ty)
@@ -185,6 +203,7 @@ bool is_compatible(struct Type *t1, struct Type *t2)
 
 	case TY_FLOAT:
 	case TY_DOUBLE:
+	case TY_LDOUBLE:
 		return true;
 
 	case TY_PTR:
@@ -281,6 +300,8 @@ static struct Type *get_common_type(struct Type *ty1, struct Type *ty2)
 	if (ty2->kind == TY_FUNC)
 		return pointer_to(ty2);
 
+	if (ty1->kind == TY_LDOUBLE || ty2->kind == TY_LDOUBLE)
+		return p_ty_ldouble();
 	if (ty1->kind == TY_DOUBLE || ty2->kind == TY_DOUBLE)
 		return p_ty_double();
 	if (ty1->kind == TY_FLOAT || ty2->kind == TY_FLOAT)
