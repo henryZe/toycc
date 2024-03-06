@@ -1598,8 +1598,26 @@ static void gen_stmt(struct Node *node)
 		gen_expr(node->cond);
 
 		for (struct Node *n = node->case_next; n; n = n->case_next) {
-			println("\tli a1, %ld", n->val);
-			println("\tbeq a0, a1, %s", n->label);
+			if (n->begin == n->end) {
+				println("\tli a1, %ld", n->begin);
+				println("\tbeq a0, a1, %s", n->label);
+				continue;
+			}
+
+			// [GNU] Case ranges
+			debug("case %ld...%ld:", n->begin, n->end);
+			println("\tmv t1, a0");
+			println("\tli t0, %ld", n->begin);
+			// t1 = val - begin
+			println("\tsub t1, t1, t0");
+			// t2 = end - begin
+			println("\tli t2, %ld", n->end - n->begin);
+
+			// If 0 <= val - begin <= end - begin,
+			// then jump into the case label.
+			// Here is unsigned compare, so just check
+			// unsigned (val - begin) <= unsigned (end - begin)
+			println("\tbleu t1, t2, %s", n->label);
 		}
 
 		if (node->default_case)

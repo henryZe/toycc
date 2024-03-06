@@ -227,9 +227,13 @@ struct Node {
 	const char *unique_label;
 	struct Node *goto_next;
 
-	// Switch-cases
+	// Switch
 	struct Node *case_next;
 	struct Node *default_case;
+
+	// Case
+	long begin;
+	long end;
 
 	// "asm" string literal
 	const char *asm_str;
