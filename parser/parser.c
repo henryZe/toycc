@@ -649,8 +649,13 @@ static struct Node *add(struct Token **rest, struct Token *tok)
 	}
 }
 
+// Lists of all goto
+static struct Node *gotos;
+static struct Node *labels;
+
 // unary = ("+" | "-" | "*" | "&" | "!" | "~") cast
 // 	 | ("++" | "--") unary
+// 	 | "&&" ident
 // 	 | postfix
 static struct Node *unary(struct Token **rest, struct Token *tok)
 {
@@ -701,6 +706,17 @@ static struct Node *unary(struct Token **rest, struct Token *tok)
 	if (equal(tok, "--"))
 		return to_assign(new_sub(unary(rest, tok->next),
 					 new_num(1, tok), tok));
+
+	// [GNU] labels-as-values
+	if (equal(tok, "&&")) {
+		struct Node *node = new_node(ND_LABEL_VAL, tok);
+		node->label = get_ident(tok->next);
+		node->goto_next = gotos;
+		gotos = node;
+
+		*rest = tok->next->next;
+		return node;
+	}
 
 	return postfix(rest, tok);
 }
@@ -974,10 +990,6 @@ const char *get_ident(struct Token *tok)
 	return strndup(tok->loc, tok->len);
 }
 
-// Lists of all goto
-static struct Node *gotos;
-static struct Node *labels;
-
 // current "goto" jump target
 static const char *brk_label;
 // current "continue" jump target
@@ -1016,7 +1028,7 @@ static struct Node *asm_stmt(struct Token **rest, struct Token *tok)
 // 	| "while" "(" expr ")" stmt
 // 	| "do" stmt "while" "(" expr ")" ";"
 //	| "asm" asm-stmt
-// 	| "goto" ident ";"
+// 	| "goto" (ident | "*" expr) ";"
 // 	| "break" ";"
 // 	| "continue" ";"
 // 	| ident ":" stmt
@@ -1207,6 +1219,14 @@ static struct Node *stmt(struct Token **rest, struct Token *tok)
 		return asm_stmt(rest, tok);
 
 	if (equal(tok, "goto")) {
+		if (equal(tok->next, "*")) {
+			// [GNU] `goto *ptr` jumps to the address specified by `ptr`.
+			struct Node *node = new_node(ND_GOTO_EXPR, tok);
+			node->lhs = expr(&tok, tok->next->next);
+			*rest = skip(tok, ";");
+			return node;
+		}
+
 		struct Node *node = new_node(ND_GOTO, tok);
 
 		node->label = get_ident(tok->next);
@@ -1277,7 +1297,7 @@ static void create_param_lvars(struct Type *param)
 	}
 }
 
-// This function matches gotos with labels.
+// This function matches gotos or labels-as-values with labels.
 //
 // We cannot resolve gotos as we parse a function because gotos
 // can refer a label that appears later in the function.

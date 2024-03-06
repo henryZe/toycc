@@ -194,7 +194,7 @@ static void designation(struct Token **rest, struct Token *tok, struct Initializ
 			designation(&tok2, tok, init->children[i]);
 
 		// initialize the rest index
-		array_initializer2(rest, tok2, init, begin + 1);
+		array_initializer2(rest, tok2, init, end + 1);
 		return;
 	}
 

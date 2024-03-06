@@ -1289,6 +1289,10 @@ static void gen_expr(struct Node *node)
 		debug("end ND_FUNCALL");
 		return;
 
+	case ND_LABEL_VAL:
+		println("\tla a0, %s", node->unique_label);
+		return;
+
 	default:
 		break;
 	}
@@ -1641,6 +1645,11 @@ static void gen_stmt(struct Node *node)
 
 	case ND_GOTO:
 		println("\tj %s", node->unique_label);
+		return;
+
+	case ND_GOTO_EXPR:
+		gen_expr(node->lhs);
+		println("\tjr a0");
 		return;
 
 	case ND_LABEL:

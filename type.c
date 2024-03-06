@@ -468,6 +468,10 @@ void add_type(struct Node *node)
 		}
 		break;
 
+	case ND_LABEL_VAL:
+		node->ty = pointer_to(ty_void);
+		break;
+
 	default:
 		break;
 	}
