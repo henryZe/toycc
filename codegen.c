@@ -1615,7 +1615,7 @@ static void gen_stmt(struct Node *node)
 
 			// If 0 <= val - begin <= end - begin,
 			// then jump into the case label.
-			// Here is unsigned compare, so just check
+			// Here is unsigned compare, so just check:
 			// unsigned (val - begin) <= unsigned (end - begin)
 			println("\tbleu t1, t2, %s", n->label);
 		}

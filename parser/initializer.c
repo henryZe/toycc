@@ -116,18 +116,26 @@ static void string_initializer(struct Token **rest, struct Token *tok,
 //   struct { int a, b, c; } x = { .c = 5 };
 //
 // The above initializer sets x.c to 5.
-static int array_designator(struct Token **rest, struct Token *tok, struct Type *ty)
+//
+// array-range designator = "[" const-expr ("..." const-expr)? "]"
+static void array_designator(struct Token **rest, struct Token *tok,
+			     struct Type *ty, int *begin, int *end)
 {
-	struct Token *start = tok;
-	// get the index
-	int i = const_expr(&tok, tok->next);
-	if (i >= ty->array_len)
-		error_tok(start, "array designator index exceeds array bounds");
+	*begin = const_expr(&tok, tok->next);
+	if (*begin >= ty->array_len)
+		error_tok(tok, "array designator index exceeds array bounds");
+
+	if (equal(tok, "...")) {
+		*end = const_expr(&tok, tok->next);
+		if (*end >= ty->array_len)
+			error_tok(tok, "array designator index exceeds array bounds");
+		if (*end < *begin)
+			error_tok(tok, "array designator range [%d, %d] is empty", *begin, *end);
+	} else {
+		*end = *begin;
+	}
 
 	*rest = skip(tok, "]");
-
-	// return the index
-	return i;
 }
 
 // struct-designator = "." ident
@@ -178,12 +186,15 @@ static void designation(struct Token **rest, struct Token *tok, struct Initializ
 		if (init->ty->kind != TY_ARRAY)
 			error_tok(tok, "array index in non-array initializer");
 
-		int i = array_designator(&tok, tok, init->ty);
+		int begin, end;
+		array_designator(&tok, tok, init->ty, &begin, &end);
 
-		designation(&tok, tok, init->children[i]);
+		struct Token *tok2;
+		for (int i = begin; i <= end; i++)
+			designation(&tok2, tok, init->children[i]);
 
-		// init following index
-		array_initializer2(rest, tok, init, i + 1);
+		// initialize the rest index
+		array_initializer2(rest, tok2, init, begin + 1);
 		return;
 	}
 
@@ -277,8 +288,14 @@ static void array_initializer1(struct Token **rest, struct Token *tok,
 
 		// there is designator in the array
 		if (equal(tok, "[")) {
-			i = array_designator(&tok, tok, init->ty);
-			designation(&tok, tok, init->children[i]);
+			int begin, end;
+			array_designator(&tok, tok, init->ty, &begin, &end);
+
+			struct Token *tok2;
+			for (int j = begin; j <= end; j++)
+				designation(&tok2, tok, init->children[j]);
+			tok = tok2;
+			i = end;
 			continue;
 		}
 
