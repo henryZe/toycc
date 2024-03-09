@@ -21,6 +21,7 @@ TEST_INCLUDE = -Iinclude -Itest
 HEADERFILES = \
 	toycc.h \
 	type.h \
+	hashmap.h \
 	parser/declarator.h \
 	parser/initializer.h \
 	parser/parser.h \
@@ -31,6 +32,7 @@ SRCFILES = \
 	utils.c \
 	unicode.c \
 	string.c \
+	hashmap.c \
 	tokenize.c \
 	type.c \
 	preprocessor/predefined_macro.c \

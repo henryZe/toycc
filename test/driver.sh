@@ -235,4 +235,7 @@ echo 'void foo(); void bar(); int main() { foo(); bar(); }' > $tmp/main.c
 $cc -o $tmp/foo $tmp/main.c $tmp/foo.so
 check '.so'
 
+$cc -hashmap-test
+check 'hashmap'
+
 echo "${green}OK${reset}"

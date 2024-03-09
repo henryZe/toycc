@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <libgen.h>
 #include <glob.h>
+#include <hashmap.h>
 
 static bool opt_E;
 static bool opt_S;
@@ -229,6 +230,11 @@ static void parse_args(int argc, const char **argv)
 		if (!strcmp(argv[i], "-idirafter")) {
 			strarray_push(&idirafter, argv[i++]);
 			continue;
+		}
+
+		if (!strcmp(argv[i], "-hashmap-test")) {
+			hashmap_test();
+			exit(0);
 		}
 
 		// These options are ignored for now.
