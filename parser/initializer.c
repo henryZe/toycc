@@ -703,7 +703,7 @@ static struct Relocation *write_gvar_data(struct Relocation *cur,
 		return cur;
 	}
 
-	const char *label = NULL;
+	const char **label = NULL;
 	uint64_t val = eval2(init->expr, &label);
 
 	if (!label) {

@@ -1818,7 +1818,7 @@ static void emit_data(struct Obj *prog)
 			while (pos < var->ty->size) {
 				if (rel && rel->offset == pos) {
 					// declare as a pointer
-					println("\t.quad %s+%ld", rel->label, rel->addend);
+					println("\t.quad %s+%ld", *rel->label, rel->addend);
 					rel = rel->next;
 					pos += sizeof(long);
 				} else {

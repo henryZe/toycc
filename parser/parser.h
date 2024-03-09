@@ -7,7 +7,7 @@
 bool consume_end(struct Token **rest, struct Token *tok);
 
 int64_t eval(struct Node *node);
-int64_t eval2(struct Node *node, const char **label);
+int64_t eval2(struct Node *node, const char ***label);
 double eval_double(struct Node *node);
 
 struct Node *new_node(enum NodeKind kind, struct Token *tok);

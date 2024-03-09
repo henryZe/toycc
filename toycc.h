@@ -256,7 +256,7 @@ struct Node {
 struct Relocation {
 	struct Relocation *next;
 	int offset;
-	const char *label;
+	const char **label;
 	long addend;
 };
 

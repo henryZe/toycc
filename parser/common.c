@@ -16,7 +16,7 @@ bool consume_end(struct Token **rest, struct Token *tok)
 	return false;
 }
 
-static int64_t eval_rval(struct Node *node, const char **label)
+static int64_t eval_rval(struct Node *node, const char ***label)
 {
 	switch (node->kind) {
 		case ND_VAR:
@@ -24,7 +24,7 @@ static int64_t eval_rval(struct Node *node, const char **label)
 				error_tok(node->tok, "not a compile-time constant");
 
 			// return variable name
-			*label = node->var->name;
+			*label = &node->var->name;
 			return 0;
 
 		case ND_DEREF:
@@ -46,7 +46,7 @@ static int64_t eval_rval(struct Node *node, const char **label)
 // n is a positive/negative number.
 // The latter form is accepted only as an initialization
 // expression for a global variable.
-int64_t eval2(struct Node *node, const char **label)
+int64_t eval2(struct Node *node, const char ***label)
 {
 	add_type(node);
 
@@ -154,6 +154,10 @@ int64_t eval2(struct Node *node, const char **label)
 		// return label
 		return eval_rval(node->lhs, label);
 
+	case ND_LABEL_VAL:
+		*label = &node->unique_label;
+		return 0;
+
 	case ND_MEMBER:
 		if (!label)
 			error_tok(node->tok, "not a compile-time constant");
@@ -170,7 +174,7 @@ int64_t eval2(struct Node *node, const char **label)
 			error_tok(node->tok, "invalid initializer");
 
 		// return label
-		*label = node->var->name;
+		*label = &node->var->name;
 		return 0;
 
 	case ND_NUM:
