@@ -22,6 +22,7 @@
 // https://github.com/rui314/chibicc/wiki/cpp.algo.pdf
 
 #include <toycc.h>
+#include <hashmap.h>
 #include <preprocessor.h>
 #include <type.h>
 #include <libgen.h>
@@ -48,7 +49,7 @@ struct CondIncl {
 	bool included;
 };
 
-static struct Macro *macros;
+static struct HashMap macros;
 static struct CondIncl *cond_incl;
 
 static bool is_hash(struct Token *tok)
@@ -265,12 +266,7 @@ static struct Macro *find_macro(struct Token *tok)
 	if (tok->kind != TK_IDENT)
 		return NULL;
 
-	for (struct Macro *m = macros; m; m = m->next)
-		if (strlen(m->name) == tok->len &&
-		   !strncmp(m->name, tok->loc, tok->len))
-			return m->deleted ? NULL : m;
-
-	return NULL;
+	return hashmap_get2(&macros, tok->loc, tok->len);
 }
 
 static struct Hideset *new_hideset(const char *name)
@@ -756,14 +752,17 @@ struct Macro *add_macro(const char *name, bool is_objlike, struct Token *body)
 {
 	struct Macro *m = calloc(1, sizeof(struct Macro));
 
-	m->next = macros;
 	m->name = name;
 	m->is_objlike = is_objlike;
 	m->body = body;
-	m->deleted = false;
 
-	macros = m;
+	hashmap_put(&macros, name, m);
 	return m;
+}
+
+void undef_macro(const char *name)
+{
+	hashmap_delete(&macros, name);
 }
 
 static struct MacroParam *read_macro_params(struct Token **rest,

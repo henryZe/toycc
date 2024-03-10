@@ -4,13 +4,11 @@
 typedef struct Token *macro_handler_fn(struct Token *);
 
 struct Macro {
-	struct Macro *next;
 	const char *name;
 	bool is_objlike;		// object-like or function-like
 	struct MacroParam *params;
 	const char *va_args_name;
 	struct Token *body;
-	bool deleted;			// used for #undef
         macro_handler_fn *handler;
 };
 

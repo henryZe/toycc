@@ -9,12 +9,6 @@ void define_macro(const char *name, const char *buf)
 	add_macro(name, true, tok);
 }
 
-void undef_macro(const char *name)
-{
-	struct Macro *m = add_macro(name, true, NULL);
-	m->deleted = true;
-}
-
 static struct Macro *add_builtin(const char *name, macro_handler_fn *fn)
 {
 	struct Macro *m = add_macro(name, true, NULL);
