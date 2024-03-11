@@ -47,19 +47,22 @@ void leave_scope(void)
 
 struct VarScope *find_var(struct Token *tok)
 {
-	for (struct Scope *sc = scope; sc; sc = sc->next)
-		for (struct VarScope *vars = sc->vars; vars; vars = vars->next)
-			if (equal(tok, vars->name))
-				return vars;
+	for (struct Scope *sc = scope; sc; sc = sc->next) {
+		struct VarScope *sc2 = hashmap_get2(&sc->vars, tok->loc, tok->len);
+		if (sc2)
+			return sc2;
+	}
+
 	return NULL;
 }
 
 struct Type *find_tag(struct Token *tok)
 {
-	for (struct Scope *sc = scope; sc; sc = sc->next)
-		for (struct TagScope *tag = sc->tags; tag; tag = tag->next)
-			if (equal(tok, tag->name))
-				return tag->ty;
+	for (struct Scope *sc = scope; sc; sc = sc->next) {
+		struct Type *ty = hashmap_get2(&sc->tags, tok->loc, tok->len);
+		if (ty)
+			return ty;
+	}
 	return NULL;
 }
 
@@ -71,44 +74,32 @@ struct Obj *find_func(const char *name)
 	while (sc->next)
 		sc = sc->next;
 
-	for (struct VarScope *sc2 = sc->vars; sc2; sc2 = sc2->next)
-		if (sc2->var && sc2->var->is_function && !strcmp(sc2->name, name))
-			return sc2->var;
+	struct VarScope *sc2 = hashmap_get(&sc->vars, name);
+	if (sc2 && sc2->var && sc2->var->is_function)
+		return sc2->var;
 
 	return NULL;
 }
 
 struct Type *overwrite_tag(struct Token *tag, struct Type *ty)
 {
-	for (struct TagScope *sc = scope->tags; sc; sc = sc->next) {
-		if (equal(tag, sc->name)) {
-			*sc->ty = *ty;
-			return sc->ty;
-		}
-	}
+	struct Type *ty2 = hashmap_get2(&scope->tags, tag->loc, tag->len);
+	if (ty2)
+		*ty2 = *ty;
 
-	return NULL;
+	return ty2;
 }
 
 void push_tag_scope(struct Token *tok, struct Type *ty)
 {
-	struct TagScope *sc = calloc(1, sizeof(struct TagScope));
-
-	sc->name = strndup(tok->loc, tok->len);
-	sc->ty = ty;
-	sc->next = scope->tags;
-
-	scope->tags = sc;
+	hashmap_put2(&scope->tags, tok->loc, tok->len, ty);
 }
 
 struct VarScope *push_scope(const char *name)
 {
 	struct VarScope *sc = calloc(1, sizeof(struct VarScope));
 
-	sc->name = name;
-	sc->next = scope->vars;
-
-	scope->vars = sc;
+	hashmap_put(&scope->vars, name, sc);
 	return sc;
 }
 
