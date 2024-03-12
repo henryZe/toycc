@@ -1,5 +1,6 @@
 #include <toycc.h>
 #include <type.h>
+#include <hashmap.h>
 
 // input file
 static struct File *current_file;
@@ -121,6 +122,7 @@ static int read_ident(const char *start)
 
 static bool is_keyword(struct Token *tok)
 {
+	static struct HashMap map;
 	static const char * const kw[] = {
 		"return",
 		"if",
@@ -167,10 +169,12 @@ static bool is_keyword(struct Token *tok)
 		"__thread",
 	};
 
-	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
-		if (equal(tok, kw[i]))
-			return true;
-	return false;
+	if (map.capacity == 0) {
+		for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
+			hashmap_put(&map, kw[i], (void *)1);
+	}
+
+	return hashmap_get2(&map, tok->loc, tok->len);
 }
 
 static bool isodigit(char c)

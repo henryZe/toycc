@@ -321,6 +321,7 @@ static struct Type *find_typedef(struct Token *tok)
 // Returns true if a given token represents a type.
 bool is_typename(struct Token *tok)
 {
+	static struct HashMap map;
 	static const char * const kw[] = {
 		"void",
 		"_Bool",
@@ -353,11 +354,12 @@ bool is_typename(struct Token *tok)
 		"__thread",
 	};
 
-	for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
-		if (equal(tok, kw[i]))
-			return true;
+	if (map.capacity == 0) {
+		for (size_t i = 0; i < ARRAY_SIZE(kw); i++)
+			hashmap_put(&map, kw[i], (void *)1);
+	}
 
-	return find_typedef(tok);
+	return hashmap_get2(&map, tok->loc, tok->len) || find_typedef(tok);
 }
 
 // typeof-specifier = "(" (expr | typename) ")"
