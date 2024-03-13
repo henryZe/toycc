@@ -7,6 +7,7 @@
 #include <hashmap.h>
 
 static bool opt_E;
+static bool opt_M;
 static bool opt_S;
 static bool opt_c;
 static bool opt_cc1;
@@ -217,6 +218,11 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
+		if (!strcmp(argv[i], "-M")) {
+			opt_M = true;
+			continue;
+		}
+
 		if (!strcmp(argv[i], "-cc1-input")) {
 			base_file = argv[++i];
 			continue;
@@ -374,6 +380,32 @@ static struct Token *append_tokens(struct Token *tok1, struct Token *tok2)
 	return tok1;
 }
 
+// Replace file extension
+static const char *replace_extn(const char *tmpl, const char *extn)
+{
+	const char *filename = basename(strdup(tmpl));
+	char *dot = strrchr(filename, '.');
+
+	if (dot)
+		*dot = '\0';
+	return format("%s%s", filename, extn);
+}
+
+// If -M options is given, the compiler write a list of input files to
+// stdout in a format that "make" command can read.
+// This feature is used to automate file dependency management.
+static void print_dependencies(void)
+{
+	FILE *out = open_file(opt_o ? opt_o : "-");
+	fprintf(out, "%s:", replace_extn(base_file, ".o"));
+
+	struct File **files = get_input_files();
+
+	for (int i = 0; files[i]; i++)
+		fprintf(out, " \\\n%s", files[i]->name);
+	fprintf(out, "\n");
+}
+
 static void cc1(void)
 {
 	struct Token *tok = NULL;
@@ -405,6 +437,12 @@ static void cc1(void)
 
 	tok = preprocessor(tok);
 
+	// If -M is given, print file dependencies.
+	if (opt_M) {
+		print_dependencies();
+		return;
+	}
+
 	// if -E is given, print out preprocessed C code as a result.
 	if (opt_E) {
 		print_tokens(tok);
@@ -433,17 +471,6 @@ static void cleanup(void)
 	for (int i = 0; i < tmpfiles.len; i++)
 		// only remove the temp files
 		unlink(tmpfiles.data[i]);
-}
-
-// Replace file extension
-static const char *replace_extn(const char *tmpl, const char *extn)
-{
-	const char *filename = basename(strdup(tmpl));
-	char *dot = strrchr(filename, '.');
-
-	if (dot)
-		*dot = '\0';
-	return format("%s%s", filename, extn);
 }
 
 static const char *create_tmpfile(void)
@@ -674,7 +701,7 @@ int main(int argc, const char **argv)
 		assert(type == FILE_C);
 
 		// just preprocess
-		if (opt_E) {
+		if (opt_E || opt_M) {
 			run_cc1(argc, argv, input, NULL);
 			continue;
 		}
