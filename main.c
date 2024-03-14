@@ -15,6 +15,7 @@ static bool opt_cc1;
 static bool opt_hash_hash_hash;
 
 static const char *opt_MF;
+static const char *opt_MT;
 static const char *opt_o;
 static const char *output_file;
 static const char *base_file;
@@ -69,6 +70,7 @@ static bool take_arg(const char *arg)
 		"-include",
 		"-x",
 		"-MF",
+		"-MT",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(x); i++)
@@ -233,6 +235,15 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-MP")) {
 			opt_MP = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-MT")) {
+			if (opt_MT == NULL)
+				opt_MT = argv[++i];
+			else
+				// expand
+				opt_MT = format("%s %s", opt_MT, argv[++i]);
 			continue;
 		}
 
@@ -418,8 +429,7 @@ static void print_dependencies(void)
 		path = "-";
 
 	FILE *out = open_file(path);
-
-	fprintf(out, "%s:", replace_extn(base_file, ".o"));
+	fprintf(out, "%s:", opt_MT ? opt_MT : replace_extn(base_file, ".o"));
 
 	struct File **files = get_input_files();
 

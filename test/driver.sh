@@ -257,4 +257,10 @@ check -MP
 grep -q '^.*/out3.h:' $tmp/mp
 check -MP
 
+# -MT
+$cc -MT foo -M -I$tmp $tmp/out.c | grep -q '^foo:'
+check -MT
+$cc -MT foo -MT bar -M -I$tmp $tmp/out.c | grep -q '^foo bar:'
+check -MT
+
 echo "${green}OK${reset}"
