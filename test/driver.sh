@@ -245,4 +245,9 @@ touch $tmp/out2.h $tmp/out3.h
 $cc -M -I$tmp $tmp/out.c | grep -q -z '^out.o: .*/out\.c .*/out2\.h .*/out3\.h'
 check -M
 
+# -MF
+$cc -MF $tmp/mf -M -I$tmp $tmp/out.c
+grep -q -z '^out.o: .*/out\.c .*/out2\.h .*/out3\.h' $tmp/mf
+check -MF
+
 echo "${green}OK${reset}"
