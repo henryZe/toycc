@@ -9,6 +9,7 @@
 static bool opt_E;
 static bool opt_M;
 static bool opt_MD;
+static bool opt_MMD;
 static bool opt_MP;
 static bool opt_S;
 static bool opt_c;
@@ -26,6 +27,7 @@ static struct StringArray tmpfiles;
 static struct StringArray include_paths;
 static struct StringArray opt_include;
 static struct StringArray ld_extra_args;
+static struct StringArray std_include_paths;
 
 static bool opt_fcommon = true;
 
@@ -297,6 +299,11 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
+		if (!strcmp(argv[i], "-MMD")) {
+			opt_MD = opt_MMD = true;
+			continue;
+		}
+
 		if (!strcmp(argv[i], "-cc1-input")) {
 			base_file = argv[++i];
 			continue;
@@ -465,6 +472,17 @@ static const char *replace_extn(const char *tmpl, const char *extn)
 	return format("%s%s", filename, extn);
 }
 
+static bool in_std_include_path(const char *path)
+{
+	for (int i = 0; i < std_include_paths.len; i++) {
+		const char *dir = std_include_paths.data[i];
+		int len = strlen(dir);
+		if (strncmp(dir, path, len) == 0 && path[len] == '/')
+			return true;
+	}
+	return false;
+}
+
 // If -M options is given, the compiler write a list of input files to
 // stdout in a format that "make" command can read.
 // This feature is used to automate file dependency management.
@@ -488,8 +506,11 @@ static void print_dependencies(void)
 
 	struct File **files = get_input_files();
 
-	for (int i = 0; files[i]; i++)
+	for (int i = 0; files[i]; i++) {
+		if (opt_MMD && in_std_include_path(files[i]->name))
+			continue;
 		fprintf(out, " \\\n\t%s", files[i]->name);
+	}
 	fprintf(out, "\n");
 
 	if (opt_MP)
@@ -714,6 +735,10 @@ static void add_default_include_paths(const char *argv0)
 	strarray_push(&include_paths, "/usr/local/include");
 	strarray_push(&include_paths, "/usr/riscv64-linux-gnu/include");
 	strarray_push(&include_paths, "/usr/include");
+
+	// Keep a copy of the standard include paths for -MMD option.
+	for (int i = 0; i < include_paths.len; i++)
+		strarray_push(&std_include_paths, include_paths.data[i]);
 }
 
 static enum FileType get_file_type(const char *filename)
