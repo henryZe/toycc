@@ -105,6 +105,40 @@ static enum FileType parse_opt_x(const char *s)
 	error("<command line>: unknown argument for -x: %s", s);
 }
 
+// Generate dependency in Makefile syntax, be like:
+// $(obj)foo.o -> $$(obj)foo.o
+static const char *quote_makefile(const char *s)
+{
+	char *buf = calloc(1, strlen(s) * 2 + 1);
+
+	for (int i = 0, j = 0; s[i]; i++) {
+		switch (s[i]) {
+		case '$':
+			buf[j++] = '$';
+			buf[j++] = '$';
+			break;
+
+		case '#':
+			buf[j++] = '\\';
+			buf[j++] = '#';
+			break;
+
+		case ' ':
+		case '\t':
+			for (int k = i - 1; k >= 0 && s[k] == '\\'; k--)
+				buf[j++] = '\\';
+			buf[j++] = '\\';
+			buf[j++] = s[i];
+			break;
+
+		default:
+			buf[j++] = s[i];
+			break;
+		}
+	}
+	return (const char *)buf;
+}
+
 static void parse_args(int argc, const char **argv)
 {
 	int i;
@@ -250,6 +284,16 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-MD")) {
 			opt_MD = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-MQ")) {
+			if (opt_MT == NULL)
+				opt_MT = quote_makefile(argv[++i]);
+			else
+				// expand -MT option
+				opt_MT = format("%s %s", opt_MT,
+						quote_makefile(argv[++i]));
 			continue;
 		}
 
@@ -437,7 +481,10 @@ static void print_dependencies(void)
 		path = "-";
 
 	FILE *out = open_file(path);
-	fprintf(out, "%s:", opt_MT ? opt_MT : replace_extn(base_file, ".o"));
+	if (opt_MT)
+		fprintf(out, "%s:", opt_MT);
+	else
+		fprintf(out, "%s:", quote_makefile(replace_extn(base_file, ".o")));
 
 	struct File **files = get_input_files();
 
@@ -447,7 +494,7 @@ static void print_dependencies(void)
 
 	if (opt_MP)
 		for (int i = 1; files[i]; i++)
-			fprintf(out, "%s:\n\n", files[i]->name);
+			fprintf(out, "%s:\n\n", quote_makefile(files[i]->name));
 }
 
 static void cc1(void)
