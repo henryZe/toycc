@@ -220,6 +220,16 @@ static void pseudo_addressing(const char *symbol)
 	println("\tla a0, %s", symbol);
 }
 
+static void TLS_relative_addressing(const char *symbol)
+{
+	int c = count();
+	println(".L.pcrel%d:", c);
+
+	println("\tauipc a0, %%tls_gd_pcrel_hi(%s)", symbol);
+	println("\taddi a0, a0, %%pcrel_lo(.L.pcrel%d)", c);
+	println("\tcall __tls_get_addr@plt");
+}
+
 // Compute the absolute address of a given node.
 // It's an error if a given node does not reside in memory.
 static void gen_addr(struct Node *node)
@@ -243,6 +253,18 @@ static void gen_addr(struct Node *node)
 				println("\tadd a0, fp, %d", node->var->offset);
 			}
 			break;
+		}
+
+		if (get_opt_fpic()) {
+			// Thread-local variable from TLS table
+			if (node->var->is_tls) {
+				TLS_relative_addressing(node->var->name);
+				return;
+			}
+
+			// Function or global variable from GOT table
+			GOT_relative_addressing(node->var->name);
+			return;
 		}
 
 		// Thread-local variable

@@ -278,4 +278,11 @@ check -MD
 grep -q -z '^md2.o: .*md2\.c .*./out2\.h' $tmp/md-mf.d
 check -MD
 
+echo 'extern int bar; int foo() { return bar; }' | $cc -fPIC -xc -c -o $tmp/foo.o -
+check -fPIC
+$cross_toolchain'gcc' -shared -o $tmp/foo.so $tmp/foo.o
+echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/main.c
+$cc -o $tmp/foo $tmp/main.c $tmp/foo.so
+check -fPIC
+
 echo "${green}OK${reset}"

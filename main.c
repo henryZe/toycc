@@ -30,6 +30,7 @@ static struct StringArray ld_extra_args;
 static struct StringArray std_include_paths;
 
 static bool opt_fcommon = true;
+static bool opt_fpic;
 
 enum FileType {
 	FILE_NONE,
@@ -56,6 +57,11 @@ const struct StringArray *get_include_paths(void)
 bool get_opt_fcommon(void)
 {
 	return opt_fcommon;
+}
+
+bool get_opt_fpic(void)
+{
+	return opt_fpic;
 }
 
 static void usage(int status)
@@ -301,6 +307,11 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-MMD")) {
 			opt_MD = opt_MMD = true;
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-fpic") || !strcmp(argv[i], "-fPIC")) {
+			opt_fpic = true;
 			continue;
 		}
 

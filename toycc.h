@@ -29,6 +29,7 @@
 const char *get_base_file(void);
 const struct StringArray *get_include_paths(void);
 bool get_opt_fcommon(void);
+bool get_opt_fpic(void);
 
 // tokenize.c
 enum TokenKind {
