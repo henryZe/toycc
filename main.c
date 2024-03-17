@@ -8,6 +8,7 @@
 
 static bool opt_E;
 static bool opt_M;
+static bool opt_MD;
 static bool opt_MP;
 static bool opt_S;
 static bool opt_c;
@@ -247,6 +248,11 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
+		if (!strcmp(argv[i], "-MD")) {
+			opt_MD = true;
+			continue;
+		}
+
 		if (!strcmp(argv[i], "-cc1-input")) {
 			base_file = argv[++i];
 			continue;
@@ -423,6 +429,8 @@ static void print_dependencies(void)
 	const char *path;
 	if (opt_MF)
 		path = opt_MF;
+	else if (opt_MD)
+		path = replace_extn(opt_o ? opt_o : base_file, ".d");
 	else if (opt_o)
 		path = opt_o;
 	else
@@ -434,8 +442,8 @@ static void print_dependencies(void)
 	struct File **files = get_input_files();
 
 	for (int i = 0; files[i]; i++)
-		fprintf(out, " \\\n%s", files[i]->name);
-	fprintf(out, "\n\n");
+		fprintf(out, " \\\n\t%s", files[i]->name);
+	fprintf(out, "\n");
 
 	if (opt_MP)
 		for (int i = 1; files[i]; i++)
@@ -473,10 +481,12 @@ static void cc1(void)
 
 	tok = preprocessor(tok);
 
-	// If -M is given, print file dependencies.
-	if (opt_M) {
+	// If -M or -MD are given, print file dependencies.
+	if (opt_M || opt_MD) {
 		print_dependencies();
-		return;
+		if (opt_M)
+			return;
+		// else continue to generate target file
 	}
 
 	// if -E is given, print out preprocessed C code as a result.

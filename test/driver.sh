@@ -263,4 +263,19 @@ check -MT
 $cc -MT foo -MT bar -M -I$tmp $tmp/out.c | grep -q '^foo bar:'
 check -MT
 
+# -MD
+echo '#include "out2.h"' > $tmp/md2.c
+echo '#include "out3.h"' > $tmp/md3.c
+(cd $tmp; $OLDPWD/$cc -c -MD -I. md2.c md3.c)
+grep -q -z '^md2.o: .*md2\.c .*./out2\.h' $tmp/md2.d
+check -MD
+grep -q -z '^md3.o: .*md3\.c .*./out3\.h' $tmp/md3.d
+check -MD
+[ -f $tmp/md2.o ] && [ -f $tmp/md3.o ]
+check -MD
+
+(cd $tmp; $OLDPWD/$cc -c -MD -MF md-mf.d -I. md2.c)
+grep -q -z '^md2.o: .*md2\.c .*./out2\.h' $tmp/md-mf.d
+check -MD
+
 echo "${green}OK${reset}"
