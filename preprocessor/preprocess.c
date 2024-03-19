@@ -51,6 +51,7 @@ struct CondIncl {
 
 static struct HashMap macros;
 static struct CondIncl *cond_incl;
+static struct HashMap pragma_once;
 
 static bool is_hash(struct Token *tok)
 {
@@ -925,6 +926,10 @@ static const char *detect_include_guard(struct Token *tok)
 static struct Token *include_file(struct Token *tok, const char *path,
 				  struct Token *filename_tok)
 {
+	// Check for "#pragma once"
+	if (hashmap_get(&pragma_once, path))
+		return tok;
+
 	// If we read the same file before, and if the file was guarded
 	// by the usual #ifndef ... #endif pattern, we may be able to
 	// skip the file without opening it.
@@ -1125,6 +1130,13 @@ static struct Token *preprocess2(struct Token *tok)
 
 		if (tok->kind == TK_PP_NUM) {
 			read_line_marker(&tok, tok);
+			continue;
+		}
+
+		if (equal(tok, "pragma") && equal(tok->next, "once")) {
+			// put current file name into pragma_once
+			hashmap_put(&pragma_once, tok->file->name, (void *)1);
+			tok = skip_line(tok->next->next);
 			continue;
 		}
 
