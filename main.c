@@ -15,6 +15,7 @@ static bool opt_S;
 static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
+static bool opt_static;
 
 static const char *opt_MF;
 static const char *opt_MT;
@@ -261,11 +262,6 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
-		if (!strcmp(argv[i], "-static")) {
-			strarray_push(&ld_extra_args, "-static");
-			continue;
-		}
-
 		if (!strcmp(argv[i], "-M")) {
 			opt_M = true;
 			continue;
@@ -327,6 +323,13 @@ static void parse_args(int argc, const char **argv)
 
 		if (!strcmp(argv[i], "-idirafter")) {
 			strarray_push(&idirafter, argv[i++]);
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-static")) {
+			// static link
+			opt_static = true;
+			strarray_push(&ld_extra_args, "-static");
 			continue;
 		}
 
@@ -695,12 +698,6 @@ static void run_linker(struct StringArray *inputs, const char *output)
 	const char *libpath = find_libpath();
 	const char *gcc_libpath = find_gcc_libpath();
 
-	// static link
-	// strarray_push(&arr, "-static");
-	// dynamic link as default
-	strarray_push(&arr, "-dynamic-linker");
-	strarray_push(&arr, format("%s/ld-linux-riscv64-lp64d.so.1", libpath));
-
 	// boot code of C language
 	strarray_push(&arr, format("%s/crt1.o", libpath));
 	strarray_push(&arr, format("%s/crti.o", libpath));
@@ -709,6 +706,11 @@ static void run_linker(struct StringArray *inputs, const char *output)
 	// specify the lib paths
 	strarray_push(&arr, format("-L%s", gcc_libpath));
 	strarray_push(&arr, format("-L%s", libpath));
+	if (!opt_static) {
+		// dynamic link
+		strarray_push(&arr, "-dynamic-linker");
+		strarray_push(&arr, format("%s/ld-linux-riscv64-lp64d.so.1", libpath));
+	}
 
 	for (int i = 0; i < ld_extra_args.len; i++)
 		strarray_push(&arr, ld_extra_args.data[i]);
@@ -717,16 +719,19 @@ static void run_linker(struct StringArray *inputs, const char *output)
 		strarray_push(&arr, inputs->data[i]);
 
 	// link libs in the order
-	strarray_push(&arr, "--start-group");
-	strarray_push(&arr, "-lgcc");		// libgcc.{a, so}
-	strarray_push(&arr, "-lgcc_eh");	// libgcc_eh.a
-	strarray_push(&arr, "-lc");		// libc.{a, so}
-	strarray_push(&arr, "--end-group");
-
-	// only link when the lib is needed for dynamic-link
-	// strarray_push(&arr, "--as-needed");
-	// strarray_push(&arr, "-lgcc_s");	// libgcc_s.so
-	// strarray_push(&arr, "--no-as-needed");
+	if (opt_static) {
+		strarray_push(&arr, "--start-group");
+		strarray_push(&arr, "-lgcc");		// libgcc.{a, so}
+		strarray_push(&arr, "-lgcc_eh");	// libgcc_eh.a
+		strarray_push(&arr, "-lc");		// libc.{a, so}
+		strarray_push(&arr, "--end-group");
+	} else {
+		strarray_push(&arr, "-lc");		// libc.{a, so}
+		strarray_push(&arr, "-lgcc");		// libgcc.{a, so}
+		strarray_push(&arr, "--as-needed");
+		strarray_push(&arr, "-lgcc_s");		// libgcc_s.so
+		strarray_push(&arr, "--no-as-needed");
+	}
 
 	strarray_push(&arr, format("%s/crtend.o", gcc_libpath));
 	strarray_push(&arr, format("%s/crtn.o", libpath));
