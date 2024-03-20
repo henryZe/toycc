@@ -16,6 +16,7 @@ static bool opt_c;
 static bool opt_cc1;
 static bool opt_hash_hash_hash;
 static bool opt_static;
+static bool opt_shared;
 
 static const char *opt_MF;
 static const char *opt_MT;
@@ -330,6 +331,12 @@ static void parse_args(int argc, const char **argv)
 			// static link
 			opt_static = true;
 			strarray_push(&ld_extra_args, "-static");
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-shared")) {
+			opt_shared = true;
+			strarray_push(&ld_extra_args, "-shared");
 			continue;
 		}
 
@@ -699,9 +706,14 @@ static void run_linker(struct StringArray *inputs, const char *output)
 	const char *gcc_libpath = find_gcc_libpath();
 
 	// boot code of C language
-	strarray_push(&arr, format("%s/crt1.o", libpath));
-	strarray_push(&arr, format("%s/crti.o", libpath));
-	strarray_push(&arr, format("%s/crtbeginT.o", gcc_libpath));
+	if (opt_shared) {
+		strarray_push(&arr, format("%s/crti.o", libpath));
+		strarray_push(&arr, format("%s/crtbeginS.o", gcc_libpath));
+	} else {
+		strarray_push(&arr, format("%s/crt1.o", libpath));
+		strarray_push(&arr, format("%s/crti.o", libpath));
+		strarray_push(&arr, format("%s/crtbeginT.o", gcc_libpath));
+	}
 
 	// specify the lib paths
 	strarray_push(&arr, format("-L%s", gcc_libpath));
@@ -733,7 +745,10 @@ static void run_linker(struct StringArray *inputs, const char *output)
 		strarray_push(&arr, "--no-as-needed");
 	}
 
-	strarray_push(&arr, format("%s/crtend.o", gcc_libpath));
+	if (opt_shared)
+		strarray_push(&arr, format("%s/crtendS.o", gcc_libpath));
+	else
+		strarray_push(&arr, format("%s/crtend.o", gcc_libpath));
 	strarray_push(&arr, format("%s/crtn.o", libpath));
 
 	strarray_push(&arr, NULL);
