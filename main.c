@@ -335,8 +335,23 @@ static void parse_args(int argc, const char **argv)
 		}
 
 		if (!strcmp(argv[i], "-shared")) {
+			// shared lib
 			opt_shared = true;
 			strarray_push(&ld_extra_args, "-shared");
+			continue;
+		}
+
+		// -L lib_dir
+		if (!strcmp(argv[i], "-L")) {
+			strarray_push(&ld_extra_args, "-L");
+			strarray_push(&ld_extra_args, argv[++i]);
+			continue;
+		}
+
+		// -Llib_dir
+		if (!strncmp(argv[i], "-L", 2)) {
+			strarray_push(&ld_extra_args, "-L");
+			strarray_push(&ld_extra_args, argv[i] + 2);
 			continue;
 		}
 
@@ -719,7 +734,7 @@ static void run_linker(struct StringArray *inputs, const char *output)
 	strarray_push(&arr, format("-L%s", gcc_libpath));
 	strarray_push(&arr, format("-L%s", libpath));
 	if (!opt_static) {
-		// dynamic link
+		// dynamic link as default
 		strarray_push(&arr, "-dynamic-linker");
 		strarray_push(&arr, format("%s/ld-linux-riscv64-lp64d.so.1", libpath));
 	}

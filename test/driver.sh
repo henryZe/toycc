@@ -306,6 +306,16 @@ check -static
 echo 'extern int bar; int foo() { return bar; }' > $tmp/foo.c
 echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/bar.c
 $cc -fPIC -shared -o $tmp/foo.so $tmp/foo.c $tmp/bar.c
+file $tmp/foo.so | grep -q 'shared object'
 check -shared
+
+# -L
+echo 'extern int bar; int foo() { return bar; }' > $tmp/foo.c
+$cc -fPIC -shared -o $tmp/libfoobar.so $tmp/foo.c
+echo 'int foo(); int bar=3; int main() { foo(); }' > $tmp/bar.c
+$cc -o $tmp/foo $tmp/bar.c -L$tmp -lfoobar
+check -L
+file $tmp/foo | grep -q 'dynamically linked'
+check -L
 
 echo "${green}OK${reset}"
