@@ -52,6 +52,7 @@ struct CondIncl {
 static struct HashMap macros;
 static struct CondIncl *cond_incl;
 static struct HashMap pragma_once;
+static int include_next_idx;
 
 static bool is_hash(struct Token *tok)
 {
@@ -968,7 +969,20 @@ const char *search_include_paths(const char *filename)
 			continue;
 
 		hashmap_put(&cache, filename, (void *)path);
+		include_next_idx = i + 1;
 		return path;
+	}
+	return NULL;
+}
+
+static const char *search_include_next(const char *filename)
+{
+	for (; include_next_idx < get_include_paths()->len; include_next_idx++) {
+		const char *path = format("%s/%s",
+					   get_include_paths()->data[include_next_idx],
+					   filename);
+		if (file_exists(path))
+			return path;
 	}
 	return NULL;
 }
@@ -1036,6 +1050,15 @@ static struct Token *preprocess2(struct Token *tok)
 			}
 
 			const char *path = search_include_paths(filename);
+			tok = include_file(tok, path ? path : filename, start->next->next);
+			continue;
+		}
+
+		if (equal(tok, "include_next")) {
+			bool ignore;
+			const char *filename = read_include_filename(&tok, tok->next, &ignore);
+			const char *path = search_include_next(filename);
+
 			tok = include_file(tok, path ? path : filename, start->next->next);
 			continue;
 		}
