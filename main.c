@@ -82,6 +82,7 @@ static bool take_arg(const char *arg)
 		"-x",
 		"-MF",
 		"-MT",
+		"-Xlinker",
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(x); i++)
@@ -256,6 +257,11 @@ static void parse_args(int argc, const char **argv)
 		if (!strncmp(argv[i], "-l", 2) ||
 		    !strncmp(argv[i], "-Wl,", 4)) {
 			strarray_push(&input_paths, argv[i]);
+			continue;
+		}
+
+		if (!strcmp(argv[i], "-Xlinker")) {
+			strarray_push(&ld_extra_args, argv[++i]);
 			continue;
 		}
 
