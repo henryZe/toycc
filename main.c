@@ -253,7 +253,8 @@ static void parse_args(int argc, const char **argv)
 			continue;
 		}
 
-		if (!strncmp(argv[i], "-l", 2)) {
+		if (!strncmp(argv[i], "-l", 2) ||
+		    !strncmp(argv[i], "-Wl,", 4)) {
 			strarray_push(&input_paths, argv[i]);
 			continue;
 		}
@@ -833,6 +834,17 @@ int main(int argc, const char **argv)
 
 		if (!strncmp(input, "-l", 2)) {
 			strarray_push(&ld_args, input);
+			continue;
+		}
+
+		if (!strncmp(input, "-Wl,", 4)) {
+			char *s = strdup(input + 4);
+			const char *arg = strtok(s, ",");
+
+			while (arg) {
+				strarray_push(&ld_args, arg);
+				arg = strtok(NULL, ",");
+			}
 			continue;
 		}
 

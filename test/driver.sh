@@ -318,4 +318,11 @@ check -L
 file $tmp/foo | grep -q 'dynamically linked'
 check -L
 
+# -Wl,
+echo 'int foo() {}' | $cc -c -o $tmp/foo.o -xc -
+echo 'int foo() {}' | $cc -c -o $tmp/bar.o -xc -
+echo 'int main() {}' | $cc -c -o $tmp/baz.o -xc -
+$cc -Wl,-z,muldefs,--gc-sections -o $tmp/foo $tmp/foo.o $tmp/bar.o $tmp/baz.o
+check -Wl,
+
 echo "${green}OK${reset}"
