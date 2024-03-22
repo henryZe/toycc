@@ -824,10 +824,10 @@ int main(int argc, const char **argv)
 
 	atexit(cleanup);
 	init_macros();
+	add_default_include_paths(argv[0]);
 	parse_args(argc, argv);
 
 	if (opt_cc1) {
-		add_default_include_paths(argv[0]);
 		cc1();
 		return 0;
 	}

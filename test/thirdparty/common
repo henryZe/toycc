@@ -1,0 +1,12 @@
+make="make -j$(nproc)"
+CC=`pwd`/output/toycc
+# repo directory
+dir=$(basename -s .git $repo)
+
+# -e: exit immediately if a command exits with a non-zero status
+set -e -x
+
+mkdir -p thirdparty
+cd thirdparty
+[ -d $dir ] || git clone $repo
+cd $dir

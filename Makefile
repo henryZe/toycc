@@ -15,8 +15,7 @@ QEMU_LIBOPT = -L /usr/riscv64-linux-gnu/
 TARGET = toycc
 
 INCLUDE = -I. -Iparser -Ipreprocessor
-SELFHOST_INCLUDE = -Iinclude $(INCLUDE)
-TEST_INCLUDE = -Iinclude -Itest
+TEST_INCLUDE = -Itest
 
 HEADERFILES = \
 	toycc.h \
@@ -86,6 +85,13 @@ TEST_SRCS = \
 	vla.c \
 	pragma-once.c \
 
+THIRDPARTY = cpython.sh
+# cpython.sh
+# tinycc.sh
+# sqlite.sh
+# libpng.sh
+# git.sh
+
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
 TEST_QEMU = qemu_script/qemu.sh
@@ -98,6 +104,7 @@ output/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
 	$(OBJDUMP) -S $@ > $@.asm
+	cp -r include/ output/
 
 # test
 # -E: preprocess C files
@@ -120,8 +127,9 @@ test: $(TESTS)
 # self-host
 output/selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
 	@mkdir -p $(@D)
-	output/$(TARGET) -static $(SELFHOST_INCLUDE) $(SRCFILES) -o $@
+	output/$(TARGET) -static $(INCLUDE) $(SRCFILES) -o $@
 	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
+	cp -r include/ output/selfhost/
 
 selfhost: output/selfhost/$(TARGET)
 
@@ -141,6 +149,10 @@ selfhost_test: $(SELFHOST_TESTS)
 	for i in $^; do echo $$i; $(QEMU_USER) $(QEMU_LIBOPT) $$i || exit 1; echo; done
 
 all: test selfhost_test
+
+THIRDPARTY_TEST = $(patsubst %, test/thirdparty/%, $(THIRDPARTY))
+thirdparty_test: $(THIRDPARTY_TEST) output/$(TARGET)
+	for i in $(THIRDPARTY_TEST); do sh $$i || exit 1; done
 
 clean:
 	rm -rf output
