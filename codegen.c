@@ -1315,6 +1315,52 @@ static void gen_expr(struct Node *node)
 		println("\tla a0, %s", node->unique_label);
 		return;
 
+	case ND_CAS:
+		// t0: A addr
+		gen_expr(node->cas_addr);
+		println("\tmv t0, a0");
+		// t1: B addr
+		gen_expr(node->cas_old);
+		println("\tmv t1, a0");
+		// t2: B value
+		load(node->cas_old->ty->base);
+		println("\tmv t2, a0");
+		// t3: C value
+		gen_expr(node->cas_new);
+		println("\tmv t3, a0");
+
+		println("cas_retry:");
+
+		// lr(Load-Reserved):
+		// Load and Reserved control of the memory address.
+		//
+		// aq(acquisition):
+		// If the AQ bit is set, any memory operations in this
+		// hardware thread that occur after an atomic memory
+		// operation(AMO) will not occur before the AMO.
+
+		// t4: A value
+		println("\tlr.w.aq t4, (t0)");
+		println("\tbne t4, t2, cas_return");
+
+		// sc(Store-Conditional):
+		// Writes a value from a register to a specified memory
+		// address, the write operation takes effect only if the
+		// memory address is still reserved by the processor.
+		println("\tsc.w.aq a0, t3, (t0)");
+		println("\tbnez a0, cas_retry");
+
+		println("cas_return:");
+		// compare A value and B value
+		println("\tsubw t2, t4, t2");
+		println("\tseqz a0, t2");
+		println("\tbeqz t2, cas_end");
+
+		// if not equals, write B addr with A value
+		println("\tsw t4, (t1)");
+		println("cas_end:");
+		return;
+
 	default:
 		break;
 	}

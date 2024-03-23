@@ -228,6 +228,19 @@ static struct Node *primary(struct Token **rest, struct Token *tok)
 		return new_num(is_compatible(t1, t2), start);
 	}
 
+	if (equal(tok, "__builtin_compare_and_swap")) {
+		struct Node *node = new_node(ND_CAS, tok);
+
+		tok = skip(tok->next, "(");
+		node->cas_addr = assign(&tok, tok);
+		tok = skip(tok, ",");
+		node->cas_old = assign(&tok, tok);
+		tok = skip(tok, ",");
+		node->cas_new = assign(&tok, tok);
+		*rest = skip(tok, ")");
+		return node;
+	}
+
 	if (tok->kind == TK_IDENT) {
 		// variable or enum constant
 		struct VarScope *sc = find_var(tok);

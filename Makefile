@@ -84,6 +84,7 @@ TEST_SRCS = \
 	alloca.c \
 	vla.c \
 	pragma-once.c \
+	atomic.c \
 
 THIRDPARTY = cpython.sh
 # cpython.sh

@@ -1,11 +1,6 @@
 #include "test.h"
 #include <stddef.h>
-
-// <pthread.h>
-typedef unsigned long pthread_t;
-int pthread_create(pthread_t *thread, void *attr,
-		   void *start_routine, void *arg);
-int pthread_join(pthread_t thread, void **retval);
+#include <pthread.h>
 
 _Thread_local int v1;
 _Thread_local int v2 = 5;

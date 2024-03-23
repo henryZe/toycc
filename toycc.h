@@ -189,6 +189,7 @@ enum NodeKind {
 	ND_CAST,	// Type cast
 	ND_MEMZERO,	// Zero-clear a stack variable
 	ND_ASM,		// "asm"
+	ND_CAS,		// Atomic compare-and-swap
 };
 
 // AST node
@@ -240,6 +241,11 @@ struct Node {
 
 	// "asm" string literal
 	const char *asm_str;
+
+	// Atomic compare-and-swap
+	struct Node *cas_addr;
+	struct Node *cas_old;
+	struct Node *cas_new;
 
 	// variable
 	struct Obj *var;
