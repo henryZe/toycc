@@ -476,12 +476,20 @@ void add_type(struct Node *node)
 		add_type(node->cas_addr);
 		add_type(node->cas_old);
 		add_type(node->cas_new);
-		node->ty = p_ty_bool();
 
 		if (node->cas_addr->ty->kind != TY_PTR)
 			error_tok(node->cas_addr->tok, "pointer expected");
 		if (node->cas_old->ty->kind != TY_PTR)
 			error_tok(node->cas_old->tok, "pointer expected");
+
+		node->ty = p_ty_bool();
+		break;
+
+	case ND_EXCH:
+		if (node->lhs->ty->kind != TY_PTR)
+			error_tok(node->cas_addr->tok, "pointer expected");
+
+		node->ty = node->lhs->ty->base;
 		break;
 
 	default:

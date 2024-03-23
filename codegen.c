@@ -1361,6 +1361,16 @@ static void gen_expr(struct Node *node)
 		println("cas_end:");
 		return;
 
+	case ND_EXCH:
+		gen_expr(node->lhs);
+		push("a0");
+		gen_expr(node->rhs);
+		pop("a1");
+
+		size_t sz = node->lhs->ty->base->size;
+		println("amoswap.%s.aq a0, a0, (a1)", sz <= sizeof(int) ? "w" : "d");
+		return;
+
 	default:
 		break;
 	}
