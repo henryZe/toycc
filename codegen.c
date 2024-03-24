@@ -342,6 +342,15 @@ static void gen_addr(struct Node *node)
 			gen_expr(node);
 		break;
 
+	case ND_ASSIGN:
+	case ND_COND:
+		if (node->ty->kind == TY_STRUCT ||
+		    node->ty->kind == TY_UNION) {
+			gen_expr(node);
+			return;
+		}
+		break;
+
 	case ND_VLA_PTR:
 		println("\tli a0, %d", node->var->offset);
 		println("\tadd a0, a0, fp");
