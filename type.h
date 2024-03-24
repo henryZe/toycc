@@ -28,6 +28,7 @@ struct Type {
 	// struct
 	struct Member *members;
 	bool is_flexible;
+	bool is_packed;
 
 	// function type
 	struct Type *return_ty;

@@ -80,9 +80,30 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 	ty->members = head.next;
 }
 
-// struct-union-decl = ident? ("{" struct-members)?
+// attribute = ("__attribute__" "(" "(" "packed" ")" ")")?
+static struct Token *attribute(struct Token *tok, struct Type *ty)
+{
+	if (!equal(tok, "__attribute__"))
+		return tok;
+
+	tok = tok->next;
+	tok = skip(tok, "(");
+	tok = skip(tok, "(");
+	tok = skip(tok, "packed");
+	tok = skip(tok, ")");
+	tok = skip(tok, ")");
+	ty->is_packed = true;
+	return tok;
+}
+
+// struct-union-decl = attribute? ident? ("{" struct-members)?
 static struct Type *struct_union_decl(struct Token **rest, struct Token *tok)
 {
+	struct Type *ty = struct_type();
+
+	// check attribute descriptor
+	tok = attribute(tok, ty);
+
 	// read a struct/union tag
 	struct Token *tag = NULL;
 
@@ -95,12 +116,11 @@ static struct Type *struct_union_decl(struct Token **rest, struct Token *tok)
 	if (tag && !equal(tok, "{")) {
 		*rest = tok;
 
-		struct Type *ty = find_tag(tag);
-		if (ty)
-			return ty;
+		struct Type *ty2 = find_tag(tag);
+		if (ty2)
+			return ty2;
 
 		// no struct/union declare yet
-		ty = struct_type();
 		ty->size = -1;
 		push_tag_scope(tag, ty);
 		return ty;
@@ -109,8 +129,9 @@ static struct Type *struct_union_decl(struct Token **rest, struct Token *tok)
 	tok = skip(tok, "{");
 
 	// Construct a struct object
-	struct Type *ty = struct_type();
-	struct_members(rest, tok, ty);
+	struct_members(&tok, tok, ty);
+	// check attribute descriptor again
+	*rest = attribute(tok, ty);
 
 	// register the struct type if a name was given
 	if (tag) {
@@ -167,13 +188,14 @@ static struct Type *struct_decl(struct Token **rest, struct Token *tok)
 				bits += mem->bit_width;
 			}
 		} else {
-			bits = align_to(bits, mem->align * 8);
+			if (!ty->is_packed)
+				bits = align_to(bits, mem->align * 8);
 			mem->offset = bits / 8;
 			bits += mem->ty->size * 8;
 		}
 
 		// align of struct is max among each member's alignment
-		if (ty->align < mem->align)
+		if (!ty->is_packed && ty->align < mem->align)
 			ty->align = mem->align;
 	}
 	ty->size = align_to(bits, ty->align * 8) / 8;

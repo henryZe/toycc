@@ -168,6 +168,7 @@ static bool is_keyword(struct Token *tok)
 		"_Thread_local",
 		"__thread",
 		"_Atomic",
+		"__attribute__",
 	};
 
 	if (map.capacity == 0) {
