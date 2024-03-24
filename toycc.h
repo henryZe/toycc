@@ -182,7 +182,7 @@ enum NodeKind {
 	ND_LABEL_VAL,	// [GNU] Labels-as-values
 	ND_FUNCALL,	// Function call
 	ND_EXPR_STMT,	// Expression statement
-	ND_STMT_EXPR,	// Statement expression
+	ND_STMT_EXPR,	// Statement expression ({ ... })
 	ND_VAR,		// Variable
 	ND_VLA_PTR,	// VLA designator
 	ND_NUM,		// Integer
@@ -247,6 +247,10 @@ struct Node {
 	struct Node *cas_addr;
 	struct Node *cas_old;
 	struct Node *cas_new;
+
+	// Atomic op= operators
+	struct Obj *atomic_addr;
+	struct Node *atomic_expr;
 
 	// variable
 	struct Obj *var;

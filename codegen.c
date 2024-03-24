@@ -1329,7 +1329,8 @@ static void gen_expr(struct Node *node)
 		gen_expr(node->cas_new);
 		println("\tmv t3, a0");
 
-		println("cas_retry:");
+		c = count();
+		println(".L.cas_retry.%d:", c);
 
 		// lr(Load-Reserved):
 		// Load and Reserved control of the memory address.
@@ -1341,24 +1342,24 @@ static void gen_expr(struct Node *node)
 
 		// t4: A value
 		println("\tlr.w.aq t4, (t0)");
-		println("\tbne t4, t2, cas_return");
+		println("\tbne t4, t2, .L.cas_return.%d", c);
 
 		// sc(Store-Conditional):
 		// Writes a value from a register to a specified memory
 		// address, the write operation takes effect only if the
 		// memory address is still reserved by the processor.
 		println("\tsc.w.aq a0, t3, (t0)");
-		println("\tbnez a0, cas_retry");
+		println("\tbnez a0, .L.cas_retry.%d", c);
 
-		println("cas_return:");
+		println(".L.cas_return.%d:", c);
 		// compare A value and B value
 		println("\tsubw t2, t4, t2");
 		println("\tseqz a0, t2");
-		println("\tbeqz t2, cas_end");
+		println("\tbeqz t2, .L.cas_end.%d", c);
 
 		// if not equals, write B addr with A value
 		println("\tsw t4, (t1)");
-		println("cas_end:");
+		println(".L.cas_end.%d:", c);
 		return;
 
 	case ND_EXCH:

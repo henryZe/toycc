@@ -6,6 +6,7 @@ struct Type {
 	int size;		// sizeof() value
 	int align;		// alignment
 	bool is_unsigned;	// unsigned or signed
+	bool is_atomic;		// true if _Atomic
 	struct Type *origin;	// for type compatibility check
 
 	// pointer-to or array-of type.

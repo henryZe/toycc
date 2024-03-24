@@ -167,6 +167,7 @@ static bool is_keyword(struct Token *tok)
 		"asm",
 		"_Thread_local",
 		"__thread",
+		"_Atomic",
 	};
 
 	if (map.capacity == 0) {

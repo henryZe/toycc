@@ -352,6 +352,7 @@ bool is_typename(struct Token *tok)
 		"inline",
 		"_Thread_local",
 		"__thread",
+		"_Atomic",
 	};
 
 	if (map.capacity == 0) {
@@ -426,6 +427,7 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 	// "typedef t" means "typedef int t"
 	struct Type *ty = p_ty_int();
 	int counter = 0;
+	bool is_atomic = false;
 
 	while (is_typename(tok)) {
 		// handle "typedef" keyword or handle storage class specifiers
@@ -465,6 +467,16 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 		    consume(&tok, tok, "__restrict__") ||
 		    consume(&tok, tok, "_Noreturn"))
 			continue;
+
+		if (equal(tok, "_Atomic")) {
+			tok = tok->next;
+			if (equal(tok , "(")) {
+				ty = typename(&tok, tok->next);
+				tok = skip(tok, ")");
+			}
+			is_atomic = true;
+			continue;
+		}
 
 		// if _Alignas then set attr->align
 		if (equal(tok, "_Alignas")) {
@@ -599,6 +611,11 @@ struct Type *declspec(struct Token **rest, struct Token *tok,
 		}
 
 		tok = tok->next;
+	}
+
+	if (is_atomic) {
+		ty = copy_type(ty);
+		ty->is_atomic = true;
 	}
 
 	*rest = tok;
