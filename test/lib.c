@@ -1,3 +1,5 @@
+// This file contains functions for calling by test files.
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>

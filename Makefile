@@ -105,21 +105,23 @@ output/%.o: %.c $(HEADERFILES)
 output/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
-	$(OBJDUMP) -S $@ > $@.asm
+	# $(OBJDUMP) -S $@ > $@.asm
 	cp -r include/ output/
 
 # test
+#
 # -E: preprocess C files
 # -xc: compile following files as C language
 # -o-: set output as stdout
-# test/lin.c is designed for lib function invocation test
+#
+# test/lib.c is designed for lib function invocation test
 output/test/%: test/%.c output/$(TARGET) test/lib.c
 	@mkdir -p $(@D)
 	# output/$(TARGET) $(TEST_INCLUDE) -c -E $< -o $@.c
-	output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@.s
+	# output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@.s
 	output/$(TARGET) $(TEST_INCLUDE) -c $< -o $@.o
 	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.o test/lib.c -o $@
-	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
+	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
 test: $(TESTS)
@@ -130,7 +132,7 @@ test: $(TESTS)
 output/selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
 	@mkdir -p $(@D)
 	output/$(TARGET) -static $(INCLUDE) $(SRCFILES) -o $@
-	$(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
+	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 	cp -r include/ output/selfhost/
 
 selfhost: output/selfhost/$(TARGET)
