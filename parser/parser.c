@@ -1443,18 +1443,35 @@ static struct Token *function(struct Token *tok, struct Type *basety,
 	if (!ty->name)
 		error_tok(ty->name_pos, "function name omitted");
 
-	struct Obj *fn = new_gvar(get_ident(ty->name), ty);
-	fn->is_function = true;
-	fn->is_definition = !consume(&tok, tok, ";");
-	fn->is_static = attr->is_static || (attr->is_inline && !attr->is_extern);
-	fn->is_inline = attr->is_inline;
+	const char *name_str = get_ident(ty->name);
+	struct Obj *fn = find_func(name_str);
+
+	if (fn) {
+		// Redeclaration
+		if (!fn->is_function)
+			error_tok(tok, "re-declared as a different kind of symbol");
+		if (fn->is_definition && equal(tok, "{"))
+			error_tok(tok, "redefinition of %s", name_str);
+		if (!fn->is_static && attr->is_static)
+			error_tok(tok, "static declaration follows a non-static declaration");
+
+		fn->is_definition = fn->is_definition || equal(tok, "{");
+
+	} else {
+		fn = new_gvar(name_str, ty);
+		fn->is_function = true;
+		fn->is_definition = equal(tok, "{");
+		fn->is_static = attr->is_static || (attr->is_inline && !attr->is_extern);
+		fn->is_inline = attr->is_inline;
+	}
 	fn->is_root = !(fn->is_static && fn->is_inline);
 
-	if (!fn->is_definition)
+	// if it's declaration, return
+	if (consume(&tok, tok, ";"))
 		return tok;
+	// else it's definition, continue
 
 	current_fn = fn;
-
 	// initialize local variables list
 	init_locals();
 	enter_scope();
