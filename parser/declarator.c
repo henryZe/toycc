@@ -80,19 +80,37 @@ static void struct_members(struct Token **rest, struct Token *tok, struct Type *
 	ty->members = head.next;
 }
 
-// attribute = ("__attribute__" "(" "(" "packed" ")" ")")?
-static struct Token *attribute(struct Token *tok, struct Type *ty)
+// attribute = ("__attribute__" "(" "(" "packed" ")" ")")*
+static struct Token *attribute_list(struct Token *tok, struct Type *ty)
 {
-	if (!equal(tok, "__attribute__"))
-		return tok;
+	while (consume(&tok, tok, "__attribute__")) {
+		tok = skip(tok, "(");
+		tok = skip(tok, "(");
 
-	tok = tok->next;
-	tok = skip(tok, "(");
-	tok = skip(tok, "(");
-	tok = skip(tok, "packed");
-	tok = skip(tok, ")");
-	tok = skip(tok, ")");
-	ty->is_packed = true;
+		bool first = true;
+
+		while (!consume(&tok, tok, ")")) {
+			if (!first)
+				tok = skip(tok, ",");
+			first = false;
+
+			if (consume(&tok, tok, "packed")) {
+				ty->is_packed = true;
+				continue;
+			}
+
+			if (consume(&tok, tok, "aligned")) {
+				tok = skip(tok, "(");
+				ty->align = const_expr(&tok, tok);
+				tok = skip(tok, ")");
+				continue;
+			}
+
+			error_tok(tok, "unknown attribute");
+		}
+		tok = skip(tok, ")");
+	}
+
 	return tok;
 }
 
@@ -102,7 +120,7 @@ static struct Type *struct_union_decl(struct Token **rest, struct Token *tok)
 	struct Type *ty = struct_type();
 
 	// check attribute descriptor
-	tok = attribute(tok, ty);
+	tok = attribute_list(tok, ty);
 
 	// read a struct/union tag
 	struct Token *tag = NULL;
@@ -131,7 +149,7 @@ static struct Type *struct_union_decl(struct Token **rest, struct Token *tok)
 	// Construct a struct object
 	struct_members(&tok, tok, ty);
 	// check attribute descriptor again
-	*rest = attribute(tok, ty);
+	*rest = attribute_list(tok, ty);
 
 	// register the struct type if a name was given
 	if (tag) {
