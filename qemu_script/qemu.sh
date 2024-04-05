@@ -10,3 +10,5 @@ qemu-system-riscv64 \
 	-device virtio-9p-pci,id=fs0,fsdev=fsdev0,mount_tag=hostshare \
 	-gdb tcp::1234 \
 	-snapshot \
+	-monitor unix:output/qemu_monitor,server,nowait \
+	-serial file:output/qemu_test.log \

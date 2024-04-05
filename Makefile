@@ -97,6 +97,8 @@ THIRDPARTY = cpython.sh
 SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 TEST_DRV = test/driver.sh
 TEST_QEMU = qemu_script/qemu.sh
+QEMU_LOG = output/qemu_test.log
+QEMU_MONITOR = output/qemu_monitor
 
 output/%.o: %.c $(HEADERFILES)
 	@mkdir -p $(@D)
@@ -137,12 +139,23 @@ output/selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
 
 selfhost: output/selfhost/$(TARGET)
 
+qemu_files.zip:
+	wget https://github.com/henryZe/toycc/releases/download/v1.0/qemu_files.zip
+
+riscv.img: qemu_files.zip
+	unzip -n qemu_files.zip
+
 # selfhost test-cases
 SELFHOST_ASM := $(patsubst output/test/%, output/selfhost/test/%.s, $(TESTS))
-selfhost_test_asm: selfhost
-	@mkdir -p output/selfhost/test
-	touch $(SELFHOST_ASM)
-	@sh $(TEST_QEMU) .
+selfhost_test_asm: selfhost riscv.img
+	@mkdir -p output/selfhost/test output/selfhost/qemu_script
+	@cp qemu_script/run_compile.sh output/selfhost/qemu_script/
+	@cp test/*.[ch] output/selfhost/test/
+	for i in $(SELFHOST_ASM); do echo > $$i; done
+	sh $(TEST_QEMU) output/selfhost &
+	@sleep 1
+	tail -n+3 -f $(QEMU_LOG) | grep -m 1 "selfhost: test" | grep "OK" || exit 1
+	echo q | nc -U $(QEMU_MONITOR)
 
 output/selfhost/test/%: test/lib.c selfhost_test_asm
 	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.s $< -o $@

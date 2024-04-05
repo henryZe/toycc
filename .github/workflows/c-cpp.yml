@@ -11,15 +11,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: build env
-      run: sudo apt-get update; sudo apt-get install gcc-riscv64-linux-gnu qemu-user
+      run: sudo apt-get update; sudo apt-get install gcc-riscv64-linux-gnu qemu-user qemu-system-misc
 
     - name: make clean
       run: make clean
 
-    - name: make
+    - name: make toycc
       run: make
 
     - name: make test
@@ -27,3 +27,6 @@ jobs:
 
     - name: make selfhost
       run: make selfhost
+
+    - name: make selfhost_test
+      run: make selfhost_test
