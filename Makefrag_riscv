@@ -79,6 +79,7 @@ TEST_SRCS = \
 	atomic.c \
 	attribute.c \
 
+# target
 output/%.o: %.c $(HEADERFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
@@ -88,3 +89,46 @@ output/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
 	cp -r include/ output/
+
+# test
+output/test/lib.o: test/lib.c
+	@mkdir -p $(@D)
+	$(CC) -c test/lib.c -o $@
+
+output/test/%: test/%.c output/$(TARGET) output/test/lib.o
+	@mkdir -p $(@D)
+	output/$(TARGET) $(TEST_INCLUDE) $< output/test/lib.o -o $@
+
+TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
+TEST_DRV = test/driver.sh
+test: $(TESTS)
+	for i in $^; do echo $$i; $$i || exit 1; echo; done
+	@bash $(TEST_DRV) output/$(TARGET)
+
+# self-host
+output/selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
+	@mkdir -p $(@D)
+	output/$(TARGET) -static $(INCLUDE) $(SRCFILES) -o $@
+	cp -r include/ output/selfhost/
+
+selfhost: output/selfhost/$(TARGET)
+
+# selfhost test
+output/selfhost/test/%: test/%.c output/selfhost/$(TARGET) output/test/lib.o
+	@mkdir -p $(@D)
+	output/selfhost/$(TARGET) $(TEST_INCLUDE) $< output/test/lib.o -o $@
+
+SELFHOST_TESTS = $(patsubst output/test/%, output/selfhost/test/%, $(TESTS))
+selfhost_test: $(SELFHOST_TESTS)
+	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
+
+all: test selfhost_test
+
+THIRDPARTY_TEST = $(patsubst %, test/thirdparty/%, $(THIRDPARTY))
+thirdparty_test: $(THIRDPARTY_TEST) output/$(TARGET)
+	for i in $(THIRDPARTY_TEST); do sh $$i || exit 1; done
+
+clean:
+	rm -rf output
+
+.PHONY: clean test selfhost selfhost_test all

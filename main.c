@@ -685,7 +685,7 @@ static const char *find_libpath(void)
 {
 	const char *paths[] = {
 		"/usr/riscv64-linux-gnu/lib/crt1.o",
-		"/usr/lib/gcc-cross/riscv64-linux-gnu/*/crt1.o",
+		"/usr/lib/riscv64-linux-gnu/crt1.o",
 	};
 
 	for (uint32_t i = 0; i < ARRAY_SIZE(paths); i++) {
@@ -700,6 +700,7 @@ static const char *find_libpath(void)
 static const char *find_gcc_libpath(void)
 {
 	const char *paths[] = {
+		"/usr/lib/gcc/riscv64-linux-gnu/*/crtbegin.o",
 		"/usr/lib/gcc-cross/riscv64-linux-gnu/*/crtbegin.o",
 	};
 
@@ -787,6 +788,7 @@ static void add_default_include_paths(const char *argv0)
 	// Add standard include paths.
 	strarray_push(&include_paths, "/usr/local/include");
 	strarray_push(&include_paths, "/usr/riscv64-linux-gnu/include");
+	strarray_push(&include_paths, "/usr/include/riscv64-linux-gnu");
 	strarray_push(&include_paths, "/usr/include");
 
 	// Keep a copy of the standard include paths for -MMD option.

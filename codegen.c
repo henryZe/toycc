@@ -559,10 +559,12 @@ static const char *cast_matrix[CAST_MAX_TYPE][CAST_MAX_TYPE] = {
 	{  TOI8,   NULL,    NULL,    NULL,    TOU8,   TOU16,   TOU32,   NULL,    I32F32,  I32F64,  I32F128, },  // i16
 	{  TOI8,   TOI16,   NULL,    NULL,    TOU8,   TOU16,   TOU32,   NULL,    I32F32,  I32F64,  I32F128, },  // i32
 	{  TOI8,   TOI16,   TOI32,   NULL,    TOU8,   TOU16,   TOU32,   NULL,    I64F32,  I64F64,  I64F128, },  // i64
+
 	{  NULL,   NULL,    NULL,    NULL,    NULL,   NULL,    NULL,    NULL,    U32F32,  U32F64,  U32F128, },  // u8
 	{  TOI8,   NULL,    NULL,    NULL,    TOU8,   NULL,    NULL,    NULL,    U32F32,  U32F64,  U32F128, },  // u16
 	{  TOI8,   TOI16,   NULL,    NULL,    TOU8,   TOU16,   NULL,    NULL,    U32F32,  U32F64,  U32F128, },  // u32
 	{  TOI8,   TOI16,   TOI32,   NULL,    TOU8,   TOU16,   TOU32,   NULL,    U64F32,  U64F64,  U64F128, },  // u64
+
 	{  F32I8,  F32I16,  F32I32,  F32I64,  F32U8,  F32U16,  F32U32,  F32U64,  NULL,    F32F64,  F32F128, },  // f32
 	{  F64I8,  F64I16,  F64I32,  F64I64,  F64U8,  F64U16,  F64U32,  F64U64,  F64F32,  NULL,    F64F128, },  // f64
 	{  F128I8, F128I16, F128I32, F128I64, F128U8, F128U16, F128U32, F128U64, F128F32, F128F64, NULL,    },  // f128
@@ -583,6 +585,7 @@ static void cast(struct Type *from, struct Type *to)
 
 	if (cast_matrix[t1][t2]) {
 		debug("cast t1 %d t2 %d", t1, t2);
+
 		if (t1 == F128)
 			pop_ld();
 		println("%s", cast_matrix[t1][t2]);

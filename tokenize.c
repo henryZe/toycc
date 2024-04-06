@@ -666,6 +666,13 @@ struct Token *tokenize(struct File *file)
 			cur = cur->next;
 			// convert to single char
 			cur->val = (char)cur->val;
+#ifdef __riscv
+			// There is a bug in the riscv64-linux-gnu-gcc(12.2.0)
+			// when translate long to char:
+			// (int64_t)128 -> (char)128
+			if (cur->val > 127)
+				cur->val = -(cur->val);
+#endif
 			p += cur->len;
 			continue;
 		}

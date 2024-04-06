@@ -1,8 +1,12 @@
 #!/bin/bash
 cc=$1
-exec='qemu-riscv64'
-libopt='-L /usr/riscv64-linux-gnu/'
-cross_toolchain='riscv64-linux-gnu-'
+
+uname -a | grep -q riscv64
+if [ $? -ne 0 ]; then
+	exec='qemu-riscv64'
+	libopt='-L /usr/riscv64-linux-gnu/'
+	cross_toolchain='riscv64-linux-gnu-'
+fi
 
 # bash not support
 # reset='\33[0m'

@@ -112,12 +112,15 @@ output/$(TARGET): $(SRC_OBJFILES)
 # -o-: set output as stdout
 #
 # test/lib.c is designed for lib function invocation test
-output/test/%: test/%.c output/$(TARGET) test/lib.c
+output/test/lib.o: test/lib.c
+	@mkdir -p $(@D)
+	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) -c test/lib.c -o $@
+
+output/test/%: test/%.c output/$(TARGET) output/test/lib.o
 	@mkdir -p $(@D)
 	# output/$(TARGET) $(TEST_INCLUDE) -c -E $< -o $@.c
 	# output/$(TARGET) $(TEST_INCLUDE) -c -S $< -o $@.s
-	output/$(TARGET) $(TEST_INCLUDE) -c $< -o $@.o
-	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.o test/lib.c -o $@
+	output/$(TARGET) $(TEST_INCLUDE) $< output/test/lib.o -o $@
 	# $(CROSS_COMPILE)$(OBJDUMP) -S $@ > $@.asm
 
 TESTS = $(patsubst %.c, output/test/%, $(TEST_SRCS))
@@ -135,10 +138,8 @@ output/selfhost/$(TARGET): $(SRCFILES) output/$(TARGET) $(HEADERFILES)
 
 selfhost: output/selfhost/$(TARGET)
 
-qemu_files.zip:
+riscv.img:
 	wget https://github.com/henryZe/toycc/releases/download/v1.0/qemu_files.zip
-
-riscv.img: qemu_files.zip
 	unzip -n qemu_files.zip
 
 # selfhost test-cases
