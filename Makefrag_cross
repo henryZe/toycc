@@ -87,13 +87,6 @@ TEST_SRCS = \
 	atomic.c \
 	attribute.c \
 
-THIRDPARTY = cpython.sh
-# cpython.sh
-# tinycc.sh
-# sqlite.sh
-# libpng.sh
-# git.sh
-
 output/%.o: %.c $(HEADERFILES)
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
@@ -167,10 +160,6 @@ selfhost_test: $(SELFHOST_TESTS)
 	for i in $^; do echo $$i; $(QEMU_USER) $(QEMU_LIBOPT) $$i || exit 1; echo; done
 
 all: test selfhost_test
-
-THIRDPARTY_TEST = $(patsubst %, test/thirdparty/%, $(THIRDPARTY))
-thirdparty_test: $(THIRDPARTY_TEST) output/$(TARGET)
-	for i in $(THIRDPARTY_TEST); do sh $$i || exit 1; done
 
 clean:
 	rm -rf output

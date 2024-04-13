@@ -334,7 +334,12 @@ static void gen_addr(struct Node *node)
 
 	case ND_MEMBER:
 		gen_addr(node->lhs);
-		println("\tadd a0, a0, %d", node->member->offset);
+		if (beyond_instruction_offset(node->member->offset)) {
+			println("\tli t0, %d", node->member->offset);
+			println("\tadd a0, a0, t0");
+		} else {
+			println("\tadd a0, a0, %d", node->member->offset);
+		}
 		break;
 
 	case ND_FUNCALL:
@@ -424,8 +429,18 @@ static void store(struct Type *ty)
 	case TY_UNION:
 		for (int i = 0; i < ty->size; i++) {
 			// load & store byte by byte
-			println("\tlb t0, %d(a0)", i);
-			println("\tsb t0, %d(a1)", i);
+			if (beyond_instruction_offset(i)) {
+				println("\tli t0, %d", i);
+				println("\tadd t0, a0, t0");
+				println("\tlb t1, (t0)");
+
+				println("\tli t0, %d", i);
+				println("\tadd t0, a1, t0");
+				println("\tsb t1, (t0)");
+			} else {
+				println("\tlb t0, %d(a0)", i);
+				println("\tsb t0, %d(a1)", i);
+			}
 		}
 		return;
 

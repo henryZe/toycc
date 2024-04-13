@@ -9,7 +9,7 @@ Toycc supports almost all mandatory features and most optional features of [C11]
 Before compiling the project and executing test cases, it is necessary to install dependent software:
 
 ~~~
-sudo apt-get install gcc-riscv64-linux-gnu qemu-user
+sudo apt-get install gcc-riscv64-linux-gnu qemu-user qemu-system-misc
 ~~~
 
 ## Build Command
@@ -42,6 +42,22 @@ make selfhost_test
 
 ~~~
 make all
+~~~
+
+* Specify third-party application compilation and tests, which is supported under RISC-V environment only:
+
+~~~
+make thirdparty_sqlite
+make thirdparty_libpng
+make thirdparty_git
+make thirdparty_tinycc
+make thirdparty_cpython
+~~~
+
+* Run all third-party application compilation and corresponding tests:
+
+~~~
+make thirdparty_all
 ~~~
 
 ## 内部结构

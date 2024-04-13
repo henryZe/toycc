@@ -84,6 +84,7 @@ void init_macros(void)
 {
 	// Define predefined macros
 	define_macro("__riscv", "1");
+	define_macro("__riscv64", "1");
 	define_macro("__SSP_STRONG__", "3");
 	define_macro("__DBL_MIN_EXP__", "(-1021)");
 	define_macro("__riscv_atomic", "1");

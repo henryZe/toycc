@@ -79,6 +79,13 @@ TEST_SRCS = \
 	atomic.c \
 	attribute.c \
 
+THIRDPARTY = \
+	sqlite.sh \
+	libpng.sh \
+	git.sh \
+	tinycc.sh \
+	cpython.sh \
+
 # target
 output/%.o: %.c $(HEADERFILES)
 	@mkdir -p $(@D)
@@ -121,12 +128,16 @@ output/selfhost/test/%: test/%.c output/selfhost/$(TARGET) output/test/lib.o
 SELFHOST_TESTS = $(patsubst output/test/%, output/selfhost/test/%, $(TESTS))
 selfhost_test: $(SELFHOST_TESTS)
 	for i in $^; do echo $$i; ./$$i || exit 1; echo; done
+	@bash $(TEST_DRV) output/selfhost/$(TARGET)
 
 all: test selfhost_test
 
-THIRDPARTY_TEST = $(patsubst %, test/thirdparty/%, $(THIRDPARTY))
-thirdparty_test: $(THIRDPARTY_TEST) output/$(TARGET)
-	for i in $(THIRDPARTY_TEST); do sh $$i || exit 1; done
+# third-party test
+thirdparty_%: test/thirdparty/%.sh output/$(TARGET)
+	sh $<
+
+THIRDPARTY_TEST = $(patsubst %.sh, thirdparty_%, $(THIRDPARTY))
+thirdparty_all: $(THIRDPARTY_TEST)
 
 clean:
 	rm -rf output
