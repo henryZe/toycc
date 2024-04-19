@@ -1,0 +1,25 @@
+CFLAGS = -std=c2x -g -O0 -fno-common
+CFLAGS += -Wall -Wextra -Werror
+TARGET = toycc
+TEST = test.sh
+
+SRCFILES := \
+	main.c \
+
+SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
+
+output/%.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
+
+output/$(TARGET): $(SRC_OBJFILES)
+	@mkdir -p $(@D)
+	$(CC) -o $@ $< $(LDFLAGS)
+
+test: output/$(TARGET)
+	@sh $(TEST)
+
+clean:
+	rm -rf output
+
+.PHONY: test clean
