@@ -10,11 +10,11 @@ SRC_OBJFILES := $(patsubst %.c, output/%.o, $(SRCFILES))
 
 output/%.o: %.c
 	@mkdir -p $(@D)
-	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 output/$(TARGET): $(SRC_OBJFILES)
 	@mkdir -p $(@D)
-	$(CC) -o $@ $< $(LDFLAGS)
+	$(CC) $(CFLAGS) $(SRC_OBJFILES) -o $@
 
 test: output/$(TARGET)
 	@sh $(TEST)
