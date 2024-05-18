@@ -148,8 +148,9 @@ selfhost_test_asm: selfhost riscv.img
 	for i in $(SELFHOST_ASM); do echo > $$i; done
 	sh $(TEST_QEMU) output/selfhost &
 	@sleep 1
-	tail -n+3 -f $(QEMU_LOG) | grep -m 1 "selfhost: test" | grep "OK" || exit 1
+	tail -f $(QEMU_LOG) | grep -m 1 "selfhost: test"
 	echo q | nc -U $(QEMU_MONITOR)
+	tail $(QEMU_LOG) | grep -a "selfhost: test OK"
 
 output/selfhost/test/%: test/lib.c selfhost_test_asm
 	$(CROSS_COMPILE)$(CC) $(CROSS_CFLAGS) $@.s $< -o $@
